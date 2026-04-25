@@ -61,12 +61,12 @@ export default function App() {
 
   // Browser tab title — operator at-a-glance status using the canonical
   // four-state vocabulary (STABLE / TRANSITION / UNSTABLE / LOCK_IN).
-  // e.g. "(1) sys-A1 TRANSITION · 3 stable — Neraium SII"
+  // e.g. "(1) sys-A1 TRANSITION · 3 stable — Neraium"
   useEffect(() => {
     const order = { LOCK_IN: 4, UNSTABLE: 3, TRANSITION: 2, STABLE: 1 };
     const items = systems || [];
     if (!items.length) {
-      document.title = "Neraium SII \u2014 idle";
+      document.title = "Neraium \u2014 idle";
       return;
     }
     const norm = (s) => {
@@ -78,9 +78,9 @@ export default function App() {
     const stable = items.filter(s => norm(s) === "STABLE").length;
     const atRisk = items.length - stable;
     if (ws === "STABLE") {
-      document.title = `\u25CB ${items.length} stable \u2014 Neraium SII`;
+      document.title = `\u25CB ${items.length} stable \u2014 Neraium`;
     } else {
-      document.title = `(${atRisk}) ${worst.system_id} ${ws} \u00B7 ${stable} stable \u2014 Neraium SII`;
+      document.title = `(${atRisk}) ${worst.system_id} ${ws} \u00B7 ${stable} stable \u2014 Neraium`;
     }
   }, [systems]);
 

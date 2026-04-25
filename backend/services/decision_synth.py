@@ -450,6 +450,14 @@ def build_decision(system_id: str) -> Dict[str, Any]:
         # `drivers` array (used for tooltips / Variables panel).
         driver_phrases = [_driver_phrase(d[0], state) for d in drivers[:2]]
 
+    # Calculate time to instability for operator anchor metric
+    if state == "STABLE":
+        time_to_instability = None
+    elif velocity > 1e-3:
+        time_to_instability = int(drift / max(velocity, 1e-3))
+    else:
+        time_to_instability = "15+" if state == "TRANSITION" else "unknown"
+
     paths = _future_paths(state, drift, velocity, len(rec.variables),
                           primary_pretty, expected, domain, subj)
 
@@ -476,6 +484,8 @@ def build_decision(system_id: str) -> Dict[str, Any]:
         "driver_phrases": driver_phrases,
         # Raw drivers — tooltips / Variables panel ONLY
         "drivers": [{"variable": d[0], "variance_ratio": d[1]} for d in drivers],
+        # OPERATOR ANCHOR METRICS
+        "time_to_instability_cycles": time_to_instability,
         "metrics": {
             "instability_score": instability,
             "structural_drift": drift,

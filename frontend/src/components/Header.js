@@ -11,7 +11,7 @@ export default function Header({
         <div className="flex items-center gap-2.5">
           <Cpu className="w-4 h-4 text-zinc-400" strokeWidth={1.5} />
           <span className="font-mono text-sm font-semibold tracking-tight text-zinc-100">NERAIUM</span>
-          <span className="font-mono text-[10px] text-zinc-500 tracking-[0.2em]">SII PLATFORM</span>
+          <span className="font-mono text-[10px] text-zinc-500 tracking-[0.2em]">OPERATIONS</span>
         </div>
 
         <div className="h-3 w-px bg-zinc-800" />
@@ -20,7 +20,7 @@ export default function Header({
           <div className={`flex items-center gap-1.5 ${running ? "text-emerald-400" : "text-zinc-500"}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${running ? "bg-emerald-400 animate-pulse-soft" : "bg-zinc-600"}`} />
             <span data-testid="pb-status-text" className="font-mono text-[10px] tracking-wider uppercase">
-              {running ? `INTELLIGIZING · ${playback.system_count} systems` : "IDLE"}
+              {running ? `ANALYZING · ${playback.system_count} systems` : "IDLE"}
             </span>
           </div>
         </div>
@@ -57,10 +57,6 @@ export default function Header({
         <ViewTab id="grid"      icon={Grid3x3}       label="Decisions"   active={view === "grid"} onClick={() => setView("grid")} />
         <ViewTab id="audit"     icon={ScrollText}    label="Audit Trail" active={view === "audit"} onClick={() => setView("audit")} />
         <ViewTab id="settings"  icon={SettingsIcon}  label="Settings"    active={view === "settings"} onClick={() => setView("settings")} />
-        <div className="ml-auto flex items-center gap-2 text-zinc-600">
-          <Gauge className="w-3.5 h-3.5" />
-          <span className="font-mono text-[10px] uppercase tracking-wider">SII engine canonical</span>
-        </div>
       </div>
     </header>
   );

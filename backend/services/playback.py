@@ -119,10 +119,16 @@ def set_speed(speed: str) -> Dict[str, Any]:
 
 
 def _default_specs() -> List[Dict[str, Any]]:
-    """Default playback: 4 systems across 3 templates; drift cascades over time."""
+    """Default playback: 4 systems showing different scenarios.
+
+    sys-DEMO: shows full progression STABLE → TRANSITION → UNSTABLE → LOCK_IN
+    sys-A2, E1, G1: stable baselines for comparison
+    """
     return [
-        {"system_id": "sys-A1", "template": "industrial", "drift_at": 70, "drift_severity": 0.85, "drift_duration": 220},
+        # HERO SYSTEM: dramatic drift showing all four states over time
+        {"system_id": "sys-DEMO", "template": "industrial", "drift_at": 60, "drift_severity": 0.95, "drift_duration": 280, "seed": 100},
+        # Stable comparison systems
         {"system_id": "sys-A2", "template": "industrial", "drift_at": 0,  "drift_severity": 0.0},
-        {"system_id": "sys-E1", "template": "environmental", "drift_at": 110, "drift_severity": 0.75, "drift_duration": 260},
+        {"system_id": "sys-E1", "template": "environmental", "drift_at": 0, "drift_severity": 0.0},
         {"system_id": "sys-G1", "template": "generic", "drift_at": 0, "drift_severity": 0.0},
     ]
