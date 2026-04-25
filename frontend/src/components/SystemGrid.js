@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Systems } from "@/api";
-import { URGENCY_COLOR, URGENCY_RANK } from "@/sii";
+import { URGENCY_COLOR, URGENCY_RANK, REGIME_COLOR } from "@/sii";
 import { ChevronRight, Eye, AlertTriangle, Shield, Zap, Activity } from "lucide-react";
 
 const URGENCY_ICON  = { NOMINAL: Shield, WATCH: Eye, ALERT: AlertTriangle, CRITICAL: AlertTriangle };
@@ -144,8 +144,10 @@ function FleetHeadline({ headline }) {
 
 function DecisionRow({ system, decision, active, onClick }) {
   const u = system.latest?.urgency || "NOMINAL";
+  const r = system.latest?.regime || "STABLE";
   const Icon = URGENCY_ICON[u] || Activity;
   const color = URGENCY_COLOR[u] || "#A1A1AA";
+  const r_color = REGIME_COLOR[r] || "#A1A1AA";
 
   // 5-second test: row-leading sentence
   const lead = decision?.what || (u === "NOMINAL"
@@ -155,29 +157,35 @@ function DecisionRow({ system, decision, active, onClick }) {
   const action = decision?.do;
   const ifIgnored = decision?.if_ignored;
   const drivers = (decision?.drivers || []).slice(0, 2);
+  const lt = decision?.metrics?.lead_time_cycles;
+  const urgencyShort = u === "NOMINAL" ? "—" :
+    lt ? `~${lt} cycles` :
+    u === "WATCH" ? "5–10 cycles" :
+    u === "ALERT" ? "active" : "closing";
 
   return (
     <button data-testid={`system-card-${system.system_id}`} onClick={onClick}
       className={`w-full text-left grain border transition-colors ${active ? "border-zinc-700 bg-[#121212]" : "border-zinc-900 bg-[#0A0A0A] hover:bg-[#101010]"}`}
       style={{ borderLeftWidth: 3, borderLeftColor: color }}>
       <div className="px-5 py-4 flex items-start gap-5">
-        {/* Urgency tile */}
+        {/* Field 1: STATE + system meta */}
         <div className="w-32 shrink-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-1.5 mb-1">
             <Icon className="w-3.5 h-3.5" style={{ color }} strokeWidth={1.5} />
             <span className="font-mono text-[10px] font-semibold tracking-[0.2em]" style={{ color }}>{u}</span>
           </div>
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">{system.system_id}</div>
+          <div className="font-mono text-[10px] font-bold tracking-wider" style={{ color: r_color }}>{r}</div>
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-1">{system.system_id}</div>
           <div className="font-mono text-[10px] text-zinc-600 mt-0.5 lowercase">{system.template || "system"}</div>
         </div>
 
-        {/* Decision sentence — THE primary UI element */}
+        {/* Field 2: WHAT IS HAPPENING (sentence) + Field 3: DRIVERS + Field 5: ACTION + Field 6: CONSEQUENCE */}
         <div className="flex-1 min-w-0">
           <div className="font-mono text-sm md:text-[15px] text-zinc-100 leading-snug">{lead}</div>
 
           {drivers.length > 0 && (
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">DRIVEN BY</span>
+              <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">DRIVER</span>
               {drivers.map(d => (
                 <span key={d.variable} className="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5">
                   {d.variable} <span className="text-zinc-500">×{d.variance_ratio.toFixed(2)}</span>
@@ -188,16 +196,22 @@ function DecisionRow({ system, decision, active, onClick }) {
 
           {action && (
             <div className="flex items-start gap-2 mt-3 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">DO</span>
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">DO</span>
               <span className="font-mono text-zinc-200">{action}</span>
             </div>
           )}
           {ifIgnored && u !== "NOMINAL" && (
             <div className="flex items-start gap-2 mt-1.5 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">IF IGNORED</span>
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">IF IGNORED</span>
               <span className="font-mono text-zinc-400">{ifIgnored}</span>
             </div>
           )}
+        </div>
+
+        {/* Field 4: URGENCY (time) */}
+        <div className="w-28 shrink-0 text-right">
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">URGENCY</div>
+          <div className="font-mono text-sm" style={{ color }}>{urgencyShort}</div>
         </div>
 
         <div className="shrink-0 self-center text-zinc-600">
