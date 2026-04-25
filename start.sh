@@ -1,25 +1,48 @@
 #!/bin/bash
-# Launch Neraium: backend + frontend + browser
+# Launch Neraium: backend + frontend (Linux/Mac version)
 
 cd "$(dirname "$0")"
 
 echo "🚀 Starting Neraium..."
 
-# Start backend in new terminal
+# Trap Ctrl+C to kill both processes
+trap 'echo ""; echo "Shutting down..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit' INT
+
+# Check if .venv exists, create if needed
+if [ ! -d "backend/.venv" ]; then
+  echo "📦 Creating Python virtual environment..."
+  cd backend
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -q -e ..
+  cd ..
+fi
+
+# Start backend
 echo "📦 Starting backend..."
-start "Neraium Backend" bash -c "cd backend && source ../.venv/Scripts/activate && uvicorn server:app --reload --host 127.0.0.1 --port 8000; read"
+cd backend
+source .venv/bin/activate
+uvicorn server:app --reload --host 127.0.0.1 --port 8000 &
+BACKEND_PID=$!
+cd ..
 
-# Start frontend in new terminal
+# Wait for backend to be ready
+sleep 2
+
+# Start frontend
 echo "🎨 Starting frontend..."
-start "Neraium Frontend" bash -c "cd frontend && npm install && npm start; read"
-
-# Wait a moment for servers to start
-sleep 3
-
-# Open browser
-echo "🌐 Opening browser..."
-start http://localhost:3000
+cd frontend
+npm install -q
+npm start &
+FRONTEND_PID=$!
+cd ..
 
 echo "✅ All systems running!"
 echo "   Backend: http://127.0.0.1:8000"
 echo "   Frontend: http://localhost:3000"
+echo ""
+echo "Press Ctrl+C to stop both servers"
+echo ""
+
+# Wait for processes
+wait
