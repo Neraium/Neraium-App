@@ -25,7 +25,3 @@ export const Audit = {
   add: (body) => api.post("/audit", body).then(r => r.data),
   clear: (system_id = "") => api.delete("/audit", { params: { system_id } }).then(r => r.data),
 };
-
-export const Validation = {
-  fd004: () => api.get("/validation/fd004").then(r => r.data),
-};

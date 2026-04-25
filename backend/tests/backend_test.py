@@ -178,23 +178,6 @@ class TestAudit:
         assert r2.json()["count"] == 0
 
 
-# ---------- Validation ----------
-class TestValidation:
-    def test_fd004(self, api):
-        r = api.get(f"{BASE_URL}/api/validation/fd004")
-        assert r.status_code == 200
-        d = r.json()
-        assert d["dataset"] == "FD004 bearing run-to-failure"
-        assert d["units_tested"] == 248
-        assert d["performance"]["detection_coverage_pct"] == 97.58
-        assert d["performance"]["failure_alerts"] == 242
-        assert d["performance"]["misses"] == 6
-        assert d["lead_time_cycles"]["mean"] == 175.49
-        assert len(d["alert_quality"]) == 5
-        assert {q["class"] for q in d["alert_quality"]} == {"good", "very_early", "usable", "miss", "late"}
-        assert len(d["comparison"]) == 3
-
-
 # ---------- WebSocket ----------
 class TestWS:
     def test_ws_stream(self):

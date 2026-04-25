@@ -37,8 +37,6 @@ charts as the lead element of any screen.
 ## Source of truth
 - `neraium_core.sii_engine_adapter.SIIEngineAdapter` — only.
 - Repo: `Neraium/neraium-core@02222f32` (post SII cleanup).
-- Validation truth: FD004, 248 systems, 97.58% coverage, 175.5-cycle mean lead
-  (surfaced as Validation Mode toggle).
 
 ## Architecture
 ```
@@ -53,18 +51,22 @@ charts as the lead element of any screen.
 │   ├── playback.py                             # asyncio orchestrator
 │   └── serialise.py
 └── routers/
-    ├── systems.py   playback.py   validation.py   audit.py   ws.py
+    ├── systems.py   playback.py   audit.py   ws.py
 
 /app/frontend/src/components/
 ├── Header.js                                   # brand + INTELLIGIZING + speed + START/STOP
 ├── SystemGrid.js                               # decision feed (one System Status Panel per row)
 ├── SystemDetail.js                             # full System Status Panel + trajectory + paths
 ├── InstabilityChart.js                         # secondary, always visible (not collapsed)
-├── AuditView.js                                # state transition log
-└── ValidationView.js                           # FD004 truth sheet
+└── AuditView.js                                # state transition log
 ```
 
 ## CHANGELOG
+
+### 2026-04-25 — Validation Mode removed
+- Deleted `routers/validation.py`, `ValidationView.js`, `Validation` API
+  client, header tab, and the FD004 backend test class. The Validation
+  Mode (FD004 truth sheet) is no longer surfaced in the product.
 
 ### 2026-04-25 — Plain-language judgment + browser tab title
 - Added `_pretty_var()` translation in `services/decision_synth.py`. Raw

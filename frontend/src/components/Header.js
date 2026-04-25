@@ -1,7 +1,7 @@
-import { Cpu, Activity, Pause, Play, Gauge, FlaskConical, ScrollText, Grid3x3 } from "lucide-react";
+import { Cpu, Activity, Pause, Play, Gauge, ScrollText, Grid3x3 } from "lucide-react";
 
 export default function Header({
-  view, setView, playback, onStart, onStop, onSpeedChange, validation,
+  view, setView, playback, onStart, onStop, onSpeedChange,
 }) {
   const running = playback?.running;
   return (
@@ -56,7 +56,6 @@ export default function Header({
       <div className="h-9 px-5 border-t border-zinc-900 flex items-stretch">
         <ViewTab id="grid"      icon={Grid3x3}       label="Decisions"   active={view === "grid"} onClick={() => setView("grid")} />
         <ViewTab id="audit"     icon={ScrollText}    label="Audit Trail" active={view === "audit"} onClick={() => setView("audit")} />
-        <ViewTab id="validation" icon={FlaskConical} label="Validation Mode (FD004)" active={view === "validation"} onClick={() => setView("validation")} testid="view-validation" />
         <div className="ml-auto flex items-center gap-2 text-zinc-600">
           <Gauge className="w-3.5 h-3.5" />
           <span className="font-mono text-[10px] uppercase tracking-wider">SII engine canonical</span>
