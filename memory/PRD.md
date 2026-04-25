@@ -63,6 +63,17 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — STATE CHANGED flash banner
+- New `StateFlashBanners` component (`/app/frontend/src/components/StateFlashBanners.js`)
+  shows a one-shot pill in the top-right whenever a system actually
+  crosses into a new state. Each banner auto-dismisses after 3 s; click
+  to jump straight to that system.
+- Per-system 5 s cooldown filters the engine's brief STABLE↔TRANSITION
+  flapping near regime boundaries — only real crossings fire.
+- Severity-aware label: "STATE CHANGED" when escalating, "STATE
+  RECOVERED" when returning toward STABLE.
+- Slide-in keyframes added to `index.css` (`state-flash-in`).
+
 ### 2026-04-25 — Language polish + visual hierarchy
 - Fixed duplicate-word bug ("System system operating…") by introducing
   `_subject(template)` which returns a clean noun phrase ("Mechanical

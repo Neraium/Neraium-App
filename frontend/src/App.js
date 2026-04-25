@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import SystemGrid from "@/components/SystemGrid";
 import SystemDetail from "@/components/SystemDetail";
 import AuditView from "@/components/AuditView";
+import StateFlashBanners from "@/components/StateFlashBanners";
 import { Playback, Systems, Audit } from "@/api";
 
 export default function App() {
@@ -101,6 +102,9 @@ export default function App() {
     <div data-testid="app-root" className="min-h-screen bg-[#050505] text-zinc-300">
       <Header view={view} setView={(v) => { setView(v); if (v !== "grid") setSelectedId(null); }}
         playback={pb} onStart={handleStart} onStop={handleStop} onSpeedChange={handleSpeed} />
+
+      {/* One-shot STATE CHANGED flash banners — fixed top-right, auto-dismiss */}
+      <StateFlashBanners systems={systems} onSelect={(id) => { setView("grid"); setSelectedId(id); }} />
 
       <main className="pt-[88px] pb-12 px-5 space-y-3">
         {error && <div data-testid="error-banner" className="border border-red-500/40 bg-red-500/10 text-red-300 font-mono text-xs p-3">{error}</div>}
