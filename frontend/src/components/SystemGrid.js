@@ -15,12 +15,6 @@ import { URGENCY_COLOR, URGENCY_RANK, REGIME_COLOR } from "@/sii";
 import { ChevronRight, Eye, AlertTriangle, Shield, Zap, Activity } from "lucide-react";
 
 const URGENCY_ICON  = { NOMINAL: Shield, WATCH: Eye, ALERT: AlertTriangle, CRITICAL: AlertTriangle };
-const URGENCY_LABEL = {
-  NOMINAL:  "All systems nominal",
-  WATCH:    "Early instability detected",
-  ALERT:    "Intervention window open",
-  CRITICAL: "Approaching lock-in",
-};
 
 export default function DecisionFeed({ systems, onSelect, selectedId }) {
   // Per-system decision objects (lazy-fetched so the feed shows decisions, not metrics)
@@ -88,26 +82,30 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
   );
 }
 
-/* -------------------- fleet-level top-of-screen sentence -------------------- */
+/* -------------------- fleet-level top-of-screen judgment -------------------- */
 
 function headlineFor(systems, decisions) {
   const worst = systems[0];
   if (!worst?.latest) return null;
   const u = worst.latest.urgency;
   const dec = decisions[worst.system_id];
+  const total = systems.length;
+  const at_risk = systems.filter(s => s.latest?.urgency && s.latest.urgency !== "NOMINAL").length;
+
   if (u === "NOMINAL") {
     return {
       tone: "calm",
-      now:  "All systems nominal",
-      sub:  `${systems.length} systems coupled within baseline. SII has nothing to flag.`,
-      do:   "No action required",
+      state: "STABLE",
+      now: `${total} systems holding nominal coupling. No divergence detected.`,
+      do:  "No intervention required",
     };
   }
+  // Use the worst system's plain-language summary
   return {
-    tone: u.toLowerCase(),
-    now:  dec?.what || URGENCY_LABEL[u],
-    sub:  dec?.why || `${worst.system_id} is the most concerning system right now.`,
-    do:   dec?.do || "Inspect the most critical system.",
+    tone: u === "WATCH" ? "watch" : u === "ALERT" ? "alert" : "critical",
+    state: dec?.state || worst.latest?.regime || u,
+    now: dec?.what || `${at_risk} of ${total} systems have left baseline coupling.`,
+    do:  dec?.action || dec?.do || "Inspect the most concerning system.",
   };
 }
 
@@ -117,24 +115,23 @@ function FleetHeadline({ headline }) {
   const color =
     tone === "alert" || tone === "critical" ? URGENCY_COLOR.ALERT :
     tone === "watch" ? URGENCY_COLOR.WATCH : URGENCY_COLOR.NOMINAL;
+  const stateColor = REGIME_COLOR[headline.state] || color;
 
   return (
     <section data-testid="fleet-headline" className="grain border border-zinc-900 bg-[#0A0A0A] px-6 py-5"
       style={{ borderLeftWidth: 3, borderLeftColor: color }}>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
         <span className="w-1.5 h-1.5 rounded-full animate-pulse-soft" style={{ background: color }} />
-        <span className="font-mono text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color }}>
-          {tone === "calm" ? "STATUS" : "ATTENTION REQUIRED"}
-        </span>
+        <span className="font-mono text-[10px] tracking-[0.25em] uppercase text-zinc-500">SYSTEM STATE</span>
+        <span data-testid="fleet-state" className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: stateColor }}>{headline.state}</span>
       </div>
       <h1 data-testid="fleet-now" className="font-mono text-2xl md:text-3xl text-zinc-50 leading-tight tracking-tight">
         {headline.now}
       </h1>
-      <p className="font-mono text-sm text-zinc-400 mt-2 max-w-3xl leading-relaxed">{headline.sub}</p>
       <div className="font-mono text-xs text-zinc-200 mt-3 inline-flex items-center gap-2 px-3 py-1.5 border"
         style={{ borderColor: `${color}55`, background: `${color}12` }}>
         <Zap className="w-3 h-3" style={{ color }} />
-        <span><span className="text-zinc-500 mr-2">DO</span>{headline.do}</span>
+        <span><span className="text-zinc-500 mr-2">ACTION</span>{headline.do}</span>
       </div>
     </section>
   );
@@ -149,13 +146,13 @@ function DecisionRow({ system, decision, active, onClick }) {
   const color = URGENCY_COLOR[u] || "#A1A1AA";
   const r_color = REGIME_COLOR[r] || "#A1A1AA";
 
-  // 5-second test: row-leading sentence
+  // 5-second test: row-leading judgment
   const lead = decision?.what || (u === "NOMINAL"
-    ? "Operating within nominal coupling — no action required."
+    ? "Conditions stable with no divergence across variables."
     : `${system.system_id} is in ${u.toLowerCase()} state.`);
 
-  const action = decision?.do;
-  const ifIgnored = decision?.if_ignored;
+  const action = decision?.action || decision?.do;
+  const ifIgnored = decision?.consequence || decision?.if_ignored;
   const drivers = (decision?.drivers || []).slice(0, 2);
   const lt = decision?.metrics?.lead_time_cycles;
   const urgencyShort = u === "NOMINAL" ? "—" :
@@ -196,13 +193,13 @@ function DecisionRow({ system, decision, active, onClick }) {
 
           {action && (
             <div className="flex items-start gap-2 mt-3 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">DO</span>
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">ACTION</span>
               <span className="font-mono text-zinc-200">{action}</span>
             </div>
           )}
           {ifIgnored && u !== "NOMINAL" && (
             <div className="flex items-start gap-2 mt-1.5 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">IF IGNORED</span>
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">CONSEQUENCE</span>
               <span className="font-mono text-zinc-400">{ifIgnored}</span>
             </div>
           )}

@@ -1,16 +1,12 @@
-"""Decision narrative synthesizer.
+"""Decision synthesizer — produces system JUDGMENT, not data status.
 
-Given a single SII unified state plus the system's recent variable history,
-produce the four operator-language fields:
+Outputs the locked five-field structure consumed by the UI:
+  state, what, risk_level, action, consequence
 
-  - what: what is happening
-  - why:  which variables are leading the drift (data-driven attribution
-          via covariance change against the baseline window)
-  - do:   what action will likely restore baseline
-  - ignored: consequences of inaction
+Plus auxiliary fields (drivers, future_paths, metrics) shown as secondary.
 
-Generic — no domain assumptions. Variable names are surfaced verbatim;
-the operator chooses the meaning.
+Tone: declarative, decisive. The system understands itself; it does not
+present data for the operator to interpret.
 """
 from __future__ import annotations
 from typing import Dict, List, Any, Tuple
@@ -19,17 +15,55 @@ import numpy as np
 from . import sii_state as ss
 
 
-URGENCY_LEVEL = {"NOMINAL": "low", "WATCH": "medium", "ALERT": "high", "CRITICAL": "critical"}
-URGENCY_RISK = {"NOMINAL": "LOW", "WATCH": "MODERATE", "ALERT": "HIGH", "CRITICAL": "CRITICAL"}
+# ------------------------------------------------------------------
+# Domain phrasing — abstract variable names into plain language
+# ------------------------------------------------------------------
+_DOMAIN = {
+    "industrial":    "mechanical",
+    "environmental": "environmental",
+    "generic":       "system",
+}
 
 
-def _data_driven_drivers(system_id: str, top_k: int = 3) -> List[Tuple[str, float]]:
-    """Compute per-variable drift contribution by comparing the standard
-    deviation in the recent window vs the baseline window. The variable
-    with the largest relative variance increase is the "leader" of the drift.
+def _domain_word(template: str) -> str:
+    return _DOMAIN.get(template, "system")
 
-    Returns list of (variable_name, score) sorted desc.
-    """
+
+def _stable_what(template: str) -> str:
+    d = _domain_word(template)
+    return f"{d.capitalize()} conditions stable with no divergence across variables."
+
+
+def _watch_what(template: str, primary: str) -> str:
+    d = _domain_word(template)
+    return f"{d.capitalize()} coupling diverging from baseline — {primary} leading the drift."
+
+
+def _alert_what(template: str, primary: str) -> str:
+    d = _domain_word(template)
+    return f"{d.capitalize()} coupling broken — {primary} no longer correlated with the rest of the system."
+
+
+def _critical_what(template: str, primary: str) -> str:
+    d = _domain_word(template)
+    return f"{d.capitalize()} system approaching irreversible lock-in — {primary} has driven the system into a new regime."
+
+
+def _warmup_what() -> str:
+    return "Engine still establishing baseline — no judgment yet."
+
+
+# ------------------------------------------------------------------
+# Risk + urgency mapping (urgency is internal; risk_level is what the UI shows)
+# ------------------------------------------------------------------
+URGENCY_RISK   = {"NOMINAL": "LOW",     "WATCH": "MODERATE", "ALERT": "HIGH",     "CRITICAL": "CRITICAL"}
+URGENCY_LEVEL  = {"NOMINAL": "low",     "WATCH": "medium",   "ALERT": "high",     "CRITICAL": "critical"}
+
+
+# ------------------------------------------------------------------
+# Variance-ratio attribution (data-driven driver detection)
+# ------------------------------------------------------------------
+def _drivers(system_id: str, top_k: int = 3) -> List[Tuple[str, float]]:
     rec = ss.get_system(system_id)
     if rec is None or len(rec.sensor_history) < 30:
         return []
@@ -46,22 +80,9 @@ def _data_driven_drivers(system_id: str, top_k: int = 3) -> List[Tuple[str, floa
     return pairs[:top_k]
 
 
-def _situation_summary(regime: str, urgency: str) -> str:
-    if regime == "WARMUP":
-        return "Engine warming up — collecting baseline before issuing decisions."
-    if urgency == "NOMINAL":
-        return "All variables coupled within nominal envelope."
-    if urgency == "WATCH":
-        return "Subsystem coupling diverging from baseline — early warning."
-    if urgency == "ALERT" and regime == "UNSTABLE":
-        return "Coupling broken — system in unstable regime."
-    if urgency == "ALERT":
-        return "Structural shift accelerating — intervention window narrowing."
-    if urgency == "CRITICAL":
-        return "Approaching irreversible structural lock-in."
-    return f"System in {regime.lower()} regime."
-
-
+# ------------------------------------------------------------------
+# Public builder
+# ------------------------------------------------------------------
 def build_decision(system_id: str) -> Dict[str, Any]:
     last = ss.latest_state(system_id)
     rec = ss.get_system(system_id)
@@ -70,101 +91,124 @@ def build_decision(system_id: str) -> Dict[str, Any]:
 
     regime = last["regime"]
     urgency = last["urgency"]
-    risk = URGENCY_RISK.get(urgency, "LOW")
+    risk_level = URGENCY_RISK.get(urgency, "LOW")
     level = URGENCY_LEVEL.get(urgency, "low")
+
     velocity = float(last["drift_velocity"])
     instability = float(last["instability_score"])
     drift = float(last["structural_drift"])
     pressure = float(last["transition_pressure"])
     confidence = float(last["confidence"])
 
-    drivers = _data_driven_drivers(system_id, top_k=3)
-    primary = drivers[0][0] if drivers else (rec.variables[0] if rec.variables else "primary variable")
-    secondary = drivers[1][0] if len(drivers) > 1 else (rec.variables[1] if len(rec.variables) > 1 else "baseline")
-    coupling_desc = ", ".join(d[0] for d in drivers) if drivers else "monitored variables"
+    drivers = _drivers(system_id, top_k=3)
+    primary = drivers[0][0] if drivers else None
 
-    # WHAT
+    template = rec.template
+    domain = _domain_word(template)
+
+    # ---------------------- WHAT (plain-language summary) ----------------------
     if regime == "WARMUP":
-        what = "Engine is collecting baseline. No decisions issued yet."
+        what = _warmup_what()
     elif urgency == "NOMINAL":
-        what = f"All {len(rec.variables)} variables coupled normally. {coupling_desc} stable."
+        what = _stable_what(template)
     elif urgency == "WATCH":
-        what = f"{coupling_desc.capitalize()} diverging from baseline coupling. Early instability."
-    elif urgency == "ALERT" and regime == "UNSTABLE":
-        what = f"{coupling_desc.capitalize()} have decoupled — system has entered an unstable regime."
-    elif urgency == "ALERT":
-        what = f"Critical drift in {coupling_desc} — coupling structure is breaking down."
-    elif urgency == "CRITICAL":
-        what = f"System approaching lock-in. {coupling_desc.capitalize()} no longer recoverable through normal correction."
+        what = _watch_what(template, primary or "primary signal")
+    elif urgency == "ALERT" and regime != "LOCK_IN":
+        what = _alert_what(template, primary or "primary signal")
+    elif urgency == "CRITICAL" or regime == "LOCK_IN":
+        what = _critical_what(template, primary or "primary signal")
     else:
-        what = _situation_summary(regime, urgency)
+        what = _stable_what(template)
 
-    # WHY (data-driven attribution)
-    if not drivers:
-        why = "Baseline still forming — driver attribution requires more frames."
-    else:
-        leader_name, leader_ratio = drivers[0]
-        if leader_ratio > 1.3:
-            why = (f"{leader_name} variance has expanded {leader_ratio:.1f}× vs baseline. "
-                   + (f"{drivers[1][0]} variance ({drivers[1][1]:.1f}×) is following. " if len(drivers) > 1 else "")
-                   + "Coupling structure is breaking down.")
-        else:
-            why = f"Variance roughly stable ({leader_ratio:.2f}× baseline). Drift is structural rather than amplitude-driven."
-
-    # DO
+    # ---------------------- ACTION (declarative) ----------------------
     if regime == "WARMUP":
-        do = "Wait for baseline window to fill"
-        expected = "System will transition to STABLE once baseline is locked."
+        action = "No intervention required — engine is establishing baseline"
+        expected = "Decisions resume automatically once the baseline window is locked."
         timeframe = "automatic"
     elif urgency == "NOMINAL":
-        do = "Continue normal operations — monitor"
-        expected = "System maintains nominal coupling."
+        action = "No intervention required — system stable"
+        expected = "System will continue holding baseline coupling."
         timeframe = "ongoing"
     elif urgency == "WATCH":
-        do = f"Reduce {primary} variability and stabilise {secondary} coupling"
-        expected = "Coupling normalises within ~10 cycles if corrected early."
+        action = f"Stabilise {primary or 'the leading signal'} before drift propagates"
+        expected = "Coupling restored within ~10 cycles when corrected at this stage."
         timeframe = "5–10 cycles"
     elif urgency == "ALERT":
-        do = f"Stabilise {primary} and recalibrate against {secondary} baseline"
-        expected = "Coupling can still be restored — intervention now keeps system reversible."
+        action = f"Intervene on {primary or 'the leading signal'} immediately — recalibrate against baseline"
+        expected = "Recovery is still possible. Window closes within 10–20 cycles."
         timeframe = "5–15 cycles"
     elif urgency == "CRITICAL":
-        do = f"Manual recalibration of {primary}/{secondary} required — automatic recovery unlikely"
-        expected = "System will settle into a degraded baseline without intervention."
+        action = f"Manual recalibration required — automatic recovery has been ruled out for {primary or 'the leading signal'}"
+        expected = "System will not self-recover. Operator action is the only path back to baseline."
         timeframe = "manual intervention"
     else:
-        do = "Review subsystem coupling"
+        action = "Review system coupling"
         expected = "—"
         timeframe = "—"
 
-    # IF IGNORED
+    # ---------------------- CONSEQUENCE (decisive) ----------------------
     if regime == "WARMUP" or urgency == "NOMINAL":
-        if_ignored = "No immediate risk."
+        consequence = "No risk — system remains within its operating envelope."
     elif urgency == "WATCH":
-        if_ignored = f"Drift will accelerate. {primary} variance will propagate to {secondary}."
+        consequence = f"Drift will compound. {primary or 'The leading signal'} variance will propagate to coupled variables and force the system into ALERT."
     elif urgency == "ALERT":
-        if_ignored = f"Intervention window closes. Continued drift in {primary} risks permanent regime shift."
+        consequence = (f"Intervention window closes. The system will lock into a degraded regime where "
+                       f"{primary or 'the leading signal'} is permanently decoupled from baseline.")
     elif urgency == "CRITICAL":
-        if_ignored = f"System locks into degraded regime. {primary} settles into a new structural baseline."
+        consequence = ("The system has already crossed into structural lock-in. Without manual recalibration "
+                       "it will settle into a permanently degraded operating point.")
     else:
-        if_ignored = "Instability propagates across all monitored variables."
+        consequence = "Instability will propagate across all monitored variables."
 
-    # FUTURE PATHS — recovery / degradation / failure
-    paths = _future_paths(regime, urgency, drift, velocity, len(rec.variables), primary, secondary, expected)
+    # ---------------------- WHY (kept for the secondary panel) ----------------------
+    if not drivers:
+        why = "Baseline still forming — driver attribution requires more cycles."
+    else:
+        leader_name, leader_ratio = drivers[0]
+        if leader_ratio > 1.3:
+            tail = ""
+            if len(drivers) > 1 and drivers[1][1] > 1.15:
+                tail = f" {drivers[1][0]} is following ({drivers[1][1]:.1f}× variance)."
+            why = (f"{leader_name} variance has expanded {leader_ratio:.1f}× vs baseline." + tail
+                   + f" {domain.capitalize()} coupling structure is breaking down.")
+        else:
+            why = (f"Variance broadly stable across {domain} variables ({leader_ratio:.2f}× baseline). "
+                   "Drift is structural rather than amplitude-driven.")
+
+    # ---------------------- URGENCY summary (subtext for risk field) ----------------------
+    if urgency == "NOMINAL" or regime == "WARMUP":
+        urgency_window = "No window — system is calm."
+    elif urgency == "WATCH":
+        urgency_window = f"Drift developing. Velocity {velocity:.4f}/cycle."
+    elif urgency == "ALERT":
+        urgency_window = f"Active. Velocity {velocity:.4f}/cycle (accelerating)."
+    elif urgency == "CRITICAL":
+        urgency_window = "Window closed. Manual recovery only."
+    else:
+        urgency_window = ""
+
+    paths = _future_paths(regime, urgency, drift, velocity, len(rec.variables), primary, drivers, expected, domain)
 
     return {
         "available": True,
         "system_id": system_id,
-        "regime": regime,
-        "urgency": urgency,
-        "urgency_level": level,
-        "operational_risk": risk,
-        "what": what,
-        "why": why,
-        "do": do,
+        # 5-field structured judgment
+        "state": regime,                        # canonical SII regime
+        "what": what,                           # plain-language summary
+        "risk_level": risk_level,               # LOW / MODERATE / HIGH / CRITICAL
+        "action": action,                       # declarative imperative
+        "consequence": consequence,             # decisive consequence
+        # 5-field aux (kept for backwards-compat: do/if_ignored mirror action/consequence)
+        "do": action,
+        "if_ignored": consequence,
         "expected_effect": expected,
         "action_timeframe": timeframe,
-        "if_ignored": if_ignored,
+        "urgency": urgency,
+        "urgency_level": level,
+        "urgency_window": urgency_window,
+        "operational_risk": risk_level,
+        "regime": regime,
+        "why": why,
         "drivers": [{"variable": d[0], "variance_ratio": d[1]} for d in drivers],
         "metrics": {
             "instability_score": instability,
@@ -172,42 +216,50 @@ def build_decision(system_id: str) -> Dict[str, Any]:
             "drift_velocity": velocity,
             "transition_pressure": pressure,
             "confidence": confidence,
+            "lead_time_cycles": last.get("lead_time_cycles"),
         },
         "future_paths": paths,
-        "situation_summary": _situation_summary(regime, urgency),
     }
 
 
+# ------------------------------------------------------------------
+# Future paths — declarative, domain-aware
+# ------------------------------------------------------------------
 def _future_paths(regime: str, urgency: str, drift: float, velocity: float,
-                  n_vars: int, primary: str, secondary: str, expected_effect: str) -> Dict[str, Any]:
+                  n_vars: int, primary, drivers, expected_effect: str, domain: str) -> Dict[str, Any]:
     if urgency == "NOMINAL" or regime == "WARMUP":
         return {
-            "recovery": {"label": "Nominal", "eta": "current", "action": "All variables operating within normal coupling.",
-                         "expected_outcome": "System maintains baseline.", "probability": "current state"},
+            "recovery": {
+                "label": "Hold", "eta": "current",
+                "action": f"{domain.capitalize()} system continues holding baseline coupling.",
+                "expected_outcome": "No action required — system remains stable.",
+                "probability": "current state",
+            },
             "degradation": None,
             "failure": None,
         }
-    deg_eta = f"~{int(drift / max(velocity, 1e-3))} cycles" if velocity > 1e-3 else "gradual"
+    deg_eta  = f"~{int(drift / max(velocity, 1e-3))} cycles" if velocity > 1e-3 else "gradual"
     fail_eta = f"~{int(2 * drift / max(velocity, 1e-3))} cycles" if velocity > 1e-3 else "uncertain"
+    primary_ref = primary or "the leading signal"
     return {
         "recovery": {
             "label": "Recovery",
             "eta": "5–15 cycles with corrective action" if regime != "LOCK_IN" else "manual recalibration only",
-            "action": f"Reduce {primary} variability, restore coupling with {secondary}.",
+            "action": f"Intervene on {primary_ref}. Coupling re-establishes within the window.",
             "expected_outcome": expected_effect,
             "probability": "achievable" if regime in ("STABLE", "TRANSITION") else "difficult" if regime == "UNSTABLE" else "low",
         },
         "degradation": {
             "label": "Degradation",
             "eta": deg_eta,
-            "action": f"{primary} variance continues compounding; {secondary} loses coupling.",
-            "expected_outcome": f"All {n_vars} variables progressively decouple.",
+            "action": f"{primary_ref.capitalize()} keeps drifting. Coupled variables compensate, then decouple.",
+            "expected_outcome": f"All {n_vars} {domain} variables progressively lose coupling.",
             "probability": "likely without action",
         },
         "failure": {
             "label": "Failure",
             "eta": fail_eta,
-            "action": f"Cascading decoupling across all {n_vars} variables.",
+            "action": f"Cascading decoupling across all {n_vars} {domain} variables.",
             "expected_outcome": "Complete regime failure. System enters uncharted operating territory.",
             "probability": "possible if degradation path is not interrupted",
         },

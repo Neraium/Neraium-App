@@ -1,31 +1,27 @@
 /**
- * SystemDetail — locked around ONE behavior: detect instability and explain it.
+ * SystemDetail — System Status Panel as a SYSTEM JUDGMENT.
  *
- * TOP OF SCREEN: System Status Panel with the six mandatory fields in order:
- *   1. STATE
- *   2. WHAT IS HAPPENING
- *   3. PRIMARY DRIVER
- *   4. URGENCY
- *   5. ACTION
- *   6. CONSEQUENCE (if ignored)
+ * Top of screen, in this exact order:
+ *   1. STATE        (giant chip — "SYSTEM STATE: STABLE")
+ *   2. WHAT IS HAPPENING (plain-language sentence — abstracted from variable names)
+ *   3. RISK LEVEL   (LOW / MODERATE / HIGH / CRITICAL)
+ *   4. ACTION       (declarative imperative)
+ *   5. CONSEQUENCE  (if ignored — decisive)
  *
- * SECONDARY (below): future paths, trajectory, supporting variables.
- * No collapsed drawers, no charts as the lead, no placeholder metrics.
+ * Driver chips + propagation are demoted to a small "WHY" line below the panel.
+ * Trajectory + variables are secondary, always visible below.
  */
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Systems } from "@/api";
 import InstabilityChart from "@/components/InstabilityChart";
 import { URGENCY_COLOR, REGIME_COLOR, formatNum } from "@/sii";
 import {
-  ArrowLeft, Activity, Zap, AlertOctagon, Wrench, GitBranch,
-  Clock, ShieldCheck, TrendingUp, TrendingDown, AlertTriangle,
+  ArrowLeft, Activity, Zap, AlertOctagon, Wrench, GitBranch, Gauge,
+  ShieldCheck, TrendingUp, TrendingDown, AlertTriangle,
 } from "lucide-react";
 
-const URGENCY_HEADLINE = {
-  NOMINAL:  "All variables coupled within nominal envelope.",
-  WATCH:    "Coupling drifting from baseline. Early warning open.",
-  ALERT:    "Coupling broken. Intervention window open.",
-  CRITICAL: "Approaching irreversible lock-in.",
+const RISK_COLOR = {
+  LOW: "#10B981", MODERATE: "#F59E0B", HIGH: "#EF4444", CRITICAL: "#FB7185",
 };
 
 export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
@@ -49,12 +45,11 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
 
   if (!system || !decision) return <div className="p-6 font-mono text-xs text-zinc-500">Loading {systemId}…</div>;
 
-  const u = decision.urgency;
-  const r = decision.regime;
-  const u_color = URGENCY_COLOR[u] || "#A1A1AA";
-  const r_color = REGIME_COLOR[r]  || "#A1A1AA";
-  const driver = (decision.drivers && decision.drivers[0]) || null;
-  const what = decision.what || URGENCY_HEADLINE[u];
+  const state = decision.state;
+  const risk  = decision.risk_level;
+  const u     = decision.urgency;
+  const r_color = REGIME_COLOR[state] || "#A1A1AA";
+  const risk_color = RISK_COLOR[risk] || "#A1A1AA";
 
   return (
     <div data-testid="system-detail" className="space-y-3 animate-fade-in">
@@ -63,19 +58,18 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
         <ArrowLeft className="w-3.5 h-3.5" /> All systems
       </button>
 
-      {/* ============= SYSTEM STATUS PANEL (mandatory) ============= */}
+      {/* ============= SYSTEM STATUS PANEL — judgment, not status display ============= */}
       <section data-testid="status-panel" className="grain border border-zinc-900 bg-[#0A0A0A]"
-        style={{ borderLeftWidth: 3, borderLeftColor: u_color }}>
+        style={{ borderLeftWidth: 3, borderLeftColor: r_color }}>
 
-        {/* Field 1 — STATE (giant chip) */}
-        <div className="px-7 pt-6 pb-3 flex items-center gap-4 flex-wrap">
-          <div data-testid="field-state" className="flex items-center gap-2.5 px-4 py-2 border" style={{ background: `${r_color}14`, borderColor: `${r_color}55` }}>
+        {/* Field 1 — STATE (declarative judgment) */}
+        <div data-testid="field-state" className="px-7 pt-6 pb-3 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2.5 px-4 py-2 border" style={{ background: `${r_color}14`, borderColor: `${r_color}55` }}>
             <span className="w-2 h-2 rounded-full animate-pulse-soft" style={{ background: r_color }} />
-            <span className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: r_color }}>{r}</span>
+            <span className="font-mono text-[10px] tracking-[0.25em] uppercase text-zinc-500">SYSTEM STATE</span>
+            <span className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: r_color }}>{state}</span>
           </div>
           <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-            <span style={{ color: u_color }} className="font-semibold">{u} URGENCY</span>
-            <span className="text-zinc-700">·</span>
             <span>{system.system_id}</span>
             <span className="text-zinc-700">·</span>
             <span>{system.template} · {system.variables.length} variables</span>
@@ -84,65 +78,63 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
           </div>
         </div>
 
-        {/* Field 2 — WHAT IS HAPPENING (hero sentence) */}
+        {/* Field 2 — WHAT IS HAPPENING (plain-language summary) */}
         <div className="px-7 pb-5">
           <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">What is happening</div>
           <h1 data-testid="field-what" className="font-mono text-2xl md:text-3xl text-zinc-50 leading-tight tracking-tight">
-            {what}
+            {decision.what}
           </h1>
         </div>
 
-        {/* Fields 3,4,5 — PRIMARY DRIVER · URGENCY · ACTION */}
+        {/* Fields 3, 4, 5 — RISK / ACTION / CONSEQUENCE */}
         <div className="grid grid-cols-1 md:grid-cols-3 border-t border-zinc-900 divide-x divide-zinc-900">
-          <Field testid="field-driver" icon={GitBranch} label="Primary driver" tone={u_color}>
-            {driver ? (
-              <div>
-                <div className="font-mono text-base text-zinc-100">{driver.variable}</div>
-                <div className="font-mono text-[11px] text-zinc-500 mt-1">×{driver.variance_ratio.toFixed(2)} variance vs baseline</div>
-                {decision.drivers.length > 1 && (
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    <span className="font-mono text-[9px] text-zinc-600 uppercase tracking-wider">propagating</span>
-                    {decision.drivers.slice(1, 3).map(d => (
-                      <span key={d.variable} className="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5">
-                        {d.variable} <span className="text-zinc-500">×{d.variance_ratio.toFixed(2)}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="font-mono text-sm text-zinc-400">Baseline still forming.</div>
-            )}
-          </Field>
-
-          <Field testid="field-urgency" icon={Clock} label="Urgency" tone={u_color}>
-            <div className="font-mono text-base text-zinc-100">{decision.action_timeframe || urgencyShort(u, decision)}</div>
-            <div className="font-mono text-[11px] text-zinc-500 mt-1 leading-relaxed">{decision.urgency_window || decision.urgency?.window || urgencyDesc(u)}</div>
+          <Field testid="field-risk" icon={Gauge} label="Risk level" tone={risk_color}>
+            <div className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: risk_color }}>{risk}</div>
+            <div className="font-mono text-[11px] text-zinc-500 mt-1 leading-relaxed">{decision.urgency_window}</div>
           </Field>
 
           <Field testid="field-action" icon={Wrench} label="Action" tone="#10B981">
-            <div className="font-mono text-base text-zinc-100">{decision.do}</div>
+            <div className="font-mono text-base text-zinc-100">{decision.action}</div>
             {decision.expected_effect && (
               <div className="font-mono text-[11px] text-zinc-500 mt-1 leading-relaxed">{decision.expected_effect}</div>
             )}
+            {decision.action_timeframe && (
+              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-2">timeframe · {decision.action_timeframe}</div>
+            )}
+          </Field>
+
+          <Field testid="field-consequence" icon={AlertOctagon} label="Consequence" tone={risk_color}>
+            <div className="font-mono text-base text-zinc-100">{decision.consequence}</div>
           </Field>
         </div>
 
-        {/* Field 6 — CONSEQUENCE (if ignored) */}
-        <div data-testid="field-consequence" className="border-t border-zinc-900 px-7 py-4 flex items-start gap-3">
-          <AlertOctagon className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
+        {/* WHY (driver attribution — secondary inside panel) */}
+        <div className="border-t border-zinc-900 px-7 py-4 flex items-start gap-3">
+          <GitBranch className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
           <div className="flex-1">
-            <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1">Consequence — if ignored</div>
-            <p className="font-mono text-sm text-zinc-200 leading-relaxed">{decision.if_ignored}</p>
+            <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1.5">Why</div>
+            <p data-testid="field-why" className="font-mono text-sm text-zinc-200 leading-relaxed">{decision.why}</p>
+            {decision.drivers && decision.drivers.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">propagation</span>
+                {decision.drivers.map((d, i) => (
+                  <span key={d.variable} className="flex items-center gap-1 font-mono text-[10px]">
+                    {i > 0 && <span className="text-zinc-700">→</span>}
+                    <span data-testid={`driver-${d.variable}`} className="text-zinc-200 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5">
+                      {d.variable} <span className="text-zinc-500">×{d.variance_ratio.toFixed(2)}</span>
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Operator buttons inside the panel */}
+        {/* Operator buttons */}
         <div className="border-t border-zinc-900 px-7 py-3 flex items-center gap-2">
           <button data-testid="ack-btn" onClick={() => onAcknowledge?.(systemId, "ACKNOWLEDGE")}
             className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25 px-3 py-1.5 font-mono text-[10px] tracking-wider transition-colors flex items-center gap-1.5">
-            <ShieldCheck className="w-3 h-3" />
-            ACKNOWLEDGE
+            <ShieldCheck className="w-3 h-3" /> ACKNOWLEDGE
           </button>
           <button data-testid="override-btn" onClick={() => onAcknowledge?.(systemId, "OVERRIDE")}
             className="bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25 px-3 py-1.5 font-mono text-[10px] tracking-wider transition-colors">
@@ -154,32 +146,12 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
         </div>
       </section>
 
-      {/* ============= SECONDARY: trajectory + future paths ============= */}
+      {/* ============= SECONDARY ============= */}
       <FuturePathsPanel paths={decision.future_paths} />
       <InstabilityChart history={history} />
       <Variables system={system} drivers={decision.drivers || []} />
     </div>
   );
-}
-
-/* -------------------- helpers -------------------- */
-
-function urgencyShort(u, decision) {
-  if (u === "NOMINAL") return "—";
-  const lt = decision.metrics?.lead_time_cycles ?? decision.lead_time_cycles;
-  if (lt) return `~${lt} cycles to alert`;
-  if (u === "WATCH") return "5–10 cycles to alert";
-  if (u === "ALERT") return "Active — minutes";
-  if (u === "CRITICAL") return "Closing — manual only";
-  return "—";
-}
-
-function urgencyDesc(u) {
-  if (u === "NOMINAL") return "No window — system is calm.";
-  if (u === "WATCH") return "Drift developing — early warning active.";
-  if (u === "ALERT") return "Intervention window narrowing fast.";
-  if (u === "CRITICAL") return "Window closed — manual recovery only.";
-  return "—";
 }
 
 function Field({ icon: Icon, label, tone, children, testid }) {
