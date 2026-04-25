@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from . import sii_state as ss
+from services import sii_state as ss
 
 router = APIRouter(prefix="/demo")
 
