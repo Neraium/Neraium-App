@@ -46,11 +46,15 @@ async def root():
 from routers import systems as systems_router  # noqa: E402
 from routers import playback as playback_router  # noqa: E402
 from routers import audit as audit_router  # noqa: E402
+from routers import customers as customers_router  # noqa: E402
+from routers import ingest as ingest_router  # noqa: E402
 from routers import ws as ws_router  # noqa: E402
 
 api_router.include_router(systems_router.router)
 api_router.include_router(playback_router.router)
 api_router.include_router(audit_router.router)
+api_router.include_router(customers_router.router)
+api_router.include_router(ingest_router.router)
 app.include_router(api_router)
 app.include_router(ws_router.router)  # WS path includes /api itself
 

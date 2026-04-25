@@ -4,11 +4,12 @@ import Header from "@/components/Header";
 import SystemGrid from "@/components/SystemGrid";
 import SystemDetail from "@/components/SystemDetail";
 import AuditView from "@/components/AuditView";
+import SettingsView from "@/components/SettingsView";
 import StateFlashBanners from "@/components/StateFlashBanners";
 import { Playback, Systems, Audit } from "@/api";
 
 export default function App() {
-  const [view, setView] = useState("grid");                  // grid | audit
+  const [view, setView] = useState("grid");                  // grid | audit | settings
   const [selectedId, setSelectedId] = useState(null);        // when set on grid view, show SystemDetail
   const [systems, setSystems] = useState([]);
   const [pb, setPb] = useState({ running: false, system_count: 0, cycle: 0, speed: "normal" });
@@ -118,6 +119,8 @@ export default function App() {
         {view === "audit" && (
           <AuditView scopeSystemId="" />
         )}
+
+        {view === "settings" && <SettingsView />}
       </main>
     </div>
   );

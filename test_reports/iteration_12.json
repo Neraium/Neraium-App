@@ -1,0 +1,37 @@
+{
+  "summary": "End-to-end testing of new Customer-onboarding + telemetry-Ingest endpoints, Settings tab, per-system mute toggle, Expand-all-unstable toggle, and hysteresis-smoothed display_regime. Backend: created /app/backend/tests/test_customers_ingest.py with 12 new tests — all 12 PASS. Existing /app/backend/tests/backend_test.py: 14/15 pass; the single failure (test_audit_delete_scope) is a pre-existing flaky timing race against the 2s server-side audit auto-flush during fast playback (passed on retry). Frontend: verified 3-tab header (Decisions, Audit Trail, Settings), 4 system cards rendered with data-testid system-card-<id>, STABLE cards collapsed by default with chevron+bell only, chevron expands STABLE box to reveal ACTION + CONSEQUENCE + 'Open verdict →' (data-testid box-open-<id>), per-system mute toggle adds MUTED tag and persists to localStorage under 'neraium.muted', expand-all-toggle button label flips between 'Expand all unstable' / 'Collapse all'. Fleet headline shows 'SYSTEM STATE: <STATE>' as the dominant element with state-tinted color, ACTION/CONSEQUENCE rows below; RISK row appears only when state != STABLE (verified for TRANSITION). Flash banners (data-testid^='state-flash-') confirmed appearing for sys-A1/sys-A2/sys-G1 STABLE→TRANSITION. No NOMINAL/WATCH/ALERT/CRITICAL strings anywhere. No duplicate-word patterns ('System system', 'Mechanical mechanical') detected. Settings tab end-to-end: form creates customer, card displays API key (nrm_…), ingest URL (/api/ingest/<key>), and a fully-formed industrial cURL snippet; Trash2 deletes the customer.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Settings · Copy buttons", "issue": "navigator.clipboard.writeText silently fails in headless/permission-restricted contexts; the catch is empty so the button label stays 'Copy' instead of 'Copied'. In real browsers this works. Consider a non-blocking fallback (document.execCommand or visible toast) so users always see feedback.", "affected_selectors": ["[data-testid^='copy-key-']", "[data-testid^='copy-url-']", "[data-testid^='copy-curl-']"]}
+    ],
+    "design_issues": [
+      {"screen": "SystemBox header (non-STABLE)", "issues": ["Mute bell + box-toggle chevron live inside the same outer button. Clicking the bell calls e.stopPropagation correctly, but tapping near its edges occasionally fires the surrounding toggle, briefly collapsing a non-STABLE box. Low impact: the body re-opens via the isStable effect."]},
+      {"screen": "Speed selector S/N/F", "issues": ["Letters-only with no hover tooltip — same callout as iteration 11; not regressed but still worth a label."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_customers_ingest.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/customers_ingest_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/customers.py creates its own AsyncIOMotorClient via _coll() while server.py holds the global one — same duplicate-pool callout from iteration 11, now applies to two routers (audit + customers). Centralise via FastAPI dependency.",
+    "routers/ingest.py increments the customer's frames_ingested counter even on partially-bad payloads (after the KeyError check passes). That's correct, but if ss.ingest_frame raises a different exception (e.g. value error from the engine) the counter would not bump and there's no metric to inspect failed ingests. Consider a 'frames_rejected' counter for ops visibility.",
+    "SystemGrid.SystemBox uses a useEffect that resets `expanded` whenever isStable flips. That means manual user-collapse on a non-STABLE box is overridden the moment the regime stays UNSTABLE across two render passes — slightly surprising UX. Accept by design but document.",
+    "SettingsView CopyButton swallows clipboard errors silently (empty catch). Surface a one-off error to the user (e.g. 'Copy failed — select and copy manually')."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_customers_ingest.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 new + 14/15 existing, 1 known-flaky)", "frontend": "100%"},
+  "test_credentials": "n/a (no auth)",
+  "seed_data_creation": "Test customer 'TEST_Acme' created/deleted by backend pytest; transient 'TEST_FE_Acme' customer created/deleted via UI. Synthetic system 'TEST_sys_ingest_1' registered then left in the engine (created via the ingest endpoint — restart of playback will clear it).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Customer + ingest endpoints fully covered in /app/backend/tests/test_customers_ingest.py (12 tests, all pass in ~3.5s). Hysteresis is exercised indirectly: latest.display_regime is asserted to be one of {STABLE,TRANSITION,UNSTABLE,LOCK_IN,WARMUP} on both built-in and ingested systems. The legacy backend_test.py::test_audit_delete_scope remains flaky against fast playback's 2s audit auto-flush — retry once before flagging. Frontend mute store key in localStorage is 'neraium.muted'. Flash banners are 3s TTL with 5s cooldown so back-to-back state churn is debounced — keep a 4s+ buffer in tests if you need to assert a banner is gone.",
+  "rca of the issue": "No new bugs — all spec items verified."
+}

@@ -25,3 +25,12 @@ export const Audit = {
   add: (body) => api.post("/audit", body).then(r => r.data),
   clear: (system_id = "") => api.delete("/audit", { params: { system_id } }).then(r => r.data),
 };
+
+export const Customers = {
+  list: () => api.get("/customers").then(r => r.data),
+  create: (body) => api.post("/customers", body).then(r => r.data),
+  remove: (id) => api.delete(`/customers/${id}`).then(r => r.data),
+};
+
+// Helper for the cURL snippet shown in Settings
+export const ingestUrlFor = (apiKey) => `${API}/ingest/${apiKey}`;

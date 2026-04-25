@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { REGIME_COLOR } from "@/sii";
 import { ArrowRight, X } from "lucide-react";
+import { getMuted, subscribe as subscribeMute } from "@/muteStore";
 
 const FLASH_TTL_MS = 3000;
 const COOLDOWN_MS  = 5000;
@@ -20,9 +21,13 @@ export default function StateFlashBanners({ systems, onSelect }) {
   const [flashes, setFlashes] = useState([]);
   // Per-system memory: { sys-id: { state, lastFiredAt } }
   const memRef = useRef({});
+  // Mute store revision — bump triggers re-evaluation
+  const [, setMuteRev] = useState(0);
+  useEffect(() => subscribeMute(() => setMuteRev(r => r + 1)), []);
 
   useEffect(() => {
     if (!systems?.length) return;
+    const muted = getMuted();
     const now = Date.now();
     const next = { ...memRef.current };
     const newFlashes = [];
@@ -33,6 +38,11 @@ export default function StateFlashBanners({ systems, onSelect }) {
       const prev = next[s.system_id];
       if (!prev) {
         next[s.system_id] = { state: cur, lastFiredAt: 0 };
+        continue;
+      }
+      // Muted systems: track state but never fire a banner.
+      if (muted[s.system_id]) {
+        next[s.system_id] = { ...prev, state: cur };
         continue;
       }
       // Only fire when the state ACTUALLY changes AND the cooldown has

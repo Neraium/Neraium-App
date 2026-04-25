@@ -17,8 +17,9 @@ import { Systems } from "@/api";
 import { REGIME_COLOR, REGIME_RANK } from "@/sii";
 import {
   ShieldCheck, AlertTriangle, OctagonAlert, Activity,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, BellOff, Bell, ListPlus, ListMinus,
 } from "lucide-react";
+import { isMuted, toggleMute, subscribe as subscribeMute } from "@/muteStore";
 
 const REGIME_ICON = {
   STABLE:     ShieldCheck,
@@ -86,6 +87,16 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
     return items;
   }, [systems, decisions]);
 
+  // ---- HOOKS (must be unconditional, called in same order every render) ----
+  // Global "expand all unstable" preference — when true, every non-STABLE
+  // box is forced open regardless of its individual state. Off by default
+  // because individual non-STABLE boxes already auto-open.
+  const [expandAll, setExpandAll] = useState(false);
+  // Force a re-render when the mute store changes from another component.
+  const [, setMuteRev] = useState(0);
+  useEffect(() => subscribeMute(() => setMuteRev(r => r + 1)), []);
+  // ---- END hooks block ----
+
   if (!ordered.length) {
     return (
       <div data-testid="grid-empty" className="border border-zinc-900 bg-[#0A0A0A] p-12 text-center">
@@ -102,14 +113,35 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
   // Grid columns: ≤sm = 1, md = 2, xl = 4 (one row when n=4).
   const colsClass = "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3";
 
+  const nonStableCount = ordered.filter(s => (decisions[s.system_id]?.state || norm(s)) !== "STABLE").length;
+
   return (
     <div data-testid="system-grid" className="space-y-6">
       <FleetHeadline headline={headline} />
+
+      {/* Grid controls — Expand-all-unstable toggle */}
+      <div className="flex items-center gap-3 px-1">
+        <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-zinc-500">
+          {ordered.length} systems
+          {nonStableCount > 0 && (
+            <span className="text-amber-400 ml-2">· {nonStableCount} need attention</span>
+          )}
+        </span>
+        <button data-testid="expand-all-toggle" type="button" onClick={() => setExpandAll(v => !v)}
+          className="ml-auto inline-flex items-center gap-1.5 border border-zinc-800 hover:border-zinc-700
+                     px-2.5 py-1 font-mono text-[10px] tracking-wider uppercase text-zinc-300 hover:text-zinc-100 transition-colors">
+          {expandAll
+            ? <><ListMinus className="w-3 h-3" /> Collapse all</>
+            : <><ListPlus className="w-3 h-3" /> Expand all unstable</>}
+        </button>
+      </div>
+
       <div data-testid="system-boxes" className={colsClass}>
         {ordered.map(s => (
           <SystemBox key={s.system_id} system={s}
             decision={decisions[s.system_id]}
             active={s.system_id === selectedId}
+            forceExpanded={expandAll}
             onSelect={() => onSelect(s.system_id)} />
         ))}
       </div>
@@ -209,18 +241,28 @@ function FleetField({ label, testid, tone, value }) {
 
 /* -------------------- per-system box -------------------- */
 
-function SystemBox({ system, decision, active, onSelect }) {
+function SystemBox({ system, decision, active, onSelect, forceExpanded }) {
   const s = decision?.state || norm(system);
   const Icon = REGIME_ICON[s] || Activity;
   const color = REGIME_COLOR[s] || "#A1A1AA";
   const pulse = PULSE_CLASS[s] || "";
   const isStable = s === "STABLE";
 
-  // STABLE → collapsed by default (drop-down). Non-STABLE → forced open.
+  // STABLE → collapsed by default (drop-down). Non-STABLE → forced open
+  // (or honour the global "expand all" toggle).
   const [expanded, setExpanded] = useState(!isStable);
   // If state changes from non-STABLE back to STABLE, auto-collapse.
   // If it leaves STABLE, auto-expand.
   useEffect(() => { setExpanded(!isStable); }, [isStable]);
+
+  // Per-system mute (persisted in localStorage).
+  const [muted, setMuted] = useState(() => isMuted(system.system_id));
+  const handleMuteToggle = (e) => {
+    e?.stopPropagation();
+    setMuted(toggleMute(system.system_id));
+  };
+
+  const showBody = isStable ? expanded : (forceExpanded || expanded);
 
   const summary    = decision?.card_summary
     || (isStable ? "System stable" : `${system.system_id} ${s.toLowerCase()}`);
@@ -230,16 +272,19 @@ function SystemBox({ system, decision, active, onSelect }) {
   const phrases    = (decision?.driver_phrases || []).slice(0, 2);
   const rawDrivers = decision?.drivers || [];
 
-  // Tinted background for non-STABLE so the box feels "lit".
+  // Tinted background for non-STABLE so the box feels "lit". Muted boxes
+  // are heavily desaturated so the operator's attention isn't pulled
+  // back to a system they're already triaging.
   const bgTint =
     s === "TRANSITION" ? "bg-[#1A1408]" :
     s === "UNSTABLE"   ? "bg-[#1A0B0B]" :
     s === "LOCK_IN"    ? "bg-[#190707]" :
     "bg-[#0A0A0A]";
+  const mutedClass = muted ? "opacity-50 grayscale" : "";
 
   return (
     <section data-testid={`system-card-${system.system_id}`}
-      className={`grain border ${bgTint} ${pulse} ${active ? "border-zinc-700" : "border-zinc-900"} ${isStable ? "opacity-90" : ""}`}
+      className={`grain border ${bgTint} ${pulse} ${active ? "border-zinc-700" : "border-zinc-900"} ${isStable ? "opacity-90" : ""} ${mutedClass}`}
       style={{ borderTopWidth: 3, borderTopColor: color }}>
       {/* Header — always visible */}
       <button type="button" onClick={() => setExpanded(e => !e)}
@@ -251,10 +296,22 @@ function SystemBox({ system, decision, active, onSelect }) {
             <span data-testid={`system-state-${system.system_id}`}
               className="font-mono text-[13px] font-bold tracking-[0.22em]" style={{ color }}>{s}</span>
             <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">{system.system_id}</span>
+            {muted && <span data-testid={`muted-tag-${system.system_id}`}
+              className="font-mono text-[9px] tracking-[0.22em] uppercase text-zinc-400 bg-zinc-900 border border-zinc-800 px-1 py-0.5">muted</span>}
           </div>
           <div data-testid={`row-summary-${system.system_id}`}
             className="font-mono text-[13px] text-zinc-200 mt-0.5 truncate">{summary}</div>
         </div>
+        {/* Mute toggle — visible on every box. Stops the flash banner
+            from re-firing for this system while corrective action is
+            in progress. */}
+        <span role="button" data-testid={`mute-btn-${system.system_id}`}
+          onClick={handleMuteToggle}
+          title={muted ? "Un-mute system alerts" : "Mute system alerts"}
+          className={`shrink-0 cursor-pointer p-1 rounded transition-colors ${muted ? "text-zinc-300 hover:text-zinc-100" : "text-zinc-600 hover:text-zinc-300"}`}>
+          {muted ? <BellOff className="w-3.5 h-3.5" strokeWidth={1.5} />
+                 : <Bell    className="w-3.5 h-3.5" strokeWidth={1.5} />}
+        </span>
         {/* For STABLE, show the chevron so it's clearly expandable. */}
         {isStable && (
           expanded
@@ -264,7 +321,7 @@ function SystemBox({ system, decision, active, onSelect }) {
       </button>
 
       {/* Body — animated reveal */}
-      {expanded && (
+      {showBody && (
         <div data-testid={`box-body-${system.system_id}`}
           className="px-5 pb-4 pt-1 space-y-3 border-t border-zinc-900 animate-fade-in">
           {phrases.length > 0 && (
