@@ -3,4 +3,4 @@ WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir -e .[dev]
 EXPOSE 8000
-CMD ["python", "run_demo.py"]
+CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "8000"]
