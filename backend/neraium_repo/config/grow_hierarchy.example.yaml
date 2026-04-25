@@ -1,0 +1,25 @@
+portfolio:
+  name: Demo Portfolio
+  sites:
+    - site_id: site-midwest
+      facility_ids: [fac-chi-1]
+    - site_id: site-west
+      facility_ids: [fac-den-1]
+hierarchy:
+  rooms:
+    flower-1:
+      zones: [flower-1-east, flower-1-west]
+    flower-2:
+      zones: [flower-2-north, flower-2-south]
+  zones:
+    flower-2-south:
+      plants: [flower-2-south-cluster-b]
+  subsystems:
+    dehum-fl2:
+      rooms: [flower-2]
+      zones: [flower-2-north, flower-2-south]
+comparison_groups:
+  room_peer_groups:
+    flower_rooms: [flower-1, flower-2, flower-7]
+  facility_peer_groups:
+    demo_portfolio: [fac-chi-1, fac-den-1]

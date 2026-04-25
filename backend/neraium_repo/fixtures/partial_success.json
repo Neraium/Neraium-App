@@ -1,0 +1,51 @@
+{
+  "_fixture": "partial_success",
+  "_description": "Four frames: two valid, two degenerate. The two degenerate items carry a timestamp and asset_id but all sensor values are fault strings (non-numeric). The normalizer raises invalid_signal_values per degenerate item, causing those items to fail schema validation before ingest. The two valid items proceed.",
+  "_endpoint": "POST /ingest/batch",
+  "_expected": "HTTP 422 with per-item validation errors for items 3 and 4, OR HTTP 200 partial_success if SII accepts degenerate frames. Actual outcome should be captured during replay.",
+  "_operator_note": "For a guaranteed partial_success outcome use partial_success.csv via POST /ingest/csv instead. The batch JSON path validates all items at request time; any item failing normalization may cause the entire batch to be rejected (422). The CSV path validates row-by-row and always returns partial_success for mixed files.",
+  "items": [
+    {
+      "timestamp": "2026-04-05T08:00:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": 24.1,
+        "humidity_rh": 62.0,
+        "co2_ppm": 850,
+        "vpd_kpa": 0.82
+      }
+    },
+    {
+      "timestamp": "2026-04-05T08:05:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": 24.3,
+        "humidity_rh": 61.5,
+        "co2_ppm": 855,
+        "vpd_kpa": 0.84
+      }
+    },
+    {
+      "timestamp": "2026-04-05T08:10:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": "SENSOR_FAULT",
+        "humidity_rh": "SENSOR_FAULT",
+        "co2_ppm": "SENSOR_FAULT",
+        "vpd_kpa": "SENSOR_FAULT"
+      }
+    },
+    {
+      "timestamp": "2026-04-05T08:15:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-b",
+      "sensor_values": {
+        "temp_c": "N/A",
+        "humidity_rh": "N/A"
+      }
+    }
+  ]
+}

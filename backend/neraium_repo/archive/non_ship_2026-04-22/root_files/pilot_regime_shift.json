@@ -1,0 +1,1733 @@
+{
+  "records": [
+    {
+      "timestep": 0,
+      "signals": {
+        "s1": 10.0,
+        "s2": 9.998,
+        "s3": 10.005,
+        "s4": 10.035
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 1,
+      "signals": {
+        "s1": 10.017933,
+        "s2": 10.015789,
+        "s3": 10.023022,
+        "s4": 10.052897
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 2,
+      "signals": {
+        "s1": 10.036252,
+        "s2": 10.033962,
+        "s3": 10.041434,
+        "s4": 10.07118
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 3,
+      "signals": {
+        "s1": 10.054685,
+        "s2": 10.052247,
+        "s3": 10.059958,
+        "s4": 10.089575
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 4,
+      "signals": {
+        "s1": 10.073142,
+        "s2": 10.070556,
+        "s3": 10.078507,
+        "s4": 10.107995
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 5,
+      "signals": {
+        "s1": 10.091565,
+        "s2": 10.088832,
+        "s3": 10.097022,
+        "s4": 10.126381
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 6,
+      "signals": {
+        "s1": 10.109906,
+        "s2": 10.107027,
+        "s3": 10.115456,
+        "s4": 10.144686
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 7,
+      "signals": {
+        "s1": 10.128124,
+        "s2": 10.125099,
+        "s3": 10.133765,
+        "s4": 10.162868
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 8,
+      "signals": {
+        "s1": 10.146182,
+        "s2": 10.143012,
+        "s3": 10.151913,
+        "s4": 10.180889
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 9,
+      "signals": {
+        "s1": 10.164042,
+        "s2": 10.16073,
+        "s3": 10.169863,
+        "s4": 10.198714
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 10,
+      "signals": {
+        "s1": 10.181673,
+        "s2": 10.17822,
+        "s3": 10.187581,
+        "s4": 10.21631
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 11,
+      "signals": {
+        "s1": 10.199041,
+        "s2": 10.195449,
+        "s3": 10.205036,
+        "s4": 10.233643
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 12,
+      "signals": {
+        "s1": 10.216116,
+        "s2": 10.212387,
+        "s3": 10.222197,
+        "s4": 10.250684
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 13,
+      "signals": {
+        "s1": 10.232869,
+        "s2": 10.229006,
+        "s3": 10.239033,
+        "s4": 10.267403
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 14,
+      "signals": {
+        "s1": 10.24927,
+        "s2": 10.245276,
+        "s3": 10.255516,
+        "s4": 10.283772
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 15,
+      "signals": {
+        "s1": 10.265293,
+        "s2": 10.261171,
+        "s3": 10.27162,
+        "s4": 10.299763
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 16,
+      "signals": {
+        "s1": 10.280913,
+        "s2": 10.276665,
+        "s3": 10.287317,
+        "s4": 10.315351
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 17,
+      "signals": {
+        "s1": 10.296103,
+        "s2": 10.291734,
+        "s3": 10.302584,
+        "s4": 10.330511
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 18,
+      "signals": {
+        "s1": 10.310841,
+        "s2": 10.306354,
+        "s3": 10.317395,
+        "s4": 10.345219
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 19,
+      "signals": {
+        "s1": 10.325103,
+        "s2": 10.320502,
+        "s3": 10.331729,
+        "s4": 10.359453
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 20,
+      "signals": {
+        "s1": 10.338869,
+        "s2": 10.334158,
+        "s3": 10.345564,
+        "s4": 10.373191
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 21,
+      "signals": {
+        "s1": 10.352119,
+        "s2": 10.347302,
+        "s3": 10.358879,
+        "s4": 10.386415
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 22,
+      "signals": {
+        "s1": 10.364833,
+        "s2": 10.359914,
+        "s3": 10.371657,
+        "s4": 10.399103
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.0,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 23,
+      "signals": {
+        "s1": 10.376995,
+        "s2": 10.371979,
+        "s3": 10.38388,
+        "s4": 10.411241
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1721,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 24,
+      "signals": {
+        "s1": 10.388588,
+        "s2": 10.383479,
+        "s3": 10.395531,
+        "s4": 10.422811
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1031,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 25,
+      "signals": {
+        "s1": 10.399597,
+        "s2": 10.3944,
+        "s3": 10.406595,
+        "s4": 10.433798
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0418,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 26,
+      "signals": {
+        "s1": 10.41001,
+        "s2": 10.40473,
+        "s3": 10.41706,
+        "s4": 10.44419
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.987,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 27,
+      "signals": {
+        "s1": 10.419813,
+        "s2": 10.414455,
+        "s3": 10.426912,
+        "s4": 10.453973
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 28,
+      "signals": {
+        "s1": 10.428997,
+        "s2": 10.423565,
+        "s3": 10.436142,
+        "s4": 10.463139
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 29,
+      "signals": {
+        "s1": 10.437552,
+        "s2": 10.432052,
+        "s3": 10.44474,
+        "s4": 10.471677
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 30,
+      "signals": {
+        "s1": 10.445471,
+        "s2": 10.439907,
+        "s3": 10.452698,
+        "s4": 10.47958
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 31,
+      "signals": {
+        "s1": 10.452747,
+        "s2": 10.447125,
+        "s3": 10.460011,
+        "s4": 10.486841
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 32,
+      "signals": {
+        "s1": 10.459376,
+        "s2": 10.453701,
+        "s3": 10.466673,
+        "s4": 10.493457
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 33,
+      "signals": {
+        "s1": 10.465354,
+        "s2": 10.459631,
+        "s3": 10.47268,
+        "s4": 10.499423
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 34,
+      "signals": {
+        "s1": 10.470679,
+        "s2": 10.464914,
+        "s3": 10.478033,
+        "s4": 10.504738
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9375,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 35,
+      "signals": {
+        "s1": 10.47492,
+        "s2": 10.468053,
+        "s3": 10.482202,
+        "s4": 10.508375
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9376,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 36,
+      "signals": {
+        "s1": 10.477577,
+        "s2": 10.467571,
+        "s3": 10.484602,
+        "s4": 10.509287
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9399,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 37,
+      "signals": {
+        "s1": 10.478572,
+        "s2": 10.463514,
+        "s3": 10.485164,
+        "s4": 10.507462
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.959,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 38,
+      "signals": {
+        "s1": 10.477853,
+        "s2": 10.455955,
+        "s3": 10.483848,
+        "s4": 10.502918
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0886,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 39,
+      "signals": {
+        "s1": 10.475398,
+        "s2": 10.444994,
+        "s3": 10.48064,
+        "s4": 10.495696
+      },
+      "state": "WATCH",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.5011,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 40,
+      "signals": {
+        "s1": 10.47121,
+        "s2": 10.430757,
+        "s3": 10.475554,
+        "s4": 10.485869
+      },
+      "state": "WATCH",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.4754,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 41,
+      "signals": {
+        "s1": 10.465322,
+        "s2": 10.413399,
+        "s3": 10.468631,
+        "s4": 10.473533
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0184,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 42,
+      "signals": {
+        "s1": 10.457791,
+        "s2": 10.393096,
+        "s3": 10.459939,
+        "s4": 10.458814
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0284,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 43,
+      "signals": {
+        "s1": 10.4487,
+        "s2": 10.370052,
+        "s3": 10.44957,
+        "s4": 10.441858
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0282,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 44,
+      "signals": {
+        "s1": 10.438156,
+        "s2": 10.344492,
+        "s3": 10.437641,
+        "s4": 10.42284
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0198,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 45,
+      "signals": {
+        "s1": 10.426289,
+        "s2": 10.316663,
+        "s3": 10.42429,
+        "s4": 10.401953
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0108,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 46,
+      "signals": {
+        "s1": 10.413249,
+        "s2": 10.28683,
+        "s3": 10.409676,
+        "s4": 10.379412
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0024,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 47,
+      "signals": {
+        "s1": 10.399204,
+        "s2": 10.255279,
+        "s3": 10.393977,
+        "s4": 10.355449
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9949,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 48,
+      "signals": {
+        "s1": 10.384338,
+        "s2": 10.222308,
+        "s3": 10.377386,
+        "s4": 10.330315
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9882,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 49,
+      "signals": {
+        "s1": 10.368849,
+        "s2": 10.188229,
+        "s3": 10.36011,
+        "s4": 10.304269
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9823,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 50,
+      "signals": {
+        "s1": 10.352945,
+        "s2": 10.153365,
+        "s3": 10.342367,
+        "s4": 10.277587
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.977,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 51,
+      "signals": {
+        "s1": 10.336843,
+        "s2": 10.118046,
+        "s3": 10.324382,
+        "s4": 10.250548
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9724,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 52,
+      "signals": {
+        "s1": 10.320765,
+        "s2": 10.082605,
+        "s3": 10.306387,
+        "s4": 10.223439
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9683,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 53,
+      "signals": {
+        "s1": 10.304932,
+        "s2": 10.047381,
+        "s3": 10.288614,
+        "s4": 10.196546
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9647,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 54,
+      "signals": {
+        "s1": 10.289568,
+        "s2": 10.012706,
+        "s3": 10.271295,
+        "s4": 10.170158
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9616,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 55,
+      "signals": {
+        "s1": 10.274889,
+        "s2": 9.978913,
+        "s3": 10.254657,
+        "s4": 10.144556
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9587,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 56,
+      "signals": {
+        "s1": 10.261105,
+        "s2": 9.946323,
+        "s3": 10.23892,
+        "s4": 10.120014
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9562,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 57,
+      "signals": {
+        "s1": 10.248412,
+        "s2": 9.915248,
+        "s3": 10.224293,
+        "s4": 10.096797
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.954,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 58,
+      "signals": {
+        "s1": 10.236996,
+        "s2": 9.885988,
+        "s3": 10.21097,
+        "s4": 10.075156
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9521,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 59,
+      "signals": {
+        "s1": 10.227021,
+        "s2": 9.858824,
+        "s3": 10.19913,
+        "s4": 10.055322
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9503,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 60,
+      "signals": {
+        "s1": 10.218634,
+        "s2": 9.834017,
+        "s3": 10.188929,
+        "s4": 10.037511
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9487,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 61,
+      "signals": {
+        "s1": 10.211957,
+        "s2": 9.811809,
+        "s3": 10.180503,
+        "s4": 10.021911
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9473,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 62,
+      "signals": {
+        "s1": 10.207084,
+        "s2": 9.792414,
+        "s3": 10.17396,
+        "s4": 10.008689
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.946,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 63,
+      "signals": {
+        "s1": 10.204084,
+        "s2": 9.776019,
+        "s3": 10.16938,
+        "s4": 9.99798
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9446,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 64,
+      "signals": {
+        "s1": 10.202992,
+        "s2": 9.762782,
+        "s3": 10.166813,
+        "s4": 9.989893
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9432,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 65,
+      "signals": {
+        "s1": 10.20381,
+        "s2": 9.752831,
+        "s3": 10.166277,
+        "s4": 9.984502
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9481,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 66,
+      "signals": {
+        "s1": 10.206506,
+        "s2": 9.746258,
+        "s3": 10.167754,
+        "s4": 9.981846
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9819,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 67,
+      "signals": {
+        "s1": 10.211011,
+        "s2": 9.743121,
+        "s3": 10.171191,
+        "s4": 9.981931
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.15,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 68,
+      "signals": {
+        "s1": 10.217218,
+        "s2": 9.743445,
+        "s3": 10.176497,
+        "s4": 9.984725
+      },
+      "state": "WATCH",
+      "interpreted_state": "REGIME_SHIFT_OBSERVED",
+      "score": 1.6535,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 69,
+      "signals": {
+        "s1": 10.224982,
+        "s2": 9.747215,
+        "s3": 10.183543,
+        "s4": 9.990159
+      },
+      "state": "WATCH",
+      "interpreted_state": "COHERENCE_UNDER_CONSTRAINT",
+      "score": 1.9989,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 70,
+      "signals": {
+        "s1": 10.234118,
+        "s2": 9.754381,
+        "s3": 10.192163,
+        "s4": 9.998125
+      },
+      "state": "WATCH",
+      "interpreted_state": "COUPLING_INSTABILITY_OBSERVED",
+      "score": 1.718,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 71,
+      "signals": {
+        "s1": 10.244235,
+        "s2": 9.763565,
+        "s3": 10.201868,
+        "s4": 10.007671
+      },
+      "state": "WATCH",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.2941,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 72,
+      "signals": {
+        "s1": 10.255071,
+        "s2": 9.77343,
+        "s3": 10.212288,
+        "s4": 10.017924
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1536,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 73,
+      "signals": {
+        "s1": 10.266609,
+        "s2": 9.783961,
+        "s3": 10.223406,
+        "s4": 10.028868
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1544,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 74,
+      "signals": {
+        "s1": 10.278829,
+        "s2": 9.795139,
+        "s3": 10.235202,
+        "s4": 10.040483
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1347,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 75,
+      "signals": {
+        "s1": 10.291707,
+        "s2": 9.806943,
+        "s3": 10.247654,
+        "s4": 10.052747
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.1127,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 76,
+      "signals": {
+        "s1": 10.305219,
+        "s2": 9.81935,
+        "s3": 10.260739,
+        "s4": 10.065637
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0921,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 77,
+      "signals": {
+        "s1": 10.319336,
+        "s2": 9.832335,
+        "s3": 10.274428,
+        "s4": 10.079126
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0736,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 78,
+      "signals": {
+        "s1": 10.33403,
+        "s2": 9.84587,
+        "s3": 10.288694,
+        "s4": 10.093186
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0573,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 79,
+      "signals": {
+        "s1": 10.349268,
+        "s2": 9.859927,
+        "s3": 10.303506,
+        "s4": 10.107787
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.043,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 80,
+      "signals": {
+        "s1": 10.365017,
+        "s2": 9.874474,
+        "s3": 10.318831,
+        "s4": 10.122896
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0303,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 81,
+      "signals": {
+        "s1": 10.381242,
+        "s2": 9.889479,
+        "s3": 10.334634,
+        "s4": 10.13848
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0192,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 82,
+      "signals": {
+        "s1": 10.397906,
+        "s2": 9.904908,
+        "s3": 10.35088,
+        "s4": 10.154503
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0095,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 83,
+      "signals": {
+        "s1": 10.41497,
+        "s2": 9.920724,
+        "s3": 10.36753,
+        "s4": 10.170929
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 1.0009,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 84,
+      "signals": {
+        "s1": 10.432394,
+        "s2": 9.93689,
+        "s3": 10.384546,
+        "s4": 10.187718
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9933,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 85,
+      "signals": {
+        "s1": 10.450137,
+        "s2": 9.953369,
+        "s3": 10.401888,
+        "s4": 10.20483
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9867,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 86,
+      "signals": {
+        "s1": 10.468156,
+        "s2": 9.970121,
+        "s3": 10.419513,
+        "s4": 10.222226
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9808,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 87,
+      "signals": {
+        "s1": 10.486409,
+        "s2": 9.987105,
+        "s3": 10.437379,
+        "s4": 10.239862
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9756,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 88,
+      "signals": {
+        "s1": 10.50485,
+        "s2": 10.00428,
+        "s3": 10.455443,
+        "s4": 10.257697
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9711,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 89,
+      "signals": {
+        "s1": 10.523436,
+        "s2": 10.021605,
+        "s3": 10.473661,
+        "s4": 10.275687
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9671,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 90,
+      "signals": {
+        "s1": 10.54212,
+        "s2": 10.039037,
+        "s3": 10.491989,
+        "s4": 10.293788
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9636,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 91,
+      "signals": {
+        "s1": 10.560858,
+        "s2": 10.056533,
+        "s3": 10.510381,
+        "s4": 10.311957
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9605,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 92,
+      "signals": {
+        "s1": 10.579603,
+        "s2": 10.074051,
+        "s3": 10.528792,
+        "s4": 10.330147
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9578,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 93,
+      "signals": {
+        "s1": 10.59831,
+        "s2": 10.091547,
+        "s3": 10.547178,
+        "s4": 10.348316
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9554,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 94,
+      "signals": {
+        "s1": 10.616932,
+        "s2": 10.10898,
+        "s3": 10.565493,
+        "s4": 10.366418
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9533,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 95,
+      "signals": {
+        "s1": 10.635425,
+        "s2": 10.126305,
+        "s3": 10.583693,
+        "s4": 10.384409
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9514,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 96,
+      "signals": {
+        "s1": 10.653742,
+        "s2": 10.143482,
+        "s3": 10.601733,
+        "s4": 10.402246
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9498,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 97,
+      "signals": {
+        "s1": 10.671841,
+        "s2": 10.160468,
+        "s3": 10.61957,
+        "s4": 10.419886
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9484,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 98,
+      "signals": {
+        "s1": 10.689677,
+        "s2": 10.177222,
+        "s3": 10.63716,
+        "s4": 10.437285
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9471,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 99,
+      "signals": {
+        "s1": 10.707208,
+        "s2": 10.193705,
+        "s3": 10.654462,
+        "s4": 10.454403
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.946,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 100,
+      "signals": {
+        "s1": 10.724393,
+        "s2": 10.209877,
+        "s3": 10.671434,
+        "s4": 10.471199
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.945,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 101,
+      "signals": {
+        "s1": 10.74119,
+        "s2": 10.225701,
+        "s3": 10.688037,
+        "s4": 10.487634
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9441,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 102,
+      "signals": {
+        "s1": 10.75756,
+        "s2": 10.241139,
+        "s3": 10.704232,
+        "s4": 10.503669
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9434,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 103,
+      "signals": {
+        "s1": 10.773468,
+        "s2": 10.256156,
+        "s3": 10.719982,
+        "s4": 10.519268
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9427,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 104,
+      "signals": {
+        "s1": 10.788876,
+        "s2": 10.270719,
+        "s3": 10.735252,
+        "s4": 10.534395
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9421,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 105,
+      "signals": {
+        "s1": 10.80375,
+        "s2": 10.284796,
+        "s3": 10.750007,
+        "s4": 10.549018
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9415,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 106,
+      "signals": {
+        "s1": 10.818059,
+        "s2": 10.298355,
+        "s3": 10.764217,
+        "s4": 10.563104
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9411,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 107,
+      "signals": {
+        "s1": 10.831773,
+        "s2": 10.311369,
+        "s3": 10.777851,
+        "s4": 10.576624
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9407,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 108,
+      "signals": {
+        "s1": 10.844862,
+        "s2": 10.32381,
+        "s3": 10.790881,
+        "s4": 10.589551
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9403,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 109,
+      "signals": {
+        "s1": 10.857303,
+        "s2": 10.335655,
+        "s3": 10.803281,
+        "s4": 10.601858
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.94,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 110,
+      "signals": {
+        "s1": 10.86907,
+        "s2": 10.34688,
+        "s3": 10.815029,
+        "s4": 10.613522
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9397,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 111,
+      "signals": {
+        "s1": 10.880142,
+        "s2": 10.357466,
+        "s3": 10.826103,
+        "s4": 10.624523
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9394,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 112,
+      "signals": {
+        "s1": 10.890502,
+        "s2": 10.367395,
+        "s3": 10.836484,
+        "s4": 10.634841
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9392,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 113,
+      "signals": {
+        "s1": 10.900133,
+        "s2": 10.376651,
+        "s3": 10.846156,
+        "s4": 10.644461
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.939,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 114,
+      "signals": {
+        "s1": 10.909021,
+        "s2": 10.38522,
+        "s3": 10.855105,
+        "s4": 10.653368
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9388,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 115,
+      "signals": {
+        "s1": 10.917156,
+        "s2": 10.393093,
+        "s3": 10.86332,
+        "s4": 10.661551
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9387,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 116,
+      "signals": {
+        "s1": 10.924529,
+        "s2": 10.400261,
+        "s3": 10.870793,
+        "s4": 10.669001
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9385,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 117,
+      "signals": {
+        "s1": 10.931134,
+        "s2": 10.406718,
+        "s3": 10.877518,
+        "s4": 10.675713
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9384,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 118,
+      "signals": {
+        "s1": 10.936969,
+        "s2": 10.412461,
+        "s3": 10.883491,
+        "s4": 10.681683
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9383,
+      "frame_type": "normal",
+      "missing_data": false
+    },
+    {
+      "timestep": 119,
+      "signals": {
+        "s1": 10.942033,
+        "s2": 10.417489,
+        "s3": 10.888712,
+        "s4": 10.68691
+      },
+      "state": "STABLE",
+      "interpreted_state": "NOMINAL_STRUCTURE",
+      "score": 0.9382,
+      "frame_type": "normal",
+      "missing_data": false
+    }
+  ],
+  "summary": {
+    "first_step_by_state": {
+      "STABLE": 0,
+      "WATCH": 39,
+      "ALERT": null
+    },
+    "count_by_state": {
+      "STABLE": 114,
+      "WATCH": 6
+    },
+    "count_by_interpreted_state": {
+      "NOMINAL_STRUCTURE": 117,
+      "REGIME_SHIFT_OBSERVED": 1,
+      "COHERENCE_UNDER_CONSTRAINT": 1,
+      "COUPLING_INSTABILITY_OBSERVED": 1
+    },
+    "max_score": 1.9989,
+    "mean_score_after_timestep_60": 1.02621,
+    "duplicate_frame_count": 0,
+    "missing_data_frame_count": 0,
+    "first_step_by_interpreted_state": {
+      "NOMINAL_STRUCTURE": 0,
+      "REGIME_SHIFT_OBSERVED": 68,
+      "COHERENCE_UNDER_CONSTRAINT": 69,
+      "COUPLING_INSTABILITY_OBSERVED": 70
+    },
+    "score_thresholds": {
+      "STABLE_lt": 1.25,
+      "WATCH_lt": 2.0,
+      "ALERT_gte": 2.0
+    },
+    "interpreted_smoothing": {
+      "consecutive_required": 3,
+      "severe_score_delta": 0.75,
+      "severe_score_high": 2.25,
+      "severe_score_low_prior": 1.45,
+      "consecutive_required_applied": 1,
+      "input_file_overrides": {
+        "consecutive_required": 1
+      }
+    },
+    "scenario": {
+      "mode": "file_payloads",
+      "input_file": "C:\\Users\\Owner\\neraium-core-1\\examples\\pilot\\scenarios\\regime_shift_inputs.json",
+      "baseline_window": 24,
+      "recent_window": 8,
+      "input_scenario": "regime_shift"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+from __future__ import annotations
+
+from typing import Any
+
+
+def build_warmup_result_payload(
+    frame: dict[str, Any],
+    *,
+    sensor_order: list[str],
+    experimental_analytics_payload: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "timestamp": frame["timestamp"],
+        "site_id": frame["site_id"],
+        "asset_id": frame["asset_id"],
+        "state": "STABLE",
+        "structural_drift_score": 0.0,
+        "relational_stability_score": 1.0,
+        "system_health": 100,
+        "drift_alert": False,
+        "sensor_relationships": sensor_order,
+        "regime_name": None,
+        "regime_distance": None,
+        "regime_drift": 0.0,
+        "latest_drift": 0.0,
+        "latest_instability": 0.0,
+        "relational_instability_score": 0.0,
+        "temporal_distortion_score": 0.0,
+        "localization_score": 0.0,
+        "attribution": {"top_drivers": [], "driver_scores": {}},
+        "causal_analysis": {
+            "hypotheses": [],
+            "top_hypothesis": None,
+            "counterfactual": {
+                "counterfactual_checks": [],
+                "robustness": 0.0,
+                "interpretation": "Causal analysis unavailable during warmup.",
+            },
+            "validation_plan": [],
+            "recommended_sequence": [],
+            "best_next_action": None,
+            "status": {"available": False, "reason": "warmup"},
+        },
+        "dominant_driver": None,
+        "explanation": "Warmup: awaiting sufficient window history.",
+        "baseline_mode": None,
+        "data_quality_summary": {},
+        "active_sensor_count": 0,
+        "missing_sensor_count": 0,
+        "transition_pressure": 0.0,
+        "transition_state": "NONE",
+        "experimental_analytics": experimental_analytics_payload,
+        "robustness": {},
+        "sensitivity": {},
+        "explanations": {},
+        "multi_scale": {},
+        "drift_noise": {},
+        "geometry": {"available": False, "reason": "insufficient history"},
+        "state_space_statistics": {"available": False, "reason": "insufficient history"},
+        "state_graph": {"available": False, "reason": "insufficient history"},
+        "geometry_explanations": {"available": False, "reason": "insufficient history"},
+    }

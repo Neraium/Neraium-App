@@ -1,0 +1,56 @@
+{
+  "events": [
+    {
+      "timestamp": 1,
+      "asset_id": "t5",
+      "observation": {
+        "x": 5.0,
+        "sensor": 8.0
+      },
+      "actual_intervention": null,
+      "outcome_label": "neutral",
+      "domain": "mining",
+      "scenario_family": "transfer",
+      "system_type": "conveyor"
+    },
+    {
+      "timestamp": 2,
+      "asset_id": "t6",
+      "observation": {
+        "x": 6.2,
+        "sensor": 8.5
+      },
+      "actual_intervention": "restore_relationship_cluster_to_baseline",
+      "outcome_label": "harmful",
+      "domain": "mining",
+      "scenario_family": "transfer",
+      "system_type": "crusher"
+    },
+    {
+      "timestamp": 3,
+      "asset_id": "t7",
+      "observation": {
+        "x": 4.8,
+        "sensor": 7.2
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "shipping",
+      "scenario_family": "transfer",
+      "system_type": "engine"
+    },
+    {
+      "timestamp": 4,
+      "asset_id": "t8",
+      "observation": {
+        "x": 7.5,
+        "sensor": 9.2
+      },
+      "actual_intervention": null,
+      "outcome_label": "harmful",
+      "domain": "shipping",
+      "scenario_family": "transfer",
+      "system_type": "engine"
+    }
+  ]
+}

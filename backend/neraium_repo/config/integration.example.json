@@ -1,0 +1,78 @@
+{
+  "default": {
+    "mode": "pull",
+    "polling_interval_seconds": 30,
+    "request_timeout_seconds": 10,
+    "retry_max_attempts": 3,
+    "retry_backoff_seconds": 1.0,
+    "auth_type": "none",
+    "mapping": {
+      "payload_path": "",
+      "items_path": "",
+      "field_aliases": {
+        "timestamp": [
+          "timestamp",
+          "time",
+          "event_time",
+          "event_timestamp"
+        ],
+        "site_id": [
+          "site_id",
+          "site",
+          "plant"
+        ],
+        "asset_id": [
+          "asset_id",
+          "asset",
+          "unit"
+        ],
+        "sensor_values": [
+          "sensor_values",
+          "sensors",
+          "metrics"
+        ]
+      },
+      "sensor_aliases": {
+        "Temperature C": "temperature",
+        "Pressure_kPa": "pressure",
+        "Flow Rate": "flow",
+        "Vibration RMS": "vibration"
+      },
+      "defaults": {
+        "site_id": "site-default"
+      },
+      "ignore_fields": [
+        "status",
+        "message"
+      ]
+    }
+  },
+  "customers": {
+    "default-customer": {
+      "endpoint_url": "https://customer-api.internal/telemetry",
+      "auth_type": "bearer",
+      "token": "${NERAIUM_DEFAULT_CUSTOMER_API_TOKEN}"
+    },
+    "pilot-customer-a": {
+      "endpoint_url": "https://customer-api.internal/pilot-a/events",
+      "mapping": {
+        "payload_path": "data",
+        "items_path": "events",
+        "field_aliases": {
+          "timestamp": [
+            "ts"
+          ],
+          "site_id": [
+            "siteName"
+          ],
+          "asset_id": [
+            "machine"
+          ],
+          "sensor_values": [
+            "values"
+          ]
+        }
+      }
+    }
+  }
+}

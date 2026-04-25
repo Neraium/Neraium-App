@@ -1,0 +1,81 @@
+name: FD004 Hero Plot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-hero-plot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev,plots]
+
+      - name: Run FD004 pipeline
+        run: |
+          python -m neraium_core.fd004_real \
+            --train-path train_FD004.txt \
+            --test-path test_FD004.txt \
+            --rul-path RUL_FD004.txt \
+            --output-dir fd004_outputs_subset
+
+      - name: Generate hero plot
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          from neraium_core.fd004_plotting import generate_fd004_hero_plot
+
+          out_dir = Path("fd004_outputs_subset")
+          report_path = out_dir / "fd004_real_report.json"
+          timeseries_path = out_dir / "fd004_real_timeseries.csv"
+          hero_plot_path = out_dir / "plots" / "hero_unit.png"
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          unit_summaries = report.get("unit_summaries", [])
+
+          rows = []
+          with timeseries_path.open("r", encoding="utf-8", newline="") as fh:
+              reader = csv.DictReader(fh)
+              for row in reader:
+                  rows.append(
+                      {
+                          "asset_id": row["asset_id"],
+                          "cycle": int(row["cycle"]),
+                          "structural_drift_score": float(row["structural_drift_score"]),
+                          "composite_instability": float(row["composite_instability"]),
+                          "phase": row["phase"],
+                          "risk_level": row["risk_level"],
+                          "estimated_rul": float(row["estimated_rul"]),
+                      }
+                  )
+
+          hero_asset_id, hero_plot_generated = generate_fd004_hero_plot(
+              rows,
+              unit_summaries,
+              output_path=hero_plot_path,
+              include_rul_curve=True,
+          )
+          if not hero_asset_id or not hero_plot_generated:
+              raise SystemExit("Hero plot generation failed")
+          print(f"Generated hero plot for {hero_asset_id}: {hero_plot_path}")
+          PY
+
+      - name: Upload hero plot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hero-plot
+          path: fd004_outputs_subset/plots/hero_unit.png
+          if-no-files-found: error

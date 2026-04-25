@@ -1,0 +1,129 @@
+{
+  "schema_version": "1.1",
+  "snapshots": [
+    {
+      "corpus_id": "corpus_v1",
+      "snapshot_file": "snapshots/corpus_v1.json",
+      "immutable": true,
+      "corpus_type": "baseline_clean",
+      "expected_difficulty": "low",
+      "coverage_tags": [
+        "legacy_baseline"
+      ]
+    },
+    {
+      "corpus_id": "baseline_clean_ops",
+      "snapshot_file": "snapshots/baseline_clean_ops.json",
+      "immutable": true,
+      "corpus_type": "baseline_clean",
+      "expected_difficulty": "low",
+      "coverage_tags": [
+        "clean",
+        "balanced_outcomes",
+        "production_like"
+      ]
+    },
+    {
+      "corpus_id": "noisy_realistic_ops",
+      "snapshot_file": "snapshots/noisy_realistic_ops.json",
+      "immutable": true,
+      "corpus_type": "noisy_realistic",
+      "expected_difficulty": "moderate",
+      "coverage_tags": [
+        "missing_signals",
+        "timestamp_jitter",
+        "sensor_noise"
+      ]
+    },
+    {
+      "corpus_id": "adv_misleading_stability",
+      "snapshot_file": "snapshots/adv_misleading_stability.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "misleading_stability",
+        "late_collapse"
+      ]
+    },
+    {
+      "corpus_id": "adv_lookalike_divergence",
+      "snapshot_file": "snapshots/adv_lookalike_divergence.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "lookalike_divergence",
+        "ambiguous_trajectory"
+      ]
+    },
+    {
+      "corpus_id": "adv_intervention_reversal",
+      "snapshot_file": "snapshots/adv_intervention_reversal.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "intervention_reversal",
+        "context_dependency"
+      ]
+    },
+    {
+      "corpus_id": "adv_false_recovery",
+      "snapshot_file": "snapshots/adv_false_recovery.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "false_recovery",
+        "temporary_improvement"
+      ]
+    },
+    {
+      "corpus_id": "adv_sparse_misleading",
+      "snapshot_file": "snapshots/adv_sparse_misleading.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "sparse_data",
+        "missing_key_signals"
+      ]
+    },
+    {
+      "corpus_id": "adv_conflicting_signals",
+      "snapshot_file": "snapshots/adv_conflicting_signals.json",
+      "immutable": true,
+      "corpus_type": "adversarial",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "conflicting_signals",
+        "indicator_disagreement"
+      ]
+    },
+    {
+      "corpus_id": "transfer_cross_domain_small_scale",
+      "snapshot_file": "snapshots/transfer_cross_domain_small_scale.json",
+      "immutable": true,
+      "corpus_type": "transfer_cross_domain",
+      "expected_difficulty": "moderate",
+      "coverage_tags": [
+        "cross_domain",
+        "small_scale",
+        "different_system_type"
+      ]
+    },
+    {
+      "corpus_id": "transfer_cross_domain_large_scale",
+      "snapshot_file": "snapshots/transfer_cross_domain_large_scale.json",
+      "immutable": true,
+      "corpus_type": "transfer_cross_domain",
+      "expected_difficulty": "high",
+      "coverage_tags": [
+        "cross_domain",
+        "large_scale_range",
+        "high_noise_profile"
+      ]
+    }
+  ]
+}

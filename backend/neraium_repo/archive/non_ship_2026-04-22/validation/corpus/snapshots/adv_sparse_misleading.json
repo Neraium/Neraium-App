@@ -1,0 +1,45 @@
+{
+  "corpus_id": "adv_sparse_misleading",
+  "description": "Sparse observations hide key precursor signals and mislead stability estimation.",
+  "created_at": "2026-03-31T00:00:00Z",
+  "schema_version": "1.0",
+  "corpus_type": "adversarial",
+  "expected_difficulty": "high",
+  "coverage_tags": [
+    "sparse_data",
+    "missing_key_signals"
+  ],
+  "source_datasets": [
+    {
+      "name": "synthetic release-policy corpus",
+      "origin": "repository",
+      "notes": "Deterministic and interpretable."
+    }
+  ],
+  "metadata_summary": {
+    "domain_coverage": [
+      "energy"
+    ],
+    "system_types": [
+      "grid"
+    ],
+    "number_of_trajectories": 1,
+    "intervention_coverage": "tracked at runtime"
+  },
+  "ingestion_parameters": {
+    "sort": "timestamp,asset_id,scenario_id",
+    "normalization": "validation.replay.adapters._normalize_record"
+  },
+  "quality_requirements": {
+    "min_dataset_size": 4,
+    "min_intervention_coverage": 0.0,
+    "min_domain_diversity": 1
+  },
+  "data_files": [
+    {
+      "path": "snapshots/data/adv_sparse_misleading.json",
+      "format": "json",
+      "sha256": "bcb95e90fa4dfb0777dae028ca6be912af0e7daaaeaa4e19e224eb008b8c0069"
+    }
+  ]
+}

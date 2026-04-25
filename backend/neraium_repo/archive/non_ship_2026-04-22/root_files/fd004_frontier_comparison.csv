@@ -1,0 +1,3 @@
+variant,detection_rate,false_positive_rate,median_true_lead_time,mean_true_lead_time,min_true_lead_time,max_true_lead_time,q1_true_lead_time,q3_true_lead_time,improvement_median,improvement_mean
+baseline,100.0%,0.0%,90,88.9,0,205,42,128,+0.0%,+0.0%
+frontier,100.0%,0.0%,90,88.9,0,205,42,128,+0.0%,+0.0%

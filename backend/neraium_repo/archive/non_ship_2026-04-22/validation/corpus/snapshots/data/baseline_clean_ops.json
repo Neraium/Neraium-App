@@ -1,0 +1,1804 @@
+{
+  "events": [
+    {
+      "timestamp": 1.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.064,
+        "sensor": 0.15,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::0",
+      "system_type": "pump",
+      "novelty": 0.1,
+      "support_count": 0,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 2.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.067,
+        "sensor": 0.17,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::1",
+      "system_type": "pump",
+      "novelty": 0.13125,
+      "support_count": 1,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 3.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.07,
+        "sensor": 0.19,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::2",
+      "system_type": "pump",
+      "novelty": 0.1625,
+      "support_count": 2,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 4.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.073,
+        "sensor": 0.21,
+        "vibration": 0.095
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::3",
+      "system_type": "pump",
+      "novelty": 0.19375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 5.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.076,
+        "sensor": 0.23,
+        "vibration": 0.11
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::4",
+      "system_type": "pump",
+      "novelty": 0.225,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 6.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.079,
+        "sensor": 0.25,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::5",
+      "system_type": "pump",
+      "novelty": 0.25625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 7.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.082,
+        "sensor": 0.27,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::6",
+      "system_type": "pump",
+      "novelty": 0.2875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 8.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.085,
+        "sensor": 0.29,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::7",
+      "system_type": "pump",
+      "novelty": 0.31875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 9.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.088,
+        "sensor": 0.31,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::8",
+      "system_type": "pump",
+      "novelty": 0.35,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 10.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.091,
+        "sensor": 0.33,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::9",
+      "system_type": "pump",
+      "novelty": 0.38125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 11.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.094,
+        "sensor": 0.15,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::10",
+      "system_type": "pump",
+      "novelty": 0.4125,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 12.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.097,
+        "sensor": 0.17,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::11",
+      "system_type": "pump",
+      "novelty": 0.44375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 13.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.1,
+        "sensor": 0.19,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::12",
+      "system_type": "pump",
+      "novelty": 0.475,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 14.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.103,
+        "sensor": 0.21,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::13",
+      "system_type": "pump",
+      "novelty": 0.50625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 15.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.106,
+        "sensor": 0.23,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::14",
+      "system_type": "pump",
+      "novelty": 0.5375,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 16.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.109,
+        "sensor": 0.25,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::15",
+      "system_type": "pump",
+      "novelty": 0.56875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 17.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.112,
+        "sensor": 0.27,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::16",
+      "system_type": "pump",
+      "novelty": 0.6,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 18.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.115,
+        "sensor": 0.29,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::17",
+      "system_type": "pump",
+      "novelty": 0.63125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 19.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.118,
+        "sensor": 0.31,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::18",
+      "system_type": "pump",
+      "novelty": 0.6625,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 20.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.121,
+        "sensor": 0.33,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::19",
+      "system_type": "pump",
+      "novelty": 0.69375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 21.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.124,
+        "sensor": 0.15,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::20",
+      "system_type": "pump",
+      "novelty": 0.725,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 22.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.127,
+        "sensor": 0.17,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::21",
+      "system_type": "pump",
+      "novelty": 0.75625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 23.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.13,
+        "sensor": 0.19,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::22",
+      "system_type": "pump",
+      "novelty": 0.7875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 24.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.133,
+        "sensor": 0.21,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::23",
+      "system_type": "pump",
+      "novelty": 0.81875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 25.0,
+      "asset_id": "b1",
+      "observation": {
+        "x": 0.136,
+        "sensor": 0.23,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_a",
+      "scenario_id": "b1::24",
+      "system_type": "pump",
+      "novelty": 0.85,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 26.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.264,
+        "sensor": 0.15,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::0",
+      "system_type": "pump",
+      "novelty": 0.1,
+      "support_count": 0,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 27.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.267,
+        "sensor": 0.17,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::1",
+      "system_type": "pump",
+      "novelty": 0.13125,
+      "support_count": 1,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 28.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.27,
+        "sensor": 0.19,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::2",
+      "system_type": "pump",
+      "novelty": 0.1625,
+      "support_count": 2,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 29.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.273,
+        "sensor": 0.21,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::3",
+      "system_type": "pump",
+      "novelty": 0.19375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 30.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.276,
+        "sensor": 0.23,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::4",
+      "system_type": "pump",
+      "novelty": 0.225,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 31.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.279,
+        "sensor": 0.25,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::5",
+      "system_type": "pump",
+      "novelty": 0.25625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 32.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.282,
+        "sensor": 0.27,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::6",
+      "system_type": "pump",
+      "novelty": 0.2875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 33.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.285,
+        "sensor": 0.29,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::7",
+      "system_type": "pump",
+      "novelty": 0.31875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 34.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.288,
+        "sensor": 0.31,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::8",
+      "system_type": "pump",
+      "novelty": 0.35,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 35.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.291,
+        "sensor": 0.33,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::9",
+      "system_type": "pump",
+      "novelty": 0.38125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 36.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.294,
+        "sensor": 0.15,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::10",
+      "system_type": "pump",
+      "novelty": 0.4125,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 37.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.297,
+        "sensor": 0.17,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::11",
+      "system_type": "pump",
+      "novelty": 0.44375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 38.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.3,
+        "sensor": 0.19,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::12",
+      "system_type": "pump",
+      "novelty": 0.475,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 39.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.303,
+        "sensor": 0.21,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::13",
+      "system_type": "pump",
+      "novelty": 0.50625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 40.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.306,
+        "sensor": 0.23,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::14",
+      "system_type": "pump",
+      "novelty": 0.5375,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 41.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.309,
+        "sensor": 0.25,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::15",
+      "system_type": "pump",
+      "novelty": 0.56875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 42.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.312,
+        "sensor": 0.27,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::16",
+      "system_type": "pump",
+      "novelty": 0.6,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 43.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.315,
+        "sensor": 0.29,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::17",
+      "system_type": "pump",
+      "novelty": 0.63125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 44.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.318,
+        "sensor": 0.31,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::18",
+      "system_type": "pump",
+      "novelty": 0.6625,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 45.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.321,
+        "sensor": 0.33,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::19",
+      "system_type": "pump",
+      "novelty": 0.69375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 46.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.324,
+        "sensor": 0.15,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::20",
+      "system_type": "pump",
+      "novelty": 0.725,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 47.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.327,
+        "sensor": 0.17,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::21",
+      "system_type": "pump",
+      "novelty": 0.75625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 48.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.33,
+        "sensor": 0.19,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::22",
+      "system_type": "pump",
+      "novelty": 0.7875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 49.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.333,
+        "sensor": 0.21,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::23",
+      "system_type": "pump",
+      "novelty": 0.81875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 50.0,
+      "asset_id": "b2",
+      "observation": {
+        "x": 0.336,
+        "sensor": 0.23,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline_pump_b",
+      "scenario_id": "b2::24",
+      "system_type": "pump",
+      "novelty": 0.85,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 51.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.514,
+        "sensor": 0.15,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::0",
+      "system_type": "compressor",
+      "novelty": 0.1,
+      "support_count": 0,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 52.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.517,
+        "sensor": 0.17,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::1",
+      "system_type": "compressor",
+      "novelty": 0.13125,
+      "support_count": 1,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 53.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.52,
+        "sensor": 0.19,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::2",
+      "system_type": "compressor",
+      "novelty": 0.1625,
+      "support_count": 2,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 54.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.523,
+        "sensor": 0.21,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::3",
+      "system_type": "compressor",
+      "novelty": 0.19375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 55.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.526,
+        "sensor": 0.23,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::4",
+      "system_type": "compressor",
+      "novelty": 0.225,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 56.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.529,
+        "sensor": 0.25,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::5",
+      "system_type": "compressor",
+      "novelty": 0.25625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 57.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.532,
+        "sensor": 0.27,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::6",
+      "system_type": "compressor",
+      "novelty": 0.2875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 58.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.535,
+        "sensor": 0.29,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::7",
+      "system_type": "compressor",
+      "novelty": 0.31875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 59.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.538,
+        "sensor": 0.31,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::8",
+      "system_type": "compressor",
+      "novelty": 0.35,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 60.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.541,
+        "sensor": 0.33,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::9",
+      "system_type": "compressor",
+      "novelty": 0.38125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 61.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.544,
+        "sensor": 0.15,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::10",
+      "system_type": "compressor",
+      "novelty": 0.4125,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 62.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.547,
+        "sensor": 0.17,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::11",
+      "system_type": "compressor",
+      "novelty": 0.44375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 63.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.55,
+        "sensor": 0.19,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::12",
+      "system_type": "compressor",
+      "novelty": 0.475,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 64.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.553,
+        "sensor": 0.21,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::13",
+      "system_type": "compressor",
+      "novelty": 0.50625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 65.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.556,
+        "sensor": 0.23,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::14",
+      "system_type": "compressor",
+      "novelty": 0.5375,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 66.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.559,
+        "sensor": 0.25,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::15",
+      "system_type": "compressor",
+      "novelty": 0.56875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 67.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.562,
+        "sensor": 0.27,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::16",
+      "system_type": "compressor",
+      "novelty": 0.6,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 68.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.565,
+        "sensor": 0.29,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::17",
+      "system_type": "compressor",
+      "novelty": 0.63125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 69.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.568,
+        "sensor": 0.31,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::18",
+      "system_type": "compressor",
+      "novelty": 0.6625,
+      "support_count": 9,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 70.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.571,
+        "sensor": 0.33,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::19",
+      "system_type": "compressor",
+      "novelty": 0.69375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 71.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.574,
+        "sensor": 0.15,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::20",
+      "system_type": "compressor",
+      "novelty": 0.725,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 72.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.577,
+        "sensor": 0.17,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::21",
+      "system_type": "compressor",
+      "novelty": 0.75625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 73.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.58,
+        "sensor": 0.19,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::22",
+      "system_type": "compressor",
+      "novelty": 0.7875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 74.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.583,
+        "sensor": 0.21,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::23",
+      "system_type": "compressor",
+      "novelty": 0.81875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 75.0,
+      "asset_id": "b3",
+      "observation": {
+        "x": 0.586,
+        "sensor": 0.23,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "baseline_energy_a",
+      "scenario_id": "b3::24",
+      "system_type": "compressor",
+      "novelty": 0.85,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 76.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.714,
+        "sensor": 0.15,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::0",
+      "system_type": "compressor",
+      "novelty": 0.2,
+      "support_count": 0,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 77.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.717,
+        "sensor": 0.17,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::1",
+      "system_type": "compressor",
+      "novelty": 0.23125,
+      "support_count": 1,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 78.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.72,
+        "sensor": 0.19,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::2",
+      "system_type": "compressor",
+      "novelty": 0.2625,
+      "support_count": 2,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 79.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.723,
+        "sensor": 0.21,
+        "vibration": 0.095
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::3",
+      "system_type": "compressor",
+      "novelty": 0.29375,
+      "support_count": 4,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 80.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.726,
+        "sensor": 0.23,
+        "vibration": 0.11
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::4",
+      "system_type": "compressor",
+      "novelty": 0.325,
+      "support_count": 7,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 81.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.729,
+        "sensor": 0.25,
+        "vibration": 0.125
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::5",
+      "system_type": "compressor",
+      "novelty": 0.35625,
+      "support_count": 10,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 82.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.732,
+        "sensor": 0.27,
+        "vibration": 0.14
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::6",
+      "system_type": "compressor",
+      "novelty": 0.3875,
+      "support_count": 5,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 83.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.735,
+        "sensor": 0.29,
+        "vibration": 0.05
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::7",
+      "system_type": "compressor",
+      "novelty": 0.41875,
+      "support_count": 8,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 84.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.738,
+        "sensor": 0.31,
+        "vibration": 0.065
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::8",
+      "system_type": "compressor",
+      "novelty": 0.45,
+      "support_count": 3,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 85.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.741,
+        "sensor": 0.33,
+        "vibration": 0.08
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::9",
+      "system_type": "compressor",
+      "novelty": 0.48125,
+      "support_count": 6,
+      "drift_warning": false
+    },
+    {
+      "timestamp": 86.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.744,
+        "sensor": 0.15,
+        "vibration": 0.095
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::10",
+      "system_type": "compressor",
+      "novelty": 0.5125,
+      "support_count": 9,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 87.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.747,
+        "sensor": 0.21,
+        "vibration": 0.11
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::11",
+      "system_type": "compressor",
+      "novelty": 0.54375,
+      "support_count": 4,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 88.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.75,
+        "sensor": 0.23,
+        "vibration": 0.125
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::12",
+      "system_type": "compressor",
+      "novelty": 0.575,
+      "support_count": 7,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 89.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.753,
+        "sensor": 0.25,
+        "vibration": 0.14
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::13",
+      "system_type": "compressor",
+      "novelty": 0.60625,
+      "support_count": 10,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 90.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.756,
+        "sensor": 0.27,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::14",
+      "system_type": "compressor",
+      "novelty": 0.6375,
+      "support_count": 5,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 91.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.759,
+        "sensor": 0.29,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::15",
+      "system_type": "compressor",
+      "novelty": 0.66875,
+      "support_count": 8,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 92.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.762,
+        "sensor": 0.31,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::16",
+      "system_type": "compressor",
+      "novelty": 0.7,
+      "support_count": 3,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 93.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.765,
+        "sensor": 0.33,
+        "vibration": 0.095
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::17",
+      "system_type": "compressor",
+      "novelty": 0.73125,
+      "support_count": 6,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 94.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.768,
+        "sensor": 0.35,
+        "vibration": 0.11
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::18",
+      "system_type": "compressor",
+      "novelty": 0.7625,
+      "support_count": 9,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 95.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.771,
+        "sensor": 0.37,
+        "vibration": 0.125
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::19",
+      "system_type": "compressor",
+      "novelty": 0.79375,
+      "support_count": 4,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 96.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.774,
+        "sensor": 0.19,
+        "vibration": 0.14
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::20",
+      "system_type": "compressor",
+      "novelty": 0.825,
+      "support_count": 7,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 97.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.777,
+        "sensor": 0.21,
+        "vibration": 0.05
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::21",
+      "system_type": "compressor",
+      "novelty": 0.85625,
+      "support_count": 10,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 98.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.78,
+        "sensor": 0.23,
+        "vibration": 0.065
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::22",
+      "system_type": "compressor",
+      "novelty": 0.8875,
+      "support_count": 5,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 99.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.783,
+        "sensor": 0.25,
+        "vibration": 0.08
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::23",
+      "system_type": "compressor",
+      "novelty": 0.91875,
+      "support_count": 8,
+      "drift_warning": true
+    },
+    {
+      "timestamp": 100.0,
+      "asset_id": "b4",
+      "observation": {
+        "x": 0.786,
+        "sensor": 0.27,
+        "vibration": 0.095
+      },
+      "actual_intervention": "monitor",
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "drift_energy_b",
+      "scenario_id": "b4::24",
+      "system_type": "compressor",
+      "novelty": 0.95,
+      "support_count": 3,
+      "drift_warning": true
+    }
+  ]
+}

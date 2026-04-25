@@ -1,0 +1,104 @@
+{
+  "nodes": ["A", "B", "C", "D"],
+  "conditions": ["coherent_time", "disturbed_time"],
+  "seeds": [42, 43, 44, 45, 46],
+  "time": {
+    "start": 0,
+    "end": 240
+  },
+  "phases": {
+    "baseline_end": 79,
+    "perturbation_start": 80,
+    "perturbation_end": 159,
+    "recovery_start": 160
+  },
+  "engine": {
+    "baseline_window": 50,
+    "recent_window": 12
+  },
+  "disturbed_time": {
+    "jitter_small": 0.55,
+    "jitter_gap_low": 0.75,
+    "jitter_gap_high": 1.75,
+    "jitter_gap_count": 20
+  },
+  "calibration": {
+    "latent": {
+      "amplitude": 0.20,
+      "w1": 0.09817477042468103,
+      "w2": 0.2731819698773733,
+      "phi2": 0.6
+    },
+    "nominal": {
+      "a1": 1.0,
+      "a2": 0.9,
+      "a3": 1.05
+    },
+    "node_b": {
+      "s2_scale": 1.07,
+      "s2_offset": 0.03
+    },
+    "node_c": {
+      "s2_noise_amplitude": 0.30,
+      "s3_residual": 0.0,
+      "s3_noise_amplitude": 1.60,
+      "disturbed_time_noise_multiplier": 1.28
+    },
+    "node_d": {
+      "s3_noise_amplitude": 0.05,
+      "missing_prob": 0.015
+    }
+  },
+  "metrics": {
+    "target_node": "C"
+  },
+  "assertion_floors": {
+    "alert_precision": {
+      "coherent_time": 0.40,
+      "disturbed_time": 0.40
+    },
+    "alert_recall": {
+      "coherent_time": 0.90,
+      "disturbed_time": 0.94
+    },
+    "baseline_stability_mean_all_nodes": {
+      "coherent_time": 0.45,
+      "disturbed_time": 0.45
+    },
+    "baseline_stability_rate_legacy_ab_only": {
+      "coherent_time": 0.75,
+      "disturbed_time": 0.75
+    },
+    "recovery_success_rate": {
+      "coherent_time": 0.80,
+      "disturbed_time": 0.80
+    },
+    "false_positive_rate_max": {
+      "coherent_time": 0.35,
+      "disturbed_time": 0.35
+    },
+    "peak_separation_min": {
+      "coherent_time": 0.20,
+      "disturbed_time": 0.20
+    }
+  },
+  "node_role_bounds": {
+    "A_pert_alert_rate_max": {
+      "coherent_time": 0.10,
+      "disturbed_time": 0.12
+    },
+    "B_pert_alert_rate_max": {
+      "coherent_time": 0.25,
+      "disturbed_time": 0.28
+    },
+    "D_pert_alert_rate_max": {
+      "coherent_time": 0.20,
+      "disturbed_time": 0.25
+    },
+    "C_pert_alert_rate_min": {
+      "coherent_time": 0.90,
+      "disturbed_time": 0.94
+    }
+  }
+}
+

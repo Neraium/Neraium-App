@@ -1,0 +1,51 @@
+{
+  "default": {
+    "mode": "pull",
+    "polling_interval_seconds": 30,
+    "request_timeout_seconds": 10,
+    "retry_max_attempts": 3,
+    "retry_backoff_seconds": 1.0,
+    "auth_type": "none",
+    "mapping": {
+      "payload_path": "",
+      "items_path": "",
+      "field_aliases": {
+        "timestamp": ["timestamp", "event_time", "ts"],
+        "site_id": ["site_id", "site", "plant"],
+        "asset_id": ["asset_id", "asset", "unit", "machine_id"],
+        "sensor_values": ["sensor_values", "sensors", "metrics", "values"]
+      },
+      "sensor_aliases": {
+        "Temperature C": "temperature_c",
+        "Pressure kPa": "pressure_kpa",
+        "Flow Rate": "flow_rate",
+        "Vibration RMS": "vibration_rms"
+      },
+      "defaults": {
+        "site_id": "default-site"
+      },
+      "ignore_fields": ["status", "message"]
+    }
+  },
+  "customers": {
+    "acme-prod": {
+      "endpoint_url": "https://customer.internal/api/telemetry",
+      "auth_type": "bearer",
+      "token": "${NERAIUM_DEFAULT_CUSTOMER_API_TOKEN}",
+      "mapping": {
+        "payload_path": "data",
+        "items_path": "events",
+        "field_aliases": {
+          "timestamp": ["timeStamp"],
+          "site_id": ["siteCode"],
+          "asset_id": ["assetCode"],
+          "sensor_values": ["signals"]
+        },
+        "sensor_aliases": {
+          "Temp C": "temperature_c",
+          "Press_kPa": "pressure_kpa"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "corpus_id": "adv_conflicting_signals",
+  "description": "Primary indicators disagree, forcing robust conflict handling.",
+  "created_at": "2026-03-31T00:00:00Z",
+  "schema_version": "1.0",
+  "corpus_type": "adversarial",
+  "expected_difficulty": "high",
+  "coverage_tags": [
+    "conflicting_signals",
+    "indicator_disagreement"
+  ],
+  "source_datasets": [
+    {
+      "name": "synthetic release-policy corpus",
+      "origin": "repository",
+      "notes": "Deterministic and interpretable."
+    }
+  ],
+  "metadata_summary": {
+    "domain_coverage": [
+      "water"
+    ],
+    "system_types": [
+      "pump"
+    ],
+    "number_of_trajectories": 1,
+    "intervention_coverage": "tracked at runtime"
+  },
+  "ingestion_parameters": {
+    "sort": "timestamp,asset_id,scenario_id",
+    "normalization": "validation.replay.adapters._normalize_record"
+  },
+  "quality_requirements": {
+    "min_dataset_size": 4,
+    "min_intervention_coverage": 0.0,
+    "min_domain_diversity": 1
+  },
+  "data_files": [
+    {
+      "path": "snapshots/data/adv_conflicting_signals.json",
+      "format": "json",
+      "sha256": "155c56a639f58dcf6ffe1e19d1fbaedd7d7c46130109061cab0573a7741dc17b"
+    }
+  ]
+}

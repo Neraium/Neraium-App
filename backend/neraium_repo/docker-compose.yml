@@ -1,0 +1,56 @@
+services:
+  neraium:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: neraium-core:customer
+    container_name: neraium-core
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      NERAIUM_RUNTIME_MODE: ${NERAIUM_RUNTIME_MODE:-production}
+      NERAIUM_LOG_LEVEL: ${NERAIUM_LOG_LEVEL:-INFO}
+      NERAIUM_DB_PATH: /data/neraium.db
+      NERAIUM_INTEGRATION_CONFIG_PATH: /config/integration.json
+      NERAIUM_DEFAULT_CUSTOMER_API_BASE_URL: ${NERAIUM_DEFAULT_CUSTOMER_API_BASE_URL:-}
+      NERAIUM_DEFAULT_CUSTOMER_API_AUTH_TYPE: ${NERAIUM_DEFAULT_CUSTOMER_API_AUTH_TYPE:-none}
+      NERAIUM_DEFAULT_CUSTOMER_API_USERNAME: ${NERAIUM_DEFAULT_CUSTOMER_API_USERNAME:-}
+      NERAIUM_DEFAULT_CUSTOMER_API_PASSWORD: ${NERAIUM_DEFAULT_CUSTOMER_API_PASSWORD:-}
+      NERAIUM_DEFAULT_CUSTOMER_API_TOKEN: ${NERAIUM_DEFAULT_CUSTOMER_API_TOKEN:-}
+      NERAIUM_PULL_POLLING_INTERVAL_SECONDS: ${NERAIUM_PULL_POLLING_INTERVAL_SECONDS:-30}
+      NERAIUM_PULL_RETRY_MAX_ATTEMPTS: ${NERAIUM_PULL_RETRY_MAX_ATTEMPTS:-3}
+      NERAIUM_PULL_RETRY_BACKOFF_SECONDS: ${NERAIUM_PULL_RETRY_BACKOFF_SECONDS:-1.0}
+      NERAIUM_PULL_REQUEST_TIMEOUT_SECONDS: ${NERAIUM_PULL_REQUEST_TIMEOUT_SECONDS:-10.0}
+      NERAIUM_UI_API_BASE_URL: ${NERAIUM_UI_API_BASE_URL:-http://127.0.0.1:8000}
+      NERAIUM_UI_WS_ENDPOINT: ${NERAIUM_UI_WS_ENDPOINT:-/ws/telemetry}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  neraium-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: neraium-core:customer
+    container_name: neraium-core-ui
+    restart: unless-stopped
+    profiles: ["ui"]
+    environment:
+      NERAIUM_UI_API_BASE_URL: ${NERAIUM_UI_API_BASE_URL:-http://neraium:8000}
+      NERAIUM_UI_WS_ENDPOINT: ${NERAIUM_UI_WS_ENDPOINT:-/ws/telemetry}
+    command: ["python", "-m", "ui.app"]
+    ports:
+      - "7860:7860"
+    depends_on:
+      - neraium

@@ -1,0 +1,4 @@
+preset,threshold_std,persistence,threshold_mode,threshold_percentile,false_positive_rate,coverage,mean_lead,score
+aggressive,1.5,3,mean_std,99.5,0.0,0.8594377510040161,99.13084112149532,133.50835116165598
+balanced,2.0,4,robust_mad,99.5,0.0,0.8353413654618473,94.2548076923077,127.66846231078159
+conservative,2.5,5,robust_mad,99.5,0.0,0.7791164658634538,88.8659793814433,120.03063801598145

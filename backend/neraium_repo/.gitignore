@@ -10,4 +10,3 @@ __pycache__/
 *.egg-info/
 neraium_markets/output/
 apps/__pycache__/
-frontend/node_modules/.cache/default-development/6.pack

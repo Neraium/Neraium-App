@@ -1,0 +1,30 @@
+{
+  "_fixture": "structural_failure",
+  "_description": "Payload exported from a third-party building management system alert log. None of the field names match the canonical ingestion contract (no timestamp alias, no asset alias, no sensor_values). The normalizer raises missing_timestamp for every item. All items fail; the batch returns HTTP 422 with no rows ingested.",
+  "_endpoint": "POST /ingest/batch",
+  "_expected": "HTTP 422, type: validation_error, all items fail normalization, 0 rows ingested",
+  "_operator_note": "This is the 'wrong export format' failure mode. Operator exported an alert log instead of a telemetry log. Fix: export the raw sensor time-series from the source system, not the alert event table.",
+  "items": [
+    {
+      "zone_id": "bay-1",
+      "alert_code": "TEMP_HIGH",
+      "alert_value": "HIGH",
+      "triggered_at": "2026-04-05T08:00:00Z",
+      "logged_by": "bms-export-v2"
+    },
+    {
+      "zone_id": "bay-2",
+      "alert_code": "CO2_ELEVATED",
+      "alert_value": "MODERATE",
+      "triggered_at": "2026-04-05T08:03:00Z",
+      "logged_by": "bms-export-v2"
+    },
+    {
+      "zone_id": "bay-1",
+      "alert_code": "HUMIDITY_LOW",
+      "alert_value": "WARNING",
+      "triggered_at": "2026-04-05T08:07:00Z",
+      "logged_by": "bms-export-v2"
+    }
+  ]
+}

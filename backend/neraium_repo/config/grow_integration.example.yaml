@@ -1,0 +1,37 @@
+deployment_mode: grow
+facility:
+  facility_id: fac-chi-1
+  name: Demo Cultivation Facility
+integrations:
+  bacnet:
+    enabled: false
+    host: bacnet://example-host
+  modbus:
+    enabled: false
+    endpoint: tcp://example-host:502
+  mqtt:
+    enabled: false
+    broker: mqtt://example-host:1883
+  customer_api_pull:
+    enabled: false
+    base_url: https://customer.example/api
+mapping:
+  rooms:
+    flower-1: Flower 1
+    flower-2: Flower 2
+    veg-1: Veg 1
+  zones:
+    flower-1-canopy: canopy
+    flower-2-canopy: canopy
+    veg-1-feed: fertigation
+  assets:
+    ahu-fl1:
+      subsystem: hvac
+    ahu-fl2:
+      subsystem: hvac
+    fert-skid-1:
+      subsystem: fertigation
+interpretation:
+  advisory_only: true
+  threshold_status_visible: true
+  biological_risk_enabled: true

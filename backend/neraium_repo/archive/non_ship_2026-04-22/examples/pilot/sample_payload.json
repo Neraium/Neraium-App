@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-01-01T00:00:00+00:00",
+  "site_id": "site-1",
+  "asset_id": "asset-1",
+  "sensor_values": {
+    "s1": 0.12,
+    "s2": 0.34,
+    "s3": 0.56
+  }
+}
+

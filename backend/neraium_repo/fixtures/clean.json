@@ -1,0 +1,41 @@
+{
+  "_fixture": "clean",
+  "_description": "Three well-formed telemetry frames from a cannabis grow facility. All fields canonical. No mapping ambiguity.",
+  "_endpoint": "POST /ingest/batch",
+  "_expected": "HTTP 200, status: ok, 3 processed, 3 succeeded, 0 failed",
+  "items": [
+    {
+      "timestamp": "2026-04-05T08:00:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": 24.1,
+        "humidity_rh": 62.0,
+        "co2_ppm": 850,
+        "vpd_kpa": 0.82
+      }
+    },
+    {
+      "timestamp": "2026-04-05T08:05:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": 24.3,
+        "humidity_rh": 61.5,
+        "co2_ppm": 855,
+        "vpd_kpa": 0.84
+      }
+    },
+    {
+      "timestamp": "2026-04-05T08:10:00Z",
+      "site_id": "bay-1",
+      "asset_id": "hvac-unit-a",
+      "sensor_values": {
+        "temp_c": 24.2,
+        "humidity_rh": 62.1,
+        "co2_ppm": 848,
+        "vpd_kpa": 0.83
+      }
+    }
+  ]
+}

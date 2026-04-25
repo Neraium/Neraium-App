@@ -1,0 +1,2 @@
+unit,timesteps,healthy_cutoff,degradation_start,baseline_peak,drift_peak,spectral_radius_peak,ema_warning,lead_vs_degradation,lead_vs_baseline,false_positive,warning_before_degradation,warning_before_baseline_peak
+1,321,64,256,238,84,136,83,173,155,False,True,True

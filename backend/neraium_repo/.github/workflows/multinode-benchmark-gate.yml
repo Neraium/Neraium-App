@@ -1,0 +1,52 @@
+name: Multinode Benchmark Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "run_upgraded_multinode_test.py"
+      - "benchmark_calibration.json"
+      - "neraium_core/alignment.py"
+      - ".github/workflows/multinode-benchmark-gate.yml"
+  pull_request:
+    paths:
+      - "run_upgraded_multinode_test.py"
+      - "benchmark_calibration.json"
+      - "neraium_core/alignment.py"
+      - ".github/workflows/multinode-benchmark-gate.yml"
+
+jobs:
+  benchmark-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run benchmark quality gate
+        run: |
+          python run_upgraded_multinode_test.py
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: multinode-benchmark-artifacts
+          path: |
+            upgraded_multinode_test_results.json
+            upgraded_multinode_test_timeseries.csv
+            upgraded_multinode_test_node_summary.csv
+            upgraded_multinode_test_metrics.csv
+            upgraded_multinode_quality_report.md
+            upgraded_multinode_phase_confusion.csv
+          if-no-files-found: error
+

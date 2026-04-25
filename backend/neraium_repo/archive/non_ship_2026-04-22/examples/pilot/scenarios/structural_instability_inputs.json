@@ -1,0 +1,1327 @@
+{
+  "scenario": "structural_instability",
+  "description": "Rising cross-sensor variance and diverging dynamics after an initial calm phase; no missing data.",
+  "timesteps": 120,
+  "payloads": [
+    {
+      "timestamp": "2026-01-01T00:00:00+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.982636,
+        "s2": 10.087001,
+        "s3": 10.100773,
+        "s4": 10.142093
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:01+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.987061,
+        "s2": 10.113464,
+        "s3": 10.091524,
+        "s4": 10.11041
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:02+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.012258,
+        "s2": 10.165857,
+        "s3": 10.133661,
+        "s4": 10.137413
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:03+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.040184,
+        "s2": 10.123219,
+        "s3": 10.100719,
+        "s4": 10.136688
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:04+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.072683,
+        "s2": 10.129629,
+        "s3": 10.11224,
+        "s4": 10.158189
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:05+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.033518,
+        "s2": 10.138776,
+        "s3": 10.102744,
+        "s4": 10.078738
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:06+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.05837,
+        "s2": 10.14289,
+        "s3": 10.120112,
+        "s4": 10.088099
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:07+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.031461,
+        "s2": 10.15266,
+        "s3": 10.155504,
+        "s4": 10.10434
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:08+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.068622,
+        "s2": 10.147463,
+        "s3": 10.083474,
+        "s4": 10.089185
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:09+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.060691,
+        "s2": 10.198765,
+        "s3": 10.068161,
+        "s4": 10.077305
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:10+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.099483,
+        "s2": 10.140766,
+        "s3": 10.062131,
+        "s4": 10.089865
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:11+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.060936,
+        "s2": 10.134922,
+        "s3": 10.073635,
+        "s4": 10.088714
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:12+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.035745,
+        "s2": 10.113573,
+        "s3": 10.061177,
+        "s4": 10.064586
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:13+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.059137,
+        "s2": 10.128235,
+        "s3": 10.034511,
+        "s4": 10.02123
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:14+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.999975,
+        "s2": 10.108432,
+        "s3": 10.048399,
+        "s4": 10.064089
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:15+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.979348,
+        "s2": 10.093907,
+        "s3": 9.997318,
+        "s4": 10.062675
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:16+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.990317,
+        "s2": 10.09086,
+        "s3": 10.005156,
+        "s4": 10.036906
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:17+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.984081,
+        "s2": 10.070495,
+        "s3": 10.00268,
+        "s4": 10.004594
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:18+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.974746,
+        "s2": 10.050427,
+        "s3": 10.00549,
+        "s4": 10.073178
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:19+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.966829,
+        "s2": 10.040905,
+        "s3": 10.019547,
+        "s4": 10.007138
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:20+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.955509,
+        "s2": 10.048324,
+        "s3": 10.007091,
+        "s4": 10.005057
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:21+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.960458,
+        "s2": 10.055573,
+        "s3": 9.991252,
+        "s4": 10.105246
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:22+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.936681,
+        "s2": 10.031852,
+        "s3": 10.042026,
+        "s4": 10.039714
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:23+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.984219,
+        "s2": 10.065098,
+        "s3": 10.023183,
+        "s4": 10.078015
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:24+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.945974,
+        "s2": 10.04467,
+        "s3": 10.013699,
+        "s4": 10.045845
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:25+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.956867,
+        "s2": 10.111828,
+        "s3": 10.02852,
+        "s4": 10.085703
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:26+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.963716,
+        "s2": 10.083796,
+        "s3": 10.052202,
+        "s4": 10.087134
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:27+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.008072,
+        "s2": 10.121349,
+        "s3": 10.067113,
+        "s4": 10.092655
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:28+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.182333,
+        "s2": 9.466858,
+        "s3": 9.84233,
+        "s4": 10.135035
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:29+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.210619,
+        "s2": 9.398973,
+        "s3": 9.841603,
+        "s4": 10.116574
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:30+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.219464,
+        "s2": 9.377011,
+        "s3": 9.906168,
+        "s4": 10.086874
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:31+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.158873,
+        "s2": 9.337422,
+        "s3": 9.893414,
+        "s4": 10.090048
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:32+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.197526,
+        "s2": 9.400792,
+        "s3": 9.92977,
+        "s4": 10.136863
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:33+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.205157,
+        "s2": 9.441827,
+        "s3": 9.974887,
+        "s4": 10.04021
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:34+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.178616,
+        "s2": 9.573889,
+        "s3": 9.973363,
+        "s4": 10.028799
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:35+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.282915,
+        "s2": 9.613219,
+        "s3": 9.959265,
+        "s4": 10.121466
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:36+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.202109,
+        "s2": 9.762965,
+        "s3": 9.944413,
+        "s4": 10.160005
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:37+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.216806,
+        "s2": 9.866551,
+        "s3": 10.00097,
+        "s4": 10.110635
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:38+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.206106,
+        "s2": 9.977994,
+        "s3": 10.120221,
+        "s4": 10.072639
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:39+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.107446,
+        "s2": 10.015266,
+        "s3": 10.070176,
+        "s4": 10.151355
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:40+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.149039,
+        "s2": 9.880372,
+        "s3": 10.194178,
+        "s4": 9.950498
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:41+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.307832,
+        "s2": 10.017162,
+        "s3": 10.196798,
+        "s4": 10.164714
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:42+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.247019,
+        "s2": 10.005816,
+        "s3": 10.215602,
+        "s4": 10.129987
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:43+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.190572,
+        "s2": 9.819906,
+        "s3": 10.331924,
+        "s4": 10.139601
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:44+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.197796,
+        "s2": 9.550575,
+        "s3": 10.282013,
+        "s4": 10.068091
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:45+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.116067,
+        "s2": 9.505132,
+        "s3": 10.301155,
+        "s4": 10.047221
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:46+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.312168,
+        "s2": 9.227341,
+        "s3": 10.131988,
+        "s4": 10.153824
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:47+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.329801,
+        "s2": 9.459703,
+        "s3": 10.216642,
+        "s4": 10.13657
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:48+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.226589,
+        "s2": 9.333098,
+        "s3": 10.155907,
+        "s4": 10.194704
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:49+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.099404,
+        "s2": 9.168743,
+        "s3": 9.964669,
+        "s4": 10.168351
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:50+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.974044,
+        "s2": 9.353515,
+        "s3": 10.144073,
+        "s4": 10.495277
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:51+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.194388,
+        "s2": 9.079553,
+        "s3": 9.969707,
+        "s4": 10.528966
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:52+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.101092,
+        "s2": 9.431509,
+        "s3": 9.967706,
+        "s4": 10.120492
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:53+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.342855,
+        "s2": 9.98796,
+        "s3": 10.153143,
+        "s4": 10.020928
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:54+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.090866,
+        "s2": 10.028152,
+        "s3": 9.921037,
+        "s4": 10.015845
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:55+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.621149,
+        "s2": 9.663878,
+        "s3": 9.52963,
+        "s4": 9.717388
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:56+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.350519,
+        "s2": 10.272245,
+        "s3": 9.743035,
+        "s4": 9.983261
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:57+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.324932,
+        "s2": 9.69387,
+        "s3": 9.56846,
+        "s4": 9.273627
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:58+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.994424,
+        "s2": 9.995386,
+        "s3": 10.024568,
+        "s4": 9.565434
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:00:59+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.467439,
+        "s2": 9.544694,
+        "s3": 9.615784,
+        "s4": 9.89561
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:00+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.211738,
+        "s2": 9.580763,
+        "s3": 9.871816,
+        "s4": 10.856108
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:01+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.144571,
+        "s2": 9.024193,
+        "s3": 9.862306,
+        "s4": 10.076626
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:02+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.708613,
+        "s2": 9.810688,
+        "s3": 9.566952,
+        "s4": 9.882567
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:03+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.067206,
+        "s2": 9.686913,
+        "s3": 9.554848,
+        "s4": 10.221069
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:04+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.557152,
+        "s2": 9.009175,
+        "s3": 10.122274,
+        "s4": 10.219116
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:05+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.895142,
+        "s2": 9.455298,
+        "s3": 9.256259,
+        "s4": 10.651814
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:06+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.541405,
+        "s2": 8.938361,
+        "s3": 9.487202,
+        "s4": 10.312954
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:07+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.439786,
+        "s2": 9.355975,
+        "s3": 10.201352,
+        "s4": 10.354861
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:08+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.397918,
+        "s2": 9.096619,
+        "s3": 9.916939,
+        "s4": 9.820225
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:09+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.70788,
+        "s2": 9.405999,
+        "s3": 10.350921,
+        "s4": 10.364948
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:10+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.049856,
+        "s2": 9.221141,
+        "s3": 9.89989,
+        "s4": 10.298635
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:11+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.388657,
+        "s2": 10.150687,
+        "s3": 9.964264,
+        "s4": 9.548291
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:12+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.664448,
+        "s2": 9.806177,
+        "s3": 10.457796,
+        "s4": 10.053734
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:13+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.120677,
+        "s2": 9.576208,
+        "s3": 10.539671,
+        "s4": 10.124682
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:14+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.989916,
+        "s2": 10.246812,
+        "s3": 10.580129,
+        "s4": 9.577535
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:15+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.491138,
+        "s2": 9.279103,
+        "s3": 10.8677,
+        "s4": 10.339749
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:16+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.787023,
+        "s2": 9.798072,
+        "s3": 10.179263,
+        "s4": 10.91012
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:17+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.78423,
+        "s2": 9.88811,
+        "s3": 9.779162,
+        "s4": 9.608228
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:18+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.232469,
+        "s2": 10.267637,
+        "s3": 10.206132,
+        "s4": 9.599483
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:19+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.449651,
+        "s2": 9.190511,
+        "s3": 10.722767,
+        "s4": 10.133042
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:20+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.967321,
+        "s2": 9.782981,
+        "s3": 9.413678,
+        "s4": 9.65935
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:21+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.620271,
+        "s2": 9.26308,
+        "s3": 10.234213,
+        "s4": 10.072025
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:22+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.640996,
+        "s2": 7.978356,
+        "s3": 10.586336,
+        "s4": 10.428907
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:23+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.970319,
+        "s2": 8.857585,
+        "s3": 9.946841,
+        "s4": 10.574988
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:24+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.434065,
+        "s2": 9.248853,
+        "s3": 9.76942,
+        "s4": 8.695384
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:25+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.035339,
+        "s2": 9.433166,
+        "s3": 8.734275,
+        "s4": 8.567251
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:26+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.69419,
+        "s2": 9.854278,
+        "s3": 9.863123,
+        "s4": 10.054658
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:27+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.165193,
+        "s2": 9.721991,
+        "s3": 10.656568,
+        "s4": 10.134288
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:28+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.453349,
+        "s2": 8.989374,
+        "s3": 9.274549,
+        "s4": 9.994189
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:29+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.410295,
+        "s2": 9.515005,
+        "s3": 10.2039,
+        "s4": 9.889661
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:30+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.362545,
+        "s2": 9.992997,
+        "s3": 10.101338,
+        "s4": 10.38473
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:31+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.577902,
+        "s2": 10.372435,
+        "s3": 10.109525,
+        "s4": 10.014332
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:32+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.16174,
+        "s2": 9.037609,
+        "s3": 9.444548,
+        "s4": 9.631239
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:33+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.372424,
+        "s2": 8.921832,
+        "s3": 10.30281,
+        "s4": 10.747844
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:34+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.831585,
+        "s2": 10.174963,
+        "s3": 9.505432,
+        "s4": 10.14004
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:35+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.207926,
+        "s2": 10.006542,
+        "s3": 9.074921,
+        "s4": 12.198525
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:36+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.576338,
+        "s2": 7.774249,
+        "s3": 8.69069,
+        "s4": 11.176981
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:37+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.389177,
+        "s2": 9.683489,
+        "s3": 9.656612,
+        "s4": 8.644203
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:38+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.842367,
+        "s2": 8.708602,
+        "s3": 9.749453,
+        "s4": 8.426214
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:39+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.653661,
+        "s2": 9.485448,
+        "s3": 10.573984,
+        "s4": 10.076533
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:40+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.487662,
+        "s2": 9.920374,
+        "s3": 9.458596,
+        "s4": 8.649
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:41+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.346315,
+        "s2": 9.83217,
+        "s3": 10.277041,
+        "s4": 6.907119
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:42+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.293415,
+        "s2": 9.425114,
+        "s3": 10.157364,
+        "s4": 8.341745
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:43+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.677929,
+        "s2": 6.627254,
+        "s3": 10.311029,
+        "s4": 9.572792
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:44+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.184793,
+        "s2": 8.532005,
+        "s3": 9.944082,
+        "s4": 10.114094
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:45+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.829648,
+        "s2": 8.921056,
+        "s3": 11.367459,
+        "s4": 8.758007
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:46+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 12.085699,
+        "s2": 9.825968,
+        "s3": 9.332677,
+        "s4": 9.698146
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:47+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.077921,
+        "s2": 8.423301,
+        "s3": 9.172903,
+        "s4": 8.417979
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:48+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.69391,
+        "s2": 9.971053,
+        "s3": 8.955151,
+        "s4": 10.731325
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:49+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.447139,
+        "s2": 8.109878,
+        "s3": 9.170856,
+        "s4": 10.353618
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:50+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.542191,
+        "s2": 7.856305,
+        "s3": 11.305162,
+        "s4": 8.924372
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:51+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 12.913006,
+        "s2": 10.697423,
+        "s3": 11.94514,
+        "s4": 9.961342
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:52+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.033161,
+        "s2": 7.311167,
+        "s3": 10.350118,
+        "s4": 10.843879
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:53+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 10.71306,
+        "s2": 7.139267,
+        "s3": 10.616003,
+        "s4": 8.641824
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:54+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 12.504752,
+        "s2": 10.353918,
+        "s3": 10.678169,
+        "s4": 10.082925
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:55+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.308232,
+        "s2": 10.173148,
+        "s3": 8.903953,
+        "s4": 10.746052
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:56+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 7.718839,
+        "s2": 9.480648,
+        "s3": 10.517948,
+        "s4": 12.333254
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:57+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.387455,
+        "s2": 9.433704,
+        "s3": 7.599501,
+        "s4": 8.780088
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:58+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 9.492473,
+        "s2": 10.753523,
+        "s3": 12.477011,
+        "s4": 12.267774
+      }
+    },
+    {
+      "timestamp": "2026-01-01T00:01:59+00:00",
+      "site_id": "pilot-structural-instability",
+      "asset_id": "asset-si-1",
+      "sensor_values": {
+        "s1": 11.552334,
+        "s2": 7.106281,
+        "s3": 9.678972,
+        "s4": 9.211557
+      }
+    }
+  ]
+}

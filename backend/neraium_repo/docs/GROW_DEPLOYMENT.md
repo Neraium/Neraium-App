@@ -1,0 +1,20 @@
+# GROW DEPLOYMENT
+
+Environment variables:
+
+- `NERAIUM_DEPLOYMENT_MODE=grow`
+- `NERAIUM_DB_PATH`
+- `NERAIUM_API_KEY`
+- `NERAIUM_CUSTOMER_API_BASE_URL`
+- `NERAIUM_INTEGRATION_CONFIG_PATH`
+- `NERAIUM_GROW_BASELINE_WINDOW`
+- `NERAIUM_GROW_RECENT_WINDOW`
+- `NERAIUM_GROW_DRIFT_WATCH_THRESHOLD`
+- `NERAIUM_GROW_DRIFT_ALERT_THRESHOLD`
+
+Docker remains simple:
+
+```bash
+docker build -t neraium-grow .
+docker run --rm -p 8000:8000 neraium-grow
+```

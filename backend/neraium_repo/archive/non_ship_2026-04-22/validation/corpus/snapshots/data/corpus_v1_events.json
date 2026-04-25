@@ -1,0 +1,34 @@
+{
+  "events": [
+    {
+      "timestamp": 1,
+      "asset_id": "asset-alpha",
+      "observation": {"sensor": 0.1, "x": 0.5},
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "baseline",
+      "system_type": "pump"
+    },
+    {
+      "timestamp": 2,
+      "asset_id": "asset-beta",
+      "observation": {"sensor": 0.4, "x": 0.7},
+      "actual_intervention": "restore_relationship_cluster_to_baseline",
+      "outcome_label": "harmful",
+      "domain": "energy",
+      "scenario_family": "drift",
+      "system_type": "compressor"
+    },
+    {
+      "timestamp": 3,
+      "asset_id": "asset-gamma",
+      "observation": {"sensor": 0.3, "x": 0.4},
+      "actual_intervention": null,
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "recovery",
+      "system_type": "pump"
+    }
+  ]
+}

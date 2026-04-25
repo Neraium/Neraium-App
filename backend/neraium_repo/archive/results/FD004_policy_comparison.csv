@@ -1,0 +1,4 @@
+policy,coverage,mean_lead,median_lead,misses,good,very_early,usable,late
+ims_tuned,0.9758,175.49,164.5,6,134,75,33,0
+best_fd004,0.7137,204.24,194.0,71,74,84,19,0
+ims_original,0.4758,139.58,130.5,130,49,27,37,0

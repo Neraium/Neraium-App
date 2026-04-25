@@ -1,0 +1,6 @@
+timestamp,site_id,asset_id,temp_c,humidity_rh,co2_ppm,vpd_kpa
+2026-04-05T08:00:00Z,bay-1,hvac-unit-a,24.1,62.0,850,0.82
+2026-04-05T08:05:00Z,bay-1,hvac-unit-a,24.3,61.5,855,0.84
+not-a-valid-timestamp,bay-1,hvac-unit-a,24.2,62.1,848,0.83
+2026-04-05T08:15:00Z,bay-1,hvac-unit-a,SENSOR_FAULT,62.4,843,0.81
+2026-04-05T08:20:00Z,bay-1,hvac-unit-a,24.4,61.8,860,0.85

@@ -1,0 +1,48 @@
+{
+  "corpus_id": "transfer_cross_domain_small_scale",
+  "description": "Cross-domain small-scale systems with novel type distribution.",
+  "created_at": "2026-03-31T00:00:00Z",
+  "schema_version": "1.0",
+  "corpus_type": "transfer_cross_domain",
+  "expected_difficulty": "moderate",
+  "coverage_tags": [
+    "cross_domain",
+    "small_scale",
+    "different_system_type"
+  ],
+  "source_datasets": [
+    {
+      "name": "synthetic release-policy corpus",
+      "origin": "repository",
+      "notes": "Deterministic and interpretable."
+    }
+  ],
+  "metadata_summary": {
+    "domain_coverage": [
+      "building",
+      "healthcare"
+    ],
+    "system_types": [
+      "chiller",
+      "hvac"
+    ],
+    "number_of_trajectories": 4,
+    "intervention_coverage": "tracked at runtime"
+  },
+  "ingestion_parameters": {
+    "sort": "timestamp,asset_id,scenario_id",
+    "normalization": "validation.replay.adapters._normalize_record"
+  },
+  "quality_requirements": {
+    "min_dataset_size": 4,
+    "min_intervention_coverage": 0.0,
+    "min_domain_diversity": 1
+  },
+  "data_files": [
+    {
+      "path": "snapshots/data/transfer_cross_domain_small_scale.json",
+      "format": "json",
+      "sha256": "69d0dcc159323e3cd67b7018e4a077fe088ff9befc90c0e0dfd5f2e14a020ab7"
+    }
+  ]
+}

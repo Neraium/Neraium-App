@@ -1,0 +1,56 @@
+{
+  "events": [
+    {
+      "timestamp": 1,
+      "asset_id": "a6",
+      "observation": {
+        "x": 0.6,
+        "sensor": 0.6
+      },
+      "actual_intervention": null,
+      "outcome_label": "harmful",
+      "domain": "water",
+      "scenario_family": "false_recovery",
+      "system_type": "pump"
+    },
+    {
+      "timestamp": 2,
+      "asset_id": "a6",
+      "observation": {
+        "x": 0.4,
+        "sensor": 0.4
+      },
+      "actual_intervention": "increase_monitoring_frequency",
+      "outcome_label": "helpful",
+      "domain": "water",
+      "scenario_family": "false_recovery",
+      "system_type": "pump"
+    },
+    {
+      "timestamp": 3,
+      "asset_id": "a6",
+      "observation": {
+        "x": 0.42,
+        "sensor": 0.39
+      },
+      "actual_intervention": null,
+      "outcome_label": "neutral",
+      "domain": "water",
+      "scenario_family": "false_recovery",
+      "system_type": "pump"
+    },
+    {
+      "timestamp": 4,
+      "asset_id": "a6",
+      "observation": {
+        "x": 0.88,
+        "sensor": 0.9
+      },
+      "actual_intervention": null,
+      "outcome_label": "harmful",
+      "domain": "water",
+      "scenario_family": "false_recovery",
+      "system_type": "pump"
+    }
+  ]
+}

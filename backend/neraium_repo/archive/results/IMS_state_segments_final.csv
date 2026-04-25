@@ -1,0 +1,4 @@
+state,start_t,end_t,duration
+STABLE,1,643,643
+WATCH,644,729,86
+ALERT,730,984,255

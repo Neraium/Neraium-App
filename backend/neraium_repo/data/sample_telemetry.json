@@ -1,0 +1,26 @@
+[
+  {
+    "system_id": "baseline",
+    "timestamp": "2026-01-01T00:00:00Z",
+    "signals": {
+      "cpu_usage": 20.0,
+      "memory_usage": 45.0
+    }
+  },
+  {
+    "system_id": "baseline",
+    "timestamp": "2026-01-01T00:00:05Z",
+    "signals": {
+      "cpu_usage": 21.0,
+      "memory_usage": 46.0
+    }
+  },
+  {
+    "system_id": "baseline",
+    "timestamp": "2026-01-01T00:00:10Z",
+    "signals": {
+      "cpu_usage": 19.5,
+      "memory_usage": 44.5
+    }
+  }
+]

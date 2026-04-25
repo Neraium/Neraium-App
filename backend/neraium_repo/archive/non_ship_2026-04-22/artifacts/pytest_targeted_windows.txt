@@ -1,0 +1,37 @@
+....F..                                                                  [100%]
+================================== FAILURES ===================================
+_________________ test_incremental_vs_batch_identical_scores __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F6E557CA70>
+
+    def test_incremental_vs_batch_identical_scores(monkeypatch) -> None:
+        frames = _make_frames(90, sensors=4, seed=99)
+    
+        monkeypatch.setenv("NERAIUM_INCREMENTAL", "0")
+        off = StructuralEngine(baseline_window=50, recent_window=12)
+        a = [float(off.process_frame(f).get("latest_instability", 0.0)) for f in frames]
+    
+        monkeypatch.setenv("NERAIUM_INCREMENTAL", "1")
+        on = StructuralEngine(baseline_window=50, recent_window=12)
+        b = [float(on.process_frame(f).get("latest_instability", 0.0)) for f in frames]
+    
+        # Rounded composite + cached windows can differ at ~1e-4; semantics match.
+>       assert np.allclose(a, b, rtol=1e-5, atol=5e-4)
+E       assert False
+E        +  where False = <function allclose at 0x000001F6E35A3770>([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...], rtol=1e-05, atol=0.0005)
+E        +    where <function allclose at 0x000001F6E35A3770> = np.allclose
+
+tests\test_incremental_windows.py:53: AssertionError
+============================== warnings summary ===============================
+tests/test_incremental_windows.py::test_full_frame_gating_requires_non_zero_width_windows
+  c:\Users\Owner\neraium-core\.venv\Lib\site-packages\numpy\_core\fromnumeric.py:3904: RuntimeWarning: Mean of empty slice.
+    return _methods._mean(a, axis=axis, dtype=dtype,
+
+tests/test_incremental_windows.py::test_full_frame_gating_requires_non_zero_width_windows
+  c:\Users\Owner\neraium-core\.venv\Lib\site-packages\numpy\_core\_methods.py:147: RuntimeWarning: invalid value encountered in scalar divide
+    ret = ret.dtype.type(ret / rcount)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_incremental_windows.py::test_incremental_vs_batch_identical_scores
+1 failed, 6 passed, 2 warnings in 1158.92s (0:19:18)

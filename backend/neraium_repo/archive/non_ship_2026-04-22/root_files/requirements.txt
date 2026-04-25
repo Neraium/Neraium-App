@@ -1,0 +1,9 @@
+fastapi
+gradio>=4.0
+uvicorn[standard]
+pydantic
+starlette
+pandas
+numpy
+websockets
+python-multipart

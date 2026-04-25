@@ -1,0 +1,56 @@
+{
+  "events": [
+    {
+      "timestamp": 1,
+      "asset_id": "a2",
+      "observation": {
+        "x": 0.3,
+        "sensor": 0.3
+      },
+      "actual_intervention": null,
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "lookalike_divergence",
+      "system_type": "compressor"
+    },
+    {
+      "timestamp": 2,
+      "asset_id": "a2",
+      "observation": {
+        "x": 0.31,
+        "sensor": 0.29
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "helpful",
+      "domain": "energy",
+      "scenario_family": "lookalike_divergence",
+      "system_type": "compressor"
+    },
+    {
+      "timestamp": 1,
+      "asset_id": "a3",
+      "observation": {
+        "x": 0.3,
+        "sensor": 0.3
+      },
+      "actual_intervention": null,
+      "outcome_label": "neutral",
+      "domain": "energy",
+      "scenario_family": "lookalike_divergence",
+      "system_type": "compressor"
+    },
+    {
+      "timestamp": 2,
+      "asset_id": "a3",
+      "observation": {
+        "x": 0.31,
+        "sensor": 0.29
+      },
+      "actual_intervention": "remove_top_driver_contribution",
+      "outcome_label": "harmful",
+      "domain": "energy",
+      "scenario_family": "lookalike_divergence",
+      "system_type": "compressor"
+    }
+  ]
+}
