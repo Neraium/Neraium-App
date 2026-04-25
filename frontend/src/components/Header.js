@@ -20,7 +20,7 @@ export default function Header({
           <div className={`flex items-center gap-1.5 ${running ? "text-emerald-400" : "text-zinc-500"}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${running ? "bg-emerald-400 animate-pulse-soft" : "bg-zinc-600"}`} />
             <span data-testid="pb-status-text" className="font-mono text-[10px] tracking-wider uppercase">
-              {running ? `LIVE · ${playback.system_count} systems · cycle ${playback.cycle}` : "IDLE"}
+              {running ? `INTELLIGIZING · ${playback.system_count} systems` : "IDLE"}
             </span>
           </div>
         </div>
@@ -54,8 +54,8 @@ export default function Header({
 
       {/* View bar */}
       <div className="h-9 px-5 border-t border-zinc-900 flex items-stretch">
-        <ViewTab id="grid"      icon={Grid3x3}       label="Systems"   active={view === "grid"} onClick={() => setView("grid")} />
-        <ViewTab id="audit"     icon={ScrollText}    label="Audit Log" active={view === "audit"} onClick={() => setView("audit")} />
+        <ViewTab id="grid"      icon={Grid3x3}       label="Decisions"   active={view === "grid"} onClick={() => setView("grid")} />
+        <ViewTab id="audit"     icon={ScrollText}    label="Audit Trail" active={view === "audit"} onClick={() => setView("audit")} />
         <ViewTab id="validation" icon={FlaskConical} label="Validation Mode (FD004)" active={view === "validation"} onClick={() => setView("validation")} testid="view-validation" />
         <div className="ml-auto flex items-center gap-2 text-zinc-600">
           <Gauge className="w-3.5 h-3.5" />
