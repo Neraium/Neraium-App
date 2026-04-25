@@ -54,9 +54,16 @@ async def scan_and_log() -> int:
             if cur == "WARMUP":
                 # Don't surface warmup as an operator-facing transition.
                 continue
+            # Use frame's actual timestamp if available, otherwise use current time
+            frame_ts = unified.get("timestamp")
+            if frame_ts and isinstance(frame_ts, (int, float)):
+                ts = datetime.fromtimestamp(frame_ts, tz=timezone.utc).isoformat()
+            else:
+                ts = datetime.now(timezone.utc).isoformat()
+
             entry = {
                 "id": str(uuid.uuid4()),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": ts,
                 "system_id": sid,
                 "system_label": rec.label,
                 "kind": kind,
