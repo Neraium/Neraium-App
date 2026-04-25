@@ -66,6 +66,23 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — Plain-language judgment + browser tab title
+- Added `_pretty_var()` translation in `services/decision_synth.py`. Raw
+  variable names (`torque_nm`, `vibration_g`, `co2_ppm`, `vpd_kpa`,
+  `airflow_cmh`, `var_alpha`, …) are translated to operator-readable text
+  (`torque`, `vibration`, `CO₂ level`, `vapor pressure`, `airflow`,
+  `primary signal`, …) before insertion into WHAT / ACTION / CONSEQUENCE /
+  WHY / future-paths text.
+- Unknown variables fall back to humanised `snake_case → words` with unit
+  suffixes stripped — never raw.
+- Raw variable names remain visible only in the propagation chip row and
+  the Variables panel, where they belong.
+- `App.js` writes a real-time browser tab title:
+  `(N) sys-X URGENCY · M nominal — Neraium SII`
+  (or `○ N nominal — Neraium SII` when calm). Title uses system_id +
+  regime/urgency only, never raw variables.
+- Backend tests: 16/16 pass.
+
 ### 2026-04-25 — System Status Panel lock-in
 - Removed "Evidence drawer" pattern. Trajectory + variables are now always
   visible below the status panel as **secondary** content.

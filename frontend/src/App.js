@@ -58,6 +58,28 @@ export default function App() {
     return () => { clearInterval(id); try { ws?.close(); } catch (_) {} };
   }, []);
 
+  // Browser tab title — operator at-a-glance status (no raw variable names; only
+  // system_id + regime/urgency). e.g. "(1) sys-A1 ALERT · 3 nominal — Neraium SII"
+  useEffect(() => {
+    const order = { CRITICAL: 4, ALERT: 3, WATCH: 2, NOMINAL: 1 };
+    const items = systems || [];
+    if (!items.length) {
+      document.title = "Neraium SII \u2014 idle";
+      return;
+    }
+    const worst = [...items].sort((a, b) =>
+      (order[b.latest?.urgency] || 0) - (order[a.latest?.urgency] || 0)
+    )[0];
+    const wu = worst?.latest?.urgency || "NOMINAL";
+    const nominal = items.filter(s => (s.latest?.urgency || "NOMINAL") === "NOMINAL").length;
+    const atRisk = items.length - nominal;
+    if (wu === "NOMINAL") {
+      document.title = `\u25CB ${items.length} nominal \u2014 Neraium SII`;
+    } else {
+      document.title = `(${atRisk}) ${worst.system_id} ${wu} \u00B7 ${nominal} nominal \u2014 Neraium SII`;
+    }
+  }, [systems]);
+
   // Playback controls
   const handleStart = async () => {
     setError(null); setLoading(true);
