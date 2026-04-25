@@ -63,6 +63,28 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — Settings tab + customer onboarding + per-box mute / Expand-all
+- **Settings tab** (`/app/frontend/src/components/SettingsView.js`): create
+  customers, list them, copy API key + personalised ingest URL +
+  industrial cURL snippet, and revoke (deletes the customer + key).
+- **Backend `/api/customers`** CRUD (`routers/customers.py`). Mints
+  `nrm_<token>` API keys. Tracks `systems_registered`, `frames_ingested`.
+  Mongo `_id` excluded from every response.
+- **Backend `/api/ingest/{api_key}`** (`routers/ingest.py`). 401 on bad
+  key. Registers a system on first call (using `template` if it matches
+  one of our built-ins, else falls back to `generic` with the customer's
+  variable list). Subsequent calls just ingest. Returns the smoothed
+  `display_regime` so the customer's pipeline can react.
+- **Per-system mute** — bell button on every box (data-testid
+  `mute-btn-<id>`). Adds a "MUTED" tag, dims the box, persists in
+  localStorage, and is honoured by the STATE CHANGED flash banner.
+  `muteStore.js` is the shared pub/sub.
+- **"Expand all unstable"** toggle in the grid header — flips every
+  non-STABLE box open without affecting STABLE ones.
+- **Backend tests**: 12 new tests in `tests/test_customers_ingest.py`
+  (all pass). Existing 15-test suite still passes (one timing-flaky
+  `test_audit_delete_scope` against fast playback — pre-existing).
+
 ### 2026-04-25 — Hysteresis-smoothed state + 4-box grid
 - **Backend hysteresis.** `services/sii_state.py` now writes a
   `display_regime` field (mode of last 6 raw frames, severity wins
