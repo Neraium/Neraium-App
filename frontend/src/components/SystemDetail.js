@@ -68,7 +68,6 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
   const color = REGIME_COLOR[state] || "#A1A1AA";
   const pulse = PULSE_CLASS[state] || "";
   const Icon = REGIME_ICON[state] || Activity;
-  const phrases = decision.driver_phrases || [];
   const rawDrivers = decision.drivers || [];
   const consequenceShort = decision.consequence_short || CONSEQUENCE_FOR[state];
 
