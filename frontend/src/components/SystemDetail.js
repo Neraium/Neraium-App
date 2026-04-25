@@ -214,18 +214,6 @@ function FieldRow({ label, testid, tone, children }) {
   );
 }
 
-function Field({ icon: Icon, label, tone, children, testid }) {
-  return (
-    <div data-testid={testid} className="px-6 py-5">
-      <div className="flex items-center gap-2 mb-3 text-zinc-500">
-        <Icon className="w-3.5 h-3.5" style={{ color: tone || "#A1A1AA" }} strokeWidth={1.5} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: tone || "#A1A1AA" }}>{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function FuturePathsPanel({ paths }) {
   if (!paths) return null;
   return (

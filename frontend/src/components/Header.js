@@ -1,4 +1,4 @@
-import { Cpu, Activity, Pause, Play, Gauge, ScrollText, Grid3x3, Settings as SettingsIcon } from "lucide-react";
+import { Cpu, Pause, Play, ScrollText, Grid3x3, Settings as SettingsIcon } from "lucide-react";
 
 export default function Header({
   view, setView, playback, onStart, onStop, onSpeedChange,
