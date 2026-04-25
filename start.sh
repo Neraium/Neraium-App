@@ -11,7 +11,7 @@ start "Neraium Backend" bash -c "cd backend && source ../.venv/Scripts/activate 
 
 # Start frontend in new terminal
 echo "🎨 Starting frontend..."
-start "Neraium Frontend" bash -c "cd frontend && npm start; read"
+start "Neraium Frontend" bash -c "cd frontend && npm install && npm start; read"
 
 # Wait a moment for servers to start
 sleep 3

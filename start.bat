@@ -11,7 +11,7 @@ start "Neraium Backend" cmd /k "cd backend && ..\\.venv\\Scripts\\activate.bat &
 
 REM Start frontend in new window
 echo 🎨 Starting frontend...
-start "Neraium Frontend" cmd /k "cd frontend && npm start"
+start "Neraium Frontend" cmd /k "cd frontend && npm install && npm start"
 
 REM Wait for servers to start
 timeout /t 3 /nobreak
