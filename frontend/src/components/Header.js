@@ -27,9 +27,10 @@ export default function Header({
 
         <div className="ml-auto flex items-center gap-2">
           {/* Speed selector */}
-          <div className="flex border border-zinc-800 rounded-sm overflow-hidden">
+          <div className="flex border border-zinc-800 rounded-sm overflow-hidden" title="Playback speed">
             {["slow", "normal", "fast"].map(s => (
               <button key={s} data-testid={`speed-${s}-btn`} onClick={() => onSpeedChange(s)}
+                title={`Set playback to ${s}`} aria-label={`Set playback speed to ${s}`}
                 className={`px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors ${
                   playback?.speed === s ? "bg-zinc-200 text-zinc-900" : "bg-transparent text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900"}`}>
                 {s[0]}
