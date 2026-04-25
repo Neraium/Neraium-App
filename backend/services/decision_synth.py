@@ -31,6 +31,32 @@ def _domain_word(template: str) -> str:
     return _DOMAIN.get(template, "system")
 
 
+def _subject(template: str) -> str:
+    """The grammatical subject for sentences about this template's system.
+
+    Returns a clean noun phrase that avoids "System system" / "System
+    system operating" duplication when the domain itself is "system".
+    """
+    d = _domain_word(template)
+    return "System" if d == "system" else f"{d.capitalize()} system"
+
+
+def _card_summary(template: str, state: str) -> str:
+    """Short contextual line for the System Grid card. ADDS information
+    (the system's domain + state in one breath) instead of repeating the
+    full top-panel sentence."""
+    subj = _subject(template)
+    if state == "STABLE":
+        return f"{subj} stable"
+    if state == "TRANSITION":
+        return f"{subj} transitioning"
+    if state == "UNSTABLE":
+        return f"{subj} unstable"
+    if state == "LOCK_IN":
+        return f"{subj} locked in"
+    return f"{subj} stable"
+
+
 # ------------------------------------------------------------------
 # Variable-name → plain-language label (used in the Variables panel
 # tooltip + as a fallback when no semantic phrase is registered).
@@ -220,38 +246,59 @@ _CONSEQUENCE_LONG = {
                 "lock-in and will not self-recover."),
 }
 
-# WHAT (state-aligned, no mixed wording).
+# WHAT — primary line, state-aligned. Clean, no duplicate words.
 def _what_for(regime: str, template: str, primary_pretty: Optional[str]) -> str:
-    d = _domain_word(template)
+    subj = _subject(template)
     if regime == "STABLE":
-        return f"{d.capitalize()} system operating within stable bounds."
+        return f"{subj} operating within stable bounds."
+    if regime == "TRANSITION":
+        return "Instability emerging."
+    if regime == "UNSTABLE":
+        return f"{subj} operating outside stable bounds."
+    if regime == "LOCK_IN":
+        return "Structural lock-in reached."
+    return f"{subj} operating within stable bounds."
+
+
+# WHAT — secondary clarifier line.
+def _what_secondary(regime: str, template: str, primary_pretty: Optional[str]) -> str:
+    subj = _subject(template)
+    if regime == "STABLE":
+        return "No structural instability detected."
     if regime == "TRANSITION":
         if primary_pretty:
-            return (f"Instability emerging \u2014 {d} structural relationships diverging, "
-                    f"{primary_pretty} leading.")
-        return f"Instability emerging \u2014 {d} structural relationships diverging."
+            return f"System behavior diverging from baseline \u2014 {primary_pretty} leading."
+        return "System behavior diverging from baseline."
     if regime == "UNSTABLE":
         if primary_pretty:
-            return (f"{d.capitalize()} system operating outside stable bounds \u2014 "
-                    f"{primary_pretty} decoupled from baseline.")
-        return f"{d.capitalize()} system operating outside stable bounds."
+            return f"{primary_pretty.capitalize()} decoupled from baseline \u2014 coupling structure broken."
+        return f"{subj} coupling structure broken."
     if regime == "LOCK_IN":
         if primary_pretty:
-            return (f"Structural lock-in reached \u2014 {primary_pretty} has driven the "
-                    f"{d} system into a new regime.")
-        return f"Structural lock-in reached \u2014 {d} system has crossed into a new regime."
-    return f"{d.capitalize()} system operating within stable bounds."
+            return f"{primary_pretty.capitalize()} has driven the system into a new regime."
+        return f"{subj} has crossed into a new regime."
+    return ""
+
+
+# RISK label — not shown for STABLE.
+def _risk_for(regime: str) -> Optional[str]:
+    return {
+        "STABLE":     None,
+        "TRANSITION": "Increasing",
+        "UNSTABLE":   "Active",
+        "LOCK_IN":    "Realised",
+    }.get(regime)
 
 
 # ACTION (multi-line, decisive). First line = imperative, second = clarifier.
 def _action_for(regime: str, template: str, primary_pretty: Optional[str]) -> Tuple[str, str, str]:
     """Returns (action_text, expected_effect, timeframe)."""
-    d = _domain_word(template)
+    subj = _subject(template)
     target = primary_pretty or "the leading signal"
     if regime == "STABLE":
         return (
-            "No intervention required\nSystem operating within stable bounds",
-            f"{d.capitalize()} system continues holding baseline coupling.",
+            "No intervention required\nSystem stable and operating within expected behavior",
+            f"{subj} continues holding baseline coupling.",
             "ongoing",
         )
     if regime == "TRANSITION":
@@ -273,7 +320,7 @@ def _action_for(regime: str, template: str, primary_pretty: Optional[str]) -> Tu
             "manual intervention",
         )
     return (
-        "No intervention required\nSystem operating within stable bounds",
+        "No intervention required\nSystem stable and operating within expected behavior",
         "System remains stable.",
         "ongoing",
     )
@@ -347,14 +394,19 @@ def build_decision(system_id: str) -> Dict[str, Any]:
 
     template = rec.template
     domain = _domain_word(template)
+    subj = _subject(template)
 
     # ---------------------- WHAT / ACTION / CONSEQUENCE -----------------
-    # In STABLE, drop the driver from WHAT entirely (no instability language).
+    # In STABLE, drop the driver from secondary text entirely (no
+    # instability language).
     primary_for_what = primary_pretty if state != "STABLE" else None
     what = _what_for(state, template, primary_for_what)
+    what_secondary = _what_secondary(state, template, primary_for_what)
     action, expected, timeframe = _action_for(state, template, primary_for_what)
     consequence_short = CONSEQUENCE_SHORT[state]
     consequence = _CONSEQUENCE_LONG[state]
+    risk = _risk_for(state)
+    card_summary = _card_summary(template, state)
 
     # ---------------------- WHY (secondary) ----------------------------
     if state == "STABLE":
@@ -371,7 +423,7 @@ def build_decision(system_id: str) -> Dict[str, Any]:
                         f"({drivers[1][1]:.1f}\u00d7 variance).")
             why = (f"{leader_pretty.capitalize()} variance has expanded {leader_ratio:.1f}\u00d7 "
                    f"vs baseline." + tail
-                   + f" {domain.capitalize()} coupling structure is breaking down.")
+                   + f" {subj} coupling structure is breaking down.")
         else:
             why = (f"Variance shifting across {domain} variables ({leader_ratio:.2f}\u00d7 "
                    f"baseline). Drift is structural rather than amplitude-driven.")
@@ -397,7 +449,7 @@ def build_decision(system_id: str) -> Dict[str, Any]:
         driver_phrases = [_driver_phrase(d[0], state) for d in drivers[:2]]
 
     paths = _future_paths(state, drift, velocity, len(rec.variables),
-                          primary_pretty, expected, domain)
+                          primary_pretty, expected, domain, subj)
 
     return {
         "available": True,
@@ -406,6 +458,9 @@ def build_decision(system_id: str) -> Dict[str, Any]:
         "state": state,
         "regime": state,                       # alias for backwards-compat
         "what": what,
+        "what_secondary": what_secondary,
+        "risk": risk,                          # None for STABLE
+        "card_summary": card_summary,          # short row label
         "action": action,
         "consequence": consequence,            # long form
         "consequence_short": consequence_short,
@@ -435,12 +490,13 @@ def build_decision(system_id: str) -> Dict[str, Any]:
 # Future paths — declarative, state-aligned
 # ------------------------------------------------------------------
 def _future_paths(state: str, drift: float, velocity: float,
-                  n_vars: int, primary, expected_effect: str, domain: str) -> Dict[str, Any]:
+                  n_vars: int, primary, expected_effect: str, domain: str,
+                  subj: str) -> Dict[str, Any]:
     if state == "STABLE":
         return {
             "recovery": {
                 "label": "Hold", "eta": "current",
-                "action": f"{domain.capitalize()} system continues holding baseline coupling.",
+                "action": f"{subj} continues holding baseline coupling.",
                 "expected_outcome": "No action required \u2014 system remains stable.",
                 "probability": "current state",
             },

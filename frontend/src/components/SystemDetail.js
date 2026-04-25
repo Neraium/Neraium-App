@@ -11,7 +11,7 @@ import { Systems } from "@/api";
 import InstabilityChart from "@/components/InstabilityChart";
 import { REGIME_COLOR, formatNum } from "@/sii";
 import {
-  ArrowLeft, Activity, AlertOctagon, Wrench, GitBranch,
+  ArrowLeft, Activity, GitBranch,
   ShieldCheck, TrendingUp, TrendingDown, AlertTriangle, OctagonAlert,
 } from "lucide-react";
 
@@ -85,7 +85,7 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
         className={`grain border border-zinc-900 bg-[#0A0A0A] ${pulse}`}
         style={{ borderLeftWidth: 3, borderLeftColor: color }}>
 
-        {/* Field 1 — STATE (DOMINANT, largest text on the page) */}
+        {/* Field 1 — STATE (DOMINANT, brightest) */}
         <div data-testid="field-state" className="px-7 pt-7 pb-2 flex items-start gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-zinc-500">
             <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
@@ -99,23 +99,25 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
             <span>cycle {system.latest?.cycle ?? "—"}</span>
           </div>
         </div>
-        <div className="px-7 pb-5">
+        <div className="px-7 pb-6">
           <h1 data-testid="state-headline"
             className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold leading-none tracking-[0.18em]"
             style={{ color }}>
             SYSTEM STATE: {state}
           </h1>
-          <div className="font-mono text-[11px] text-zinc-500 mt-3 uppercase tracking-[0.2em]">
-            {decision.state_subtext}
-          </div>
         </div>
 
-        {/* Field 2 — WHAT IS HAPPENING (state-aligned) */}
+        {/* Field 2 — WHAT IS HAPPENING (primary + secondary) */}
         <div className="px-7 pb-5 border-t border-zinc-900 pt-5">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">What is happening</div>
-          <p data-testid="field-what" className="font-mono text-lg md:text-xl text-zinc-100 leading-snug">
+          <p data-testid="field-what" className="font-mono text-xl md:text-2xl text-zinc-100 leading-snug">
             {decision.what}
           </p>
+          {decision.what_secondary && (
+            <p data-testid="field-what-secondary"
+              className="font-mono text-sm md:text-base text-zinc-500 leading-snug mt-1">
+              {decision.what_secondary}
+            </p>
+          )}
           {phrases.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap mt-3">
               {phrases.map((p, i) => {
@@ -133,30 +135,39 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
           )}
         </div>
 
-        {/* Fields 3 & 4 — ACTION / CONSEQUENCE (locked per state) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 border-t border-zinc-900 divide-x divide-zinc-900">
-          <Field testid="field-action" icon={Wrench} label="Action" tone="#10B981">
+        {/* RISK / ACTION / CONSEQUENCE — vertical labelled list, eye flow 2→3 */}
+        <div className="px-7 py-6 border-t border-zinc-900 space-y-4">
+          {decision.risk && (
+            <FieldRow label="RISK" testid="field-risk" tone={color}>
+              <span data-testid="risk-value" className="font-mono text-base font-semibold" style={{ color }}>
+                {decision.risk}
+              </span>
+              {decision.state_subtext && (
+                <span className="font-mono text-[11px] text-zinc-500 ml-3">{decision.state_subtext}</span>
+              )}
+            </FieldRow>
+          )}
+          <FieldRow label="ACTION" testid="field-action" tone="#10B981">
             <div data-testid="action-text"
               className="font-mono text-base text-zinc-100 whitespace-pre-line leading-snug">
               {decision.action}
             </div>
             {decision.expected_effect && (
-              <div className="font-mono text-[11px] text-zinc-500 mt-2 leading-relaxed">{decision.expected_effect}</div>
+              <div className="font-mono text-[11px] text-zinc-500 mt-1.5 leading-relaxed">{decision.expected_effect}</div>
             )}
             {decision.action_timeframe && (
-              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-2">timeframe · {decision.action_timeframe}</div>
+              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-1">timeframe · {decision.action_timeframe}</div>
             )}
-          </Field>
-
-          <Field testid="field-consequence" icon={AlertOctagon} label="Consequence" tone={color}>
+          </FieldRow>
+          <FieldRow label="CONSEQUENCE" testid="field-consequence" tone={color}>
             <div data-testid="consequence-headline"
               className="font-mono text-base font-semibold" style={{ color }}>
               {consequenceShort}
             </div>
-            <div className="font-mono text-[12px] text-zinc-300 mt-2 leading-relaxed">
+            <div className="font-mono text-[12px] text-zinc-400 mt-1.5 leading-relaxed">
               {decision.consequence}
             </div>
-          </Field>
+          </FieldRow>
         </div>
 
         {/* WHY (secondary inside panel) */}
@@ -164,7 +175,7 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
           <GitBranch className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
           <div className="flex-1">
             <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1.5">Why</div>
-            <p data-testid="field-why" className="font-mono text-sm text-zinc-200 leading-relaxed">{decision.why}</p>
+            <p data-testid="field-why" className="font-mono text-sm text-zinc-300 leading-relaxed">{decision.why}</p>
           </div>
         </div>
 
@@ -188,6 +199,16 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
       <FuturePathsPanel paths={decision.future_paths} />
       <InstabilityChart history={history} />
       <Variables system={system} drivers={rawDrivers} />
+    </div>
+  );
+}
+
+function FieldRow({ label, testid, tone, children }) {
+  return (
+    <div data-testid={testid} className="flex items-start gap-4">
+      <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-zinc-500 w-28 shrink-0 mt-1"
+        style={tone ? { color: tone } : {}}>{label}</span>
+      <div className="flex-1 min-w-0">{children}</div>
     </div>
   );
 }

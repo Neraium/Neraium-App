@@ -63,6 +63,29 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — Language polish + visual hierarchy
+- Fixed duplicate-word bug ("System system operating…") by introducing
+  `_subject(template)` which returns a clean noun phrase ("Mechanical
+  system" / "Environmental system" / "System") so `<subject> operating…`
+  is always grammatical.
+- Added `what_secondary` (clarifier line under WHAT), `risk` (None /
+  Increasing / Active / Realised — only surfaced when ≠ STABLE), and
+  `card_summary` (per-row short context: "Mechanical system stable",
+  "Environmental system transitioning", …) to the decision payload.
+- STABLE action language tightened to "No intervention required\nSystem
+  stable and operating within expected behavior".
+- `SystemGrid` headline rewritten to match the locked layout:
+  `SYSTEM STATE: <STATE>` huge → primary line → secondary clarifier →
+  vertical labelled list (RISK if any → ACTION → CONSEQUENCE).
+- `SystemGrid` rows demoted to `opacity-80` and now show the short
+  `card_summary` instead of repeating the full WHAT sentence.
+- `SystemDetail` mirrors the headline structure: dominant
+  `SYSTEM STATE: <STATE>` heading → WHAT primary + secondary →
+  vertical labelled list of RISK / ACTION / CONSEQUENCE.
+- Card chip ↔ summary now stay in lockstep — the row state derives
+  from `decision.state` (same engine snapshot as the words) instead
+  of the systems-list `latest.regime`.
+
 ### 2026-04-25 — Single state vocabulary + dominant judgment
 - **State vocabulary collapsed to ONE axis**: only STABLE / TRANSITION /
   UNSTABLE / LOCK_IN appear in operator-facing UI. Internal urgency
