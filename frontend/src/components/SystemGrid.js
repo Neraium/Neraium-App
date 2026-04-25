@@ -1,44 +1,61 @@
 /**
- * DecisionFeed — the top-level "what's happening across all systems" view.
+ * DecisionFeed — top-level "what's happening across all systems" view.
  *
- * Hierarchy (5-second test):
- *   1. URGENCY (color + icon — instant scan)
- *   2. WHAT IS HAPPENING (sentence in plain language)
- *   3. DO THIS (action verb-led)
- *   4. IF IGNORED (single line)
- *
- * Numbers are intentionally tiny. The decision IS the UI.
+ * Single state vocabulary (STABLE / TRANSITION / UNSTABLE / LOCK_IN). No
+ * urgency labels are surfaced. Each row answers, in this order:
+ *   1. STATE       (chip + state-aligned color)
+ *   2. WHAT IS HAPPENING (state-aligned sentence)
+ *   3. DRIVERS     (semantic phrases — never raw variable names)
+ *   4. ACTION      (multi-line decisive)
+ *   5. CONSEQUENCE (always present — locked per state)
  */
 import { useEffect, useMemo, useState } from "react";
 import { Systems } from "@/api";
-import { URGENCY_COLOR, URGENCY_RANK, REGIME_COLOR } from "@/sii";
-import { ChevronRight, Eye, AlertTriangle, Shield, Zap, Activity } from "lucide-react";
+import { REGIME_COLOR, REGIME_RANK } from "@/sii";
+import { ChevronRight, ShieldCheck, AlertTriangle, OctagonAlert, Activity } from "lucide-react";
 
-const URGENCY_ICON  = { NOMINAL: Shield, WATCH: Eye, ALERT: AlertTriangle, CRITICAL: AlertTriangle };
+const REGIME_ICON = {
+  STABLE:     ShieldCheck,
+  TRANSITION: Activity,
+  UNSTABLE:   AlertTriangle,
+  LOCK_IN:    OctagonAlert,
+};
+
+const PULSE_CLASS = {
+  STABLE:     "",
+  TRANSITION: "state-pulse-transition",
+  UNSTABLE:   "state-pulse-unstable",
+  LOCK_IN:    "state-pulse-lockin",
+};
+
+const norm = (s) => {
+  const r = s?.latest?.regime;
+  return r === "WARMUP" || !r ? "STABLE" : r;
+};
+
+const CONSEQUENCE_FOR = {
+  STABLE:     "No degradation expected",
+  TRANSITION: "Instability will propagate",
+  UNSTABLE:   "System performance degrading",
+  LOCK_IN:    "Failure imminent or occurring",
+};
 
 export default function DecisionFeed({ systems, onSelect, selectedId }) {
-  // Per-system decision objects (lazy-fetched so the feed shows decisions, not metrics)
   const [decisions, setDecisions] = useState({});
 
   useEffect(() => {
     if (!systems?.length) return;
     let cancelled = false;
-    (async () => {
+    const run = async () => {
       const next = {};
       await Promise.all(systems.map(async s => {
         try { next[s.system_id] = await Systems.decision(s.system_id); }
         catch (_) {}
       }));
       if (!cancelled) setDecisions(next);
-    })();
-    const id = setInterval(async () => {
-      const next = { ...decisions };
-      await Promise.all(systems.map(async s => {
-        try { next[s.system_id] = await Systems.decision(s.system_id); }
-        catch (_) {}
-      }));
-      if (!cancelled) setDecisions(next);
-    }, 2500);
+    };
+    run();
+    const id = setInterval(run, 2500);
     return () => { cancelled = true; clearInterval(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [systems?.length, systems?.map(s => s.system_id).join(",")]);
@@ -46,8 +63,8 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
   const ordered = useMemo(() => {
     const items = [...(systems || [])];
     items.sort((a, b) => {
-      const ra = URGENCY_RANK[a.latest?.urgency] ?? 0;
-      const rb = URGENCY_RANK[b.latest?.urgency] ?? 0;
+      const ra = REGIME_RANK[norm(a)] ?? 0;
+      const rb = REGIME_RANK[norm(b)] ?? 0;
       if (rb !== ra) return rb - ra;
       return (b.latest?.instability_score ?? 0) - (a.latest?.instability_score ?? 0);
     });
@@ -71,7 +88,6 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
   return (
     <div data-testid="system-grid" className="space-y-6">
       <FleetHeadline headline={headline} />
-
       <div className="space-y-2">
         {ordered.map(s => (
           <DecisionRow key={s.system_id} system={s} decision={decisions[s.system_id]}
@@ -82,133 +98,137 @@ export default function DecisionFeed({ systems, onSelect, selectedId }) {
   );
 }
 
-/* -------------------- fleet-level top-of-screen judgment -------------------- */
+/* -------------------- fleet-level headline -------------------- */
 
 function headlineFor(systems, decisions) {
   const worst = systems[0];
   if (!worst?.latest) return null;
-  const u = worst.latest.urgency;
+  const s = norm(worst);
   const dec = decisions[worst.system_id];
   const total = systems.length;
-  const at_risk = systems.filter(s => s.latest?.urgency && s.latest.urgency !== "NOMINAL").length;
+  const stable = systems.filter(x => norm(x) === "STABLE").length;
+  const atRisk = total - stable;
 
-  if (u === "NOMINAL") {
+  if (s === "STABLE") {
     return {
-      tone: "calm",
       state: "STABLE",
-      now: `${total} systems holding nominal coupling. No divergence detected.`,
-      do:  "No intervention required",
+      now:  `${total} systems operating within stable bounds.`,
+      do:   "No intervention required",
+      consequence: CONSEQUENCE_FOR.STABLE,
     };
   }
-  // Use the worst system's plain-language summary
   return {
-    tone: u === "WATCH" ? "watch" : u === "ALERT" ? "alert" : "critical",
-    state: dec?.state || worst.latest?.regime || u,
-    now: dec?.what || `${at_risk} of ${total} systems have left baseline coupling.`,
-    do:  dec?.action || dec?.do || "Inspect the most concerning system.",
+    state: s,
+    now:   dec?.what || `${atRisk} of ${total} systems have left stable bounds.`,
+    do:    (dec?.action || "Inspect the most concerning system.").split("\n")[0],
+    consequence: CONSEQUENCE_FOR[s] || "",
   };
 }
 
 function FleetHeadline({ headline }) {
   if (!headline) return null;
-  const tone = headline.tone;
-  const color =
-    tone === "alert" || tone === "critical" ? URGENCY_COLOR.ALERT :
-    tone === "watch" ? URGENCY_COLOR.WATCH : URGENCY_COLOR.NOMINAL;
-  const stateColor = REGIME_COLOR[headline.state] || color;
-
+  const color = REGIME_COLOR[headline.state] || "#A1A1AA";
+  const pulse = PULSE_CLASS[headline.state] || "";
   return (
-    <section data-testid="fleet-headline" className="grain border border-zinc-900 bg-[#0A0A0A] px-6 py-5"
+    <section data-testid="fleet-headline"
+      className={`grain border border-zinc-900 bg-[#0A0A0A] px-7 py-7 ${pulse}`}
       style={{ borderLeftWidth: 3, borderLeftColor: color }}>
-      <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <span className="w-1.5 h-1.5 rounded-full animate-pulse-soft" style={{ background: color }} />
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <span className="w-2 h-2 rounded-full animate-pulse-soft" style={{ background: color }} />
         <span className="font-mono text-[10px] tracking-[0.25em] uppercase text-zinc-500">SYSTEM STATE</span>
-        <span data-testid="fleet-state" className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: stateColor }}>{headline.state}</span>
       </div>
-      <h1 data-testid="fleet-now" className="font-mono text-2xl md:text-3xl text-zinc-50 leading-tight tracking-tight">
-        {headline.now}
+      <h1 data-testid="fleet-state"
+        className="font-mono text-3xl md:text-5xl lg:text-6xl font-bold tracking-[0.18em] mb-5 leading-none"
+        style={{ color }}>
+        {headline.state}
       </h1>
-      <div className="font-mono text-xs text-zinc-200 mt-3 inline-flex items-center gap-2 px-3 py-1.5 border"
-        style={{ borderColor: `${color}55`, background: `${color}12` }}>
-        <Zap className="w-3 h-3" style={{ color }} />
-        <span><span className="text-zinc-500 mr-2">ACTION</span>{headline.do}</span>
+      <p data-testid="fleet-now" className="font-mono text-base md:text-lg text-zinc-200 leading-snug max-w-5xl">
+        {headline.now}
+      </p>
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="border border-zinc-900 bg-[#0E0E0E] px-4 py-3">
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1">Action</div>
+          <div className="font-mono text-sm text-zinc-100">{headline.do}</div>
+        </div>
+        <div className="border border-zinc-900 bg-[#0E0E0E] px-4 py-3"
+          style={{ borderLeftWidth: 2, borderLeftColor: color }}>
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1">Consequence</div>
+          <div className="font-mono text-sm text-zinc-100">{headline.consequence}</div>
+        </div>
       </div>
     </section>
   );
 }
 
-/* -------------------- one decision row per system -------------------- */
+/* -------------------- per-system row -------------------- */
 
 function DecisionRow({ system, decision, active, onClick }) {
-  const u = system.latest?.urgency || "NOMINAL";
-  const r = system.latest?.regime || "STABLE";
-  const Icon = URGENCY_ICON[u] || Activity;
-  const color = URGENCY_COLOR[u] || "#A1A1AA";
-  const r_color = REGIME_COLOR[r] || "#A1A1AA";
+  const s = norm(system);
+  const Icon = REGIME_ICON[s] || Activity;
+  const color = REGIME_COLOR[s] || "#A1A1AA";
+  const pulse = PULSE_CLASS[s] || "";
 
-  // 5-second test: row-leading judgment
-  const lead = decision?.what || (u === "NOMINAL"
-    ? "Conditions stable with no divergence across variables."
-    : `${system.system_id} is in ${u.toLowerCase()} state.`);
-
-  const action = decision?.action || decision?.do;
-  const ifIgnored = decision?.consequence || decision?.if_ignored;
-  const drivers = (decision?.drivers || []).slice(0, 2);
-  const lt = decision?.metrics?.lead_time_cycles;
-  const urgencyShort = u === "NOMINAL" ? "—" :
-    lt ? `~${lt} cycles` :
-    u === "WATCH" ? "5–10 cycles" :
-    u === "ALERT" ? "active" : "closing";
+  const lead = decision?.what
+    || (s === "STABLE"
+      ? "System operating within stable bounds."
+      : `${system.system_id} has left stable bounds.`);
+  const action = decision?.action || (s === "STABLE"
+    ? "No intervention required\nSystem operating within stable bounds"
+    : "Intervene now");
+  const consequence = decision?.consequence_short || CONSEQUENCE_FOR[s];
+  const phrases = (decision?.driver_phrases || []).slice(0, 2);
+  const rawDrivers = decision?.drivers || [];
 
   return (
     <button data-testid={`system-card-${system.system_id}`} onClick={onClick}
-      className={`w-full text-left grain border transition-colors ${active ? "border-zinc-700 bg-[#121212]" : "border-zinc-900 bg-[#0A0A0A] hover:bg-[#101010]"}`}
+      className={`w-full text-left grain border transition-colors ${active ? "border-zinc-700 bg-[#121212]" : "border-zinc-900 bg-[#0A0A0A] hover:bg-[#101010]"} ${pulse}`}
       style={{ borderLeftWidth: 3, borderLeftColor: color }}>
       <div className="px-5 py-4 flex items-start gap-5">
-        {/* Field 1: STATE + system meta */}
-        <div className="w-32 shrink-0">
-          <div className="flex items-center gap-1.5 mb-1">
+        {/* STATE column — single source of truth */}
+        <div className="w-36 shrink-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
             <Icon className="w-3.5 h-3.5" style={{ color }} strokeWidth={1.5} />
-            <span className="font-mono text-[10px] font-semibold tracking-[0.2em]" style={{ color }}>{u}</span>
+            <span data-testid={`system-state-${system.system_id}`}
+              className="font-mono text-[12px] font-bold tracking-[0.22em]"
+              style={{ color }}>{s}</span>
           </div>
-          <div className="font-mono text-[10px] font-bold tracking-wider" style={{ color: r_color }}>{r}</div>
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-1">{system.system_id}</div>
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">{system.system_id}</div>
           <div className="font-mono text-[10px] text-zinc-600 mt-0.5 lowercase">{system.template || "system"}</div>
         </div>
 
-        {/* Field 2: WHAT IS HAPPENING (sentence) + Field 3: DRIVERS + Field 5: ACTION + Field 6: CONSEQUENCE */}
+        {/* MAIN column — WHAT / DRIVERS / ACTION / CONSEQUENCE */}
         <div className="flex-1 min-w-0">
-          <div className="font-mono text-sm md:text-[15px] text-zinc-100 leading-snug">{lead}</div>
+          <div data-testid={`row-what-${system.system_id}`}
+            className="font-mono text-sm md:text-[15px] text-zinc-100 leading-snug">{lead}</div>
 
-          {drivers.length > 0 && (
+          {phrases.length > 0 && (
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">DRIVER</span>
-              {drivers.map(d => (
-                <span key={d.variable} className="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5">
-                  {d.variable} <span className="text-zinc-500">×{d.variance_ratio.toFixed(2)}</span>
-                </span>
-              ))}
+              {phrases.map((p, i) => {
+                const raw = rawDrivers[i];
+                const tip = raw ? `${raw.variable} ×${raw.variance_ratio?.toFixed(2)}` : null;
+                return (
+                  <span key={i} title={tip || undefined}
+                    data-testid={`row-driver-${system.system_id}-${i}`}
+                    className="font-mono text-[11px] text-zinc-200 bg-zinc-900/60 border border-zinc-800 px-2 py-0.5">
+                    {p}
+                  </span>
+                );
+              })}
             </div>
           )}
 
-          {action && (
-            <div className="flex items-start gap-2 mt-3 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">ACTION</span>
-              <span className="font-mono text-zinc-200">{action}</span>
-            </div>
-          )}
-          {ifIgnored && u !== "NOMINAL" && (
-            <div className="flex items-start gap-2 mt-1.5 text-sm">
-              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-20 shrink-0">CONSEQUENCE</span>
-              <span className="font-mono text-zinc-400">{ifIgnored}</span>
-            </div>
-          )}
-        </div>
+          <div className="flex items-start gap-2 mt-3 text-sm">
+            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-24 shrink-0">ACTION</span>
+            <span data-testid={`row-action-${system.system_id}`}
+              className="font-mono text-zinc-100 whitespace-pre-line leading-snug">{action}</span>
+          </div>
 
-        {/* Field 4: URGENCY (time) */}
-        <div className="w-28 shrink-0 text-right">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">URGENCY</div>
-          <div className="font-mono text-sm" style={{ color }}>{urgencyShort}</div>
+          <div className="flex items-start gap-2 mt-1.5 text-sm">
+            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5 w-24 shrink-0">CONSEQUENCE</span>
+            <span data-testid={`row-consequence-${system.system_id}`}
+              className="font-mono"
+              style={{ color }}>{consequence}</span>
+          </div>
         </div>
 
         <div className="shrink-0 self-center text-zinc-600">

@@ -1,25 +1,28 @@
-/** Maps SII regime + urgency to the platform's visual vocabulary. */
+/** Maps SII regime to the platform's visual vocabulary.
+ *
+ * The product surfaces ONE state vocabulary: STABLE / TRANSITION /
+ * UNSTABLE / LOCK_IN. Internal urgency is no longer rendered.
+ */
 
 export const REGIME_COLOR = {
-  WARMUP:     "#71717A",
   STABLE:     "#10B981",
   TRANSITION: "#F59E0B",
   UNSTABLE:   "#EF4444",
   LOCK_IN:    "#7C3AED",
 };
 
-export const URGENCY_COLOR = {
-  NOMINAL:  "#10B981",
-  WATCH:    "#F59E0B",
-  ALERT:    "#EF4444",
-  CRITICAL: "#FB7185",
+export const REGIME_RANK = { STABLE: 0, TRANSITION: 1, UNSTABLE: 2, LOCK_IN: 3 };
+
+export const REGIME_TONE = {
+  STABLE:     "#10B981",
+  TRANSITION: "#F59E0B",
+  UNSTABLE:   "#EF4444",
+  LOCK_IN:    "#FB7185",
 };
 
-export const URGENCY_RANK = { NOMINAL: 0, WATCH: 1, ALERT: 2, CRITICAL: 3 };
-
 export const formatNum = (n, d = 3) => {
-  if (n == null || isNaN(n)) return "—";
+  if (n == null || isNaN(n)) return "\u2014";
   return Number(n).toFixed(d);
 };
 
-export const pct = (n) => (n == null ? "—" : `${(Number(n) * 100).toFixed(1)}%`);
+export const pct = (n) => (n == null ? "\u2014" : `${(Number(n) * 100).toFixed(1)}%`);

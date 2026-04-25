@@ -34,3 +34,35 @@ html, body, #root {
   pointer-events: none;
   mix-blend-mode: overlay;
 }
+
+
+/* Soft pulse for status pills */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+/* Transition emphasis — used when a system enters TRANSITION/UNSTABLE/LOCK_IN.
+   Adds a slow halo pulse so the operator's eye is drawn to it.   */
+@keyframes state-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.18); }
+}
+@keyframes state-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.20); }
+}
+@keyframes state-pulse-violet {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(124, 58, 237, 0.22); }
+}
+.state-pulse-transition { animation: state-pulse 2.4s ease-in-out infinite; }
+.state-pulse-unstable   { animation: state-pulse-red 2.0s ease-in-out infinite; }
+.state-pulse-lockin     { animation: state-pulse-violet 1.8s ease-in-out infinite; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }

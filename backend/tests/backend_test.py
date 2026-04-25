@@ -105,7 +105,7 @@ class TestPlaybackAndSystems:
         h = r.json()["history"]
         assert len(h) >= 50, f"only {len(h)} frames"
         for e in h[:3]:
-            assert "cycle" in e and "regime" in e and "urgency" in e and "instability_score" in e
+            assert "cycle" in e and "regime" in e and "instability_score" in e
 
     def test_system_decision(self, api):
         # Allow time for sys-A1 (drift_at=70) to enter TRANSITION-ish territory
@@ -113,9 +113,12 @@ class TestPlaybackAndSystems:
         r = api.get(f"{BASE_URL}/api/systems/sys-A1/decision")
         assert r.status_code == 200
         d = r.json()
-        for k in ("what", "why", "do", "if_ignored", "drivers", "future_paths",
-                  "urgency", "regime", "metrics"):
+        for k in ("what", "why", "action", "consequence", "consequence_short",
+                  "driver_phrases", "drivers", "future_paths",
+                  "state", "regime", "metrics"):
             assert k in d, f"missing {k}"
+        assert d["state"] in ("STABLE", "TRANSITION", "UNSTABLE", "LOCK_IN")
+        assert "urgency" not in d, "urgency must not be surfaced"
         assert "recovery" in d["future_paths"]
         assert "degradation" in d["future_paths"]
         assert "failure" in d["future_paths"]
@@ -138,14 +141,16 @@ class TestAudit:
         assert r.status_code == 200
         d = r.json()
         assert "count" in d and "items" in d
-        # Look for at least one auto regime/urgency transition
+        # Look for at least one auto regime transition (urgency is no
+        # longer surfaced as a separate transition kind).
         kinds = [it.get("kind") for it in d["items"]]
-        assert any(k in ("regime", "urgency") for k in kinds), f"no transitions found, kinds={kinds[:10]}"
+        assert "regime" in kinds, f"no regime transitions found, kinds={kinds[:10]}"
         for it in d["items"]:
-            if it.get("kind") in ("regime", "urgency"):
+            if it.get("kind") == "regime":
                 assert it.get("from_value") is not None
                 assert it.get("to_value") is not None
                 assert it.get("system_id")
+                assert "headline" in it and it["headline"]
                 break
 
     def test_audit_create_manual(self, api):
@@ -156,8 +161,9 @@ class TestAudit:
         e = r.json()
         assert e["system_id"] == "sys-A1"
         assert e["action_type"] == "ACKNOWLEDGE"
-        # Verify visible in list
-        r2 = api.get(f"{BASE_URL}/api/audit?system_id=sys-A1")
+        # Verify visible in list (use a generous limit; auto-flush keeps
+        # appending regime transitions during fast playback)
+        r2 = api.get(f"{BASE_URL}/api/audit?system_id=sys-A1&limit=500")
         assert r2.status_code == 200
         items = r2.json()["items"]
         assert any(it["id"] == e["id"] for it in items)

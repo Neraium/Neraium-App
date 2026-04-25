@@ -1,28 +1,42 @@
 /**
  * SystemDetail — System Status Panel as a SYSTEM JUDGMENT.
  *
- * Top of screen, in this exact order:
- *   1. STATE        (giant chip — "SYSTEM STATE: STABLE")
- *   2. WHAT IS HAPPENING (plain-language sentence — abstracted from variable names)
- *   3. RISK LEVEL   (LOW / MODERATE / HIGH / CRITICAL)
- *   4. ACTION       (declarative imperative)
- *   5. CONSEQUENCE  (if ignored — decisive)
- *
- * Driver chips + propagation are demoted to a small "WHY" line below the panel.
- * Trajectory + variables are secondary, always visible below.
+ * Single state vocabulary: STABLE / TRANSITION / UNSTABLE / LOCK_IN.
+ * The state line is the LARGEST element on the page. Driver phrases
+ * are semantic (no raw variable names); raw values stay in the
+ * Variables panel and tooltips.
  */
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Systems } from "@/api";
 import InstabilityChart from "@/components/InstabilityChart";
-import { URGENCY_COLOR, REGIME_COLOR, formatNum } from "@/sii";
+import { REGIME_COLOR, formatNum } from "@/sii";
 import {
-  ArrowLeft, Activity, Zap, AlertOctagon, Wrench, GitBranch, Gauge,
-  ShieldCheck, TrendingUp, TrendingDown, AlertTriangle,
+  ArrowLeft, Activity, AlertOctagon, Wrench, GitBranch,
+  ShieldCheck, TrendingUp, TrendingDown, AlertTriangle, OctagonAlert,
 } from "lucide-react";
 
-const RISK_COLOR = {
-  LOW: "#10B981", MODERATE: "#F59E0B", HIGH: "#EF4444", CRITICAL: "#FB7185",
+const REGIME_ICON = {
+  STABLE:     ShieldCheck,
+  TRANSITION: Activity,
+  UNSTABLE:   AlertTriangle,
+  LOCK_IN:    OctagonAlert,
 };
+
+const PULSE_CLASS = {
+  STABLE:     "",
+  TRANSITION: "state-pulse-transition",
+  UNSTABLE:   "state-pulse-unstable",
+  LOCK_IN:    "state-pulse-lockin",
+};
+
+const CONSEQUENCE_FOR = {
+  STABLE:     "No degradation expected",
+  TRANSITION: "Instability will propagate",
+  UNSTABLE:   "System performance degrading",
+  LOCK_IN:    "Failure imminent or occurring",
+};
+
+const norm = (r) => (r === "WARMUP" || !r ? "STABLE" : r);
 
 export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
   const [system, setSystem] = useState(null);
@@ -32,7 +46,11 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, h, d] = await Promise.all([Systems.get(systemId), Systems.history(systemId, 300), Systems.decision(systemId)]);
+      const [s, h, d] = await Promise.all([
+        Systems.get(systemId),
+        Systems.history(systemId, 300),
+        Systems.decision(systemId),
+      ]);
       setSystem(s); setHistory(h.history || []); setDecision(d);
     } catch (_) {}
   }, [systemId]);
@@ -43,13 +61,17 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
     return () => clearInterval(tickRef.current);
   }, [refresh]);
 
-  if (!system || !decision) return <div className="p-6 font-mono text-xs text-zinc-500">Loading {systemId}…</div>;
+  if (!system || !decision) {
+    return <div className="p-6 font-mono text-xs text-zinc-500">Loading {systemId}…</div>;
+  }
 
-  const state = decision.state;
-  const risk  = decision.risk_level;
-  const u     = decision.urgency;
-  const r_color = REGIME_COLOR[state] || "#A1A1AA";
-  const risk_color = RISK_COLOR[risk] || "#A1A1AA";
+  const state = norm(decision.state);
+  const color = REGIME_COLOR[state] || "#A1A1AA";
+  const pulse = PULSE_CLASS[state] || "";
+  const Icon = REGIME_ICON[state] || Activity;
+  const phrases = decision.driver_phrases || [];
+  const rawDrivers = decision.drivers || [];
+  const consequenceShort = decision.consequence_short || CONSEQUENCE_FOR[state];
 
   return (
     <div data-testid="system-detail" className="space-y-3 animate-fade-in">
@@ -58,18 +80,18 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
         <ArrowLeft className="w-3.5 h-3.5" /> All systems
       </button>
 
-      {/* ============= SYSTEM STATUS PANEL — judgment, not status display ============= */}
-      <section data-testid="status-panel" className="grain border border-zinc-900 bg-[#0A0A0A]"
-        style={{ borderLeftWidth: 3, borderLeftColor: r_color }}>
+      {/* ============ SYSTEM STATUS PANEL — judgment, not status display ============ */}
+      <section data-testid="status-panel"
+        className={`grain border border-zinc-900 bg-[#0A0A0A] ${pulse}`}
+        style={{ borderLeftWidth: 3, borderLeftColor: color }}>
 
-        {/* Field 1 — STATE (declarative judgment) */}
-        <div data-testid="field-state" className="px-7 pt-6 pb-3 flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2.5 px-4 py-2 border" style={{ background: `${r_color}14`, borderColor: `${r_color}55` }}>
-            <span className="w-2 h-2 rounded-full animate-pulse-soft" style={{ background: r_color }} />
-            <span className="font-mono text-[10px] tracking-[0.25em] uppercase text-zinc-500">SYSTEM STATE</span>
-            <span className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: r_color }}>{state}</span>
+        {/* Field 1 — STATE (DOMINANT, largest text on the page) */}
+        <div data-testid="field-state" className="px-7 pt-7 pb-2 flex items-start gap-4 flex-wrap">
+          <div className="flex items-center gap-2 text-zinc-500">
+            <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
+            <span className="font-mono text-[10px] tracking-[0.25em] uppercase">SYSTEM STATE</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+          <div className="flex items-center gap-3 ml-auto font-mono text-[10px] uppercase tracking-wider text-zinc-500">
             <span>{system.system_id}</span>
             <span className="text-zinc-700">·</span>
             <span>{system.template} · {system.variables.length} variables</span>
@@ -77,56 +99,72 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
             <span>cycle {system.latest?.cycle ?? "—"}</span>
           </div>
         </div>
-
-        {/* Field 2 — WHAT IS HAPPENING (plain-language summary) */}
         <div className="px-7 pb-5">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">What is happening</div>
-          <h1 data-testid="field-what" className="font-mono text-2xl md:text-3xl text-zinc-50 leading-tight tracking-tight">
-            {decision.what}
+          <h1 data-testid="state-headline"
+            className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold leading-none tracking-[0.18em]"
+            style={{ color }}>
+            SYSTEM STATE: {state}
           </h1>
+          <div className="font-mono text-[11px] text-zinc-500 mt-3 uppercase tracking-[0.2em]">
+            {decision.state_subtext}
+          </div>
         </div>
 
-        {/* Fields 3, 4, 5 — RISK / ACTION / CONSEQUENCE */}
-        <div className="grid grid-cols-1 md:grid-cols-3 border-t border-zinc-900 divide-x divide-zinc-900">
-          <Field testid="field-risk" icon={Gauge} label="Risk level" tone={risk_color}>
-            <div className="font-mono text-base font-bold tracking-[0.25em]" style={{ color: risk_color }}>{risk}</div>
-            <div className="font-mono text-[11px] text-zinc-500 mt-1 leading-relaxed">{decision.urgency_window}</div>
-          </Field>
+        {/* Field 2 — WHAT IS HAPPENING (state-aligned) */}
+        <div className="px-7 pb-5 border-t border-zinc-900 pt-5">
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">What is happening</div>
+          <p data-testid="field-what" className="font-mono text-lg md:text-xl text-zinc-100 leading-snug">
+            {decision.what}
+          </p>
+          {phrases.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-3">
+              {phrases.map((p, i) => {
+                const raw = rawDrivers[i];
+                const tip = raw ? `${raw.variable} ×${raw.variance_ratio?.toFixed(2)}` : undefined;
+                return (
+                  <span key={i} title={tip}
+                    data-testid={`field-driver-${i}`}
+                    className="font-mono text-[11px] text-zinc-100 bg-zinc-900/70 border border-zinc-800 px-2 py-0.5">
+                    {p}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
+        {/* Fields 3 & 4 — ACTION / CONSEQUENCE (locked per state) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 border-t border-zinc-900 divide-x divide-zinc-900">
           <Field testid="field-action" icon={Wrench} label="Action" tone="#10B981">
-            <div className="font-mono text-base text-zinc-100">{decision.action}</div>
+            <div data-testid="action-text"
+              className="font-mono text-base text-zinc-100 whitespace-pre-line leading-snug">
+              {decision.action}
+            </div>
             {decision.expected_effect && (
-              <div className="font-mono text-[11px] text-zinc-500 mt-1 leading-relaxed">{decision.expected_effect}</div>
+              <div className="font-mono text-[11px] text-zinc-500 mt-2 leading-relaxed">{decision.expected_effect}</div>
             )}
             {decision.action_timeframe && (
               <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-2">timeframe · {decision.action_timeframe}</div>
             )}
           </Field>
 
-          <Field testid="field-consequence" icon={AlertOctagon} label="Consequence" tone={risk_color}>
-            <div className="font-mono text-base text-zinc-100">{decision.consequence}</div>
+          <Field testid="field-consequence" icon={AlertOctagon} label="Consequence" tone={color}>
+            <div data-testid="consequence-headline"
+              className="font-mono text-base font-semibold" style={{ color }}>
+              {consequenceShort}
+            </div>
+            <div className="font-mono text-[12px] text-zinc-300 mt-2 leading-relaxed">
+              {decision.consequence}
+            </div>
           </Field>
         </div>
 
-        {/* WHY (driver attribution — secondary inside panel) */}
+        {/* WHY (secondary inside panel) */}
         <div className="border-t border-zinc-900 px-7 py-4 flex items-start gap-3">
           <GitBranch className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
           <div className="flex-1">
             <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1.5">Why</div>
             <p data-testid="field-why" className="font-mono text-sm text-zinc-200 leading-relaxed">{decision.why}</p>
-            {decision.drivers && decision.drivers.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
-                <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider">propagation</span>
-                {decision.drivers.map((d, i) => (
-                  <span key={d.variable} className="flex items-center gap-1 font-mono text-[10px]">
-                    {i > 0 && <span className="text-zinc-700">→</span>}
-                    <span data-testid={`driver-${d.variable}`} className="text-zinc-200 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5">
-                      {d.variable} <span className="text-zinc-500">×{d.variance_ratio.toFixed(2)}</span>
-                    </span>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -149,7 +187,7 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
       {/* ============= SECONDARY ============= */}
       <FuturePathsPanel paths={decision.future_paths} />
       <InstabilityChart history={history} />
-      <Variables system={system} drivers={decision.drivers || []} />
+      <Variables system={system} drivers={rawDrivers} />
     </div>
   );
 }
@@ -214,13 +252,9 @@ function Variables({ system, drivers }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0">
         {system.variables.map(v => {
           const ratio = driverMap[v];
-          const isLeader = ratio && ratio > 1.5;
           return (
             <div key={v} data-testid={`var-${v}`} className="border-r border-b border-zinc-900 px-4 py-3">
-              <div className="flex items-center gap-1 font-mono text-[10px] text-zinc-600 uppercase tracking-wider mb-1">
-                {v}
-                {isLeader && <Zap className="w-2.5 h-2.5 text-amber-400" />}
-              </div>
+              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mb-1">{v}</div>
               <div className="font-mono text-sm text-zinc-100">
                 {formatNum(latestSensors[v], 2)}
                 <span className="text-[10px] text-zinc-500 ml-1">{system.units?.[v] || ""}</span>

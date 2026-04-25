@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { REGIME_COLOR, URGENCY_COLOR } from "@/sii";
+import { REGIME_COLOR } from "@/sii";
 
 // SII threshold lines (locked)
 const STABLE_T = 0.30, UNSTABLE_T = 0.65, LOCKIN_T = 0.85;
@@ -20,7 +20,7 @@ export default function InstabilityChart({ history }) {
 
   const data = (history || []).map(h => ({
     cycle: h.cycle, instability: h.instability_score, drift: h.structural_drift,
-    velocity: h.drift_velocity, regime: h.regime, urgency: h.urgency,
+    velocity: h.drift_velocity, regime: h.regime,
   }));
 
   return (

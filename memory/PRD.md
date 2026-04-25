@@ -63,6 +63,33 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — Single state vocabulary + dominant judgment
+- **State vocabulary collapsed to ONE axis**: only STABLE / TRANSITION /
+  UNSTABLE / LOCK_IN appear in operator-facing UI. Internal urgency
+  (NOMINAL/WATCH/ALERT/CRITICAL) is no longer surfaced anywhere — not
+  on cards, not in headlines, not in tab title, not in audit log.
+- `decision_synth.py` rewritten as state-driven: WHAT / ACTION /
+  CONSEQUENCE / WHY are gated by the regime so wording is always
+  state-aligned (no "drift" language in STABLE; no "stable" language
+  in TRANSITION/UNSTABLE/LOCK_IN). Adds `consequence_short` (locked
+  per spec) and `driver_phrases[]` (semantic — "Vibration intensifying",
+  "Flow imbalance increasing", …) so the UI never renders raw chips.
+- `SystemDetail` now leads with `SYSTEM STATE: <regime>` at
+  text-4xl→6xl as the largest element on the page. WHAT, ACTION,
+  CONSEQUENCE follow.
+- `SystemGrid` rows always render CONSEQUENCE (locked per state) and
+  use semantic driver pills instead of raw `var × ratio`. Raw values
+  remain only as tooltips and inside the Variables panel.
+- Added `state-pulse-{transition,unstable,lockin}` halo CSS so the
+  operator's eye is drawn to systems that have left STABLE.
+- `AuditView` shows a translated headline as the primary line; numeric
+  metrics are de-emphasised. Backend `audit_headline()` writes the
+  headline server-side; manual ACK/OVERRIDE/NOTE entries get one too.
+- Audit auto-flush no longer emits internal `urgency` transitions.
+- Tab title uses regime: `(N) sys-X TRANSITION · M stable — Neraium SII`.
+- Removed dead `DecisionPanel.js`. Backend tests realigned to the new
+  contract; 15/15 pass.
+
 ### 2026-04-25 — Validation Mode removed
 - Deleted `routers/validation.py`, `ValidationView.js`, `Validation` API
   client, header tab, and the FD004 backend test class. The Validation

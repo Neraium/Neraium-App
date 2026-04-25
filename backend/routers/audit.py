@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from services import sii_state as ss
+from services.decision_synth import audit_headline
 
 router = APIRouter()
 
@@ -33,39 +34,46 @@ def reset_tracker() -> None:
 
 
 async def scan_and_log() -> int:
-    """Scan history of every system, emit one entry per regime/urgency transition."""
+    """Scan history of every system, emit one entry per regime transition.
+
+    Internal urgency transitions are no longer surfaced — the operator
+    UI uses regime as the single state vocabulary.
+    """
     logged = 0
     for rec in ss.all_systems():
         for unified in rec.history:
             sid = rec.system_id
-            for kind, key in (("regime", "regime"), ("urgency", "urgency")):
-                cur = unified.get(key)
-                prev = _last_seen.get((sid, kind))
-                if prev == cur:
-                    continue
-                _last_seen[(sid, kind)] = cur
-                if prev is None:
-                    # don't emit the very first observed value — it's the baseline
-                    continue
-                entry = {
-                    "id": str(uuid.uuid4()),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "system_id": sid,
-                    "system_label": rec.label,
-                    "kind": kind,           # "regime" or "urgency"
-                    "from_value": prev,
-                    "to_value": cur,
-                    "frame_index": unified.get("cycle"),
-                    "instability_score": float(unified.get("instability_score") or 0),
-                    "drift_velocity": float(unified.get("drift_velocity") or 0),
-                    "action_type": "AUTO_TRANSITION",
-                    "operator_note": "",
-                }
-                try:
-                    await _coll().insert_one(dict(entry))
-                    logged += 1
-                except Exception:
-                    pass
+            kind, key = "regime", "regime"
+            cur = unified.get(key)
+            prev = _last_seen.get((sid, kind))
+            if prev == cur:
+                continue
+            _last_seen[(sid, kind)] = cur
+            if prev is None:
+                continue
+            if cur == "WARMUP":
+                # Don't surface warmup as an operator-facing transition.
+                continue
+            entry = {
+                "id": str(uuid.uuid4()),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "system_id": sid,
+                "system_label": rec.label,
+                "kind": kind,
+                "from_value": prev,
+                "to_value": cur,
+                "frame_index": unified.get("cycle"),
+                "instability_score": float(unified.get("instability_score") or 0),
+                "drift_velocity": float(unified.get("drift_velocity") or 0),
+                "action_type": "AUTO_TRANSITION",
+                "operator_note": "",
+                "headline": audit_headline(kind, prev, cur),
+            }
+            try:
+                await _coll().insert_one(dict(entry))
+                logged += 1
+            except Exception:
+                pass
     return logged
 
 
@@ -91,6 +99,11 @@ async def add(req: AuditEntryRequest):
         "instability_score": None, "drift_velocity": None,
         "action_type": req.action_type,
         "operator_note": req.note,
+        "headline": (
+            "Operator acknowledged judgment" if req.action_type == "ACKNOWLEDGE" else
+            "Operator override registered"   if req.action_type == "OVERRIDE"   else
+            "Operator note recorded"
+        ),
     }
     await _coll().insert_one(dict(entry))
     return entry
