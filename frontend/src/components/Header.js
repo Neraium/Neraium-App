@@ -1,4 +1,4 @@
-import { Cpu, Pause, Play, ScrollText, Grid3x3, Settings as SettingsIcon } from "lucide-react";
+import { Cpu, Pause, Play, ScrollText, Grid3x3, Settings as SettingsIcon, Zap } from "lucide-react";
 
 export default function Header({
   view, setView, playback, onStart, onStop, onSpeedChange,
@@ -56,6 +56,7 @@ export default function Header({
       <div className="h-9 px-5 border-t border-zinc-900 flex items-stretch">
         <ViewTab id="grid"      icon={Grid3x3}       label="Decisions"   active={view === "grid"} onClick={() => setView("grid")} />
         <ViewTab id="audit"     icon={ScrollText}    label="Audit Trail" active={view === "audit"} onClick={() => setView("audit")} />
+        <ViewTab id="demo"      icon={Zap}           label="Demo"        active={view === "demo"} onClick={() => setView("demo")} />
         <ViewTab id="settings"  icon={SettingsIcon}  label="Settings"    active={view === "settings"} onClick={() => setView("settings")} />
       </div>
     </header>
