@@ -27,7 +27,9 @@ export default function StateFlashBanners({ systems, onSelect }) {
     const next = { ...memRef.current };
     const newFlashes = [];
     for (const s of systems) {
-      const cur = norm(s.latest?.regime);
+      // Use the hysteresis-smoothed state so we don't fire on engine
+      // micro-flapping near a regime threshold.
+      const cur = norm(s.latest?.display_regime || s.latest?.regime);
       const prev = next[s.system_id];
       if (!prev) {
         next[s.system_id] = { state: cur, lastFiredAt: 0 };

@@ -63,6 +63,26 @@ charts as the lead element of any screen.
 
 ## CHANGELOG
 
+### 2026-04-25 — Hysteresis-smoothed state + 4-box grid
+- **Backend hysteresis.** `services/sii_state.py` now writes a
+  `display_regime` field (mode of last 6 raw frames, severity wins
+  ties) onto every unified state. `decision_synth.build_decision`
+  reads `display_regime` so the operator-facing state never flaps when
+  the engine hovers near a threshold. Raw `regime` is preserved on
+  `history` for the trajectory chart.
+- **4 boxes instead of stacked rows.** `SystemGrid` renders systems in
+  a `grid-cols-1 md:grid-cols-2 xl:grid-cols-4` of color-coded boxes
+  with a top accent border. Each box is independently expandable.
+- **STABLE collapsed by default.** Stable boxes show only state chip +
+  short summary + chevron. Non-STABLE boxes auto-expand to surface
+  driver phrases / ACTION / CONSEQUENCE / "Open verdict →".
+  Auto-collapse on return to STABLE.
+- **Color update:** STABLE green, TRANSITION amber, UNSTABLE red,
+  LOCK_IN deep red (irreversibly changed). `REGIME_COLOR` and the
+  `state-pulse-violet` halo updated.
+- **Tab title + flash banner** read `display_regime` so they no longer
+  fire on micro-flapping.
+
 ### 2026-04-25 — STATE CHANGED flash banner
 - New `StateFlashBanners` component (`/app/frontend/src/components/StateFlashBanners.js`)
   shows a one-shot pill in the top-right whenever a system actually

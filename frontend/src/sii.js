@@ -5,10 +5,10 @@
  */
 
 export const REGIME_COLOR = {
-  STABLE:     "#10B981",
-  TRANSITION: "#F59E0B",
-  UNSTABLE:   "#EF4444",
-  LOCK_IN:    "#7C3AED",
+  STABLE:     "#10B981",   // green
+  TRANSITION: "#F59E0B",   // yellow / amber
+  UNSTABLE:   "#EF4444",   // red
+  LOCK_IN:    "#B91C1C",   // deep red — irreversibly changed
 };
 
 export const REGIME_RANK = { STABLE: 0, TRANSITION: 1, UNSTABLE: 2, LOCK_IN: 3 };
@@ -17,7 +17,7 @@ export const REGIME_TONE = {
   STABLE:     "#10B981",
   TRANSITION: "#F59E0B",
   UNSTABLE:   "#EF4444",
-  LOCK_IN:    "#FB7185",
+  LOCK_IN:    "#B91C1C",
 };
 
 export const formatNum = (n, d = 3) => {

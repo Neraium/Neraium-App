@@ -378,9 +378,11 @@ def build_decision(system_id: str) -> Dict[str, Any]:
         return {"available": False}
 
     raw_regime = last["regime"]
-    # WARMUP is engine-internal — treat as STABLE in the operator UI so
-    # the visible state vocabulary stays at the locked four labels.
-    state = raw_regime if raw_regime in ("STABLE", "TRANSITION", "UNSTABLE", "LOCK_IN") else "STABLE"
+    # Use the hysteresis-smoothed display_regime when available so the
+    # operator-facing state doesn't flap as the engine hovers near a
+    # threshold. Fall back to the raw regime, treating WARMUP as STABLE.
+    smoothed = last.get("display_regime") or raw_regime
+    state = smoothed if smoothed in ("STABLE", "TRANSITION", "UNSTABLE", "LOCK_IN") else "STABLE"
 
     velocity = float(last["drift_velocity"])
     instability = float(last["instability_score"])

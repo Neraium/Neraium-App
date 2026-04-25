@@ -37,7 +37,6 @@ const CONSEQUENCE_FOR = {
 };
 
 const norm = (r) => (r === "WARMUP" || !r ? "STABLE" : r);
-
 export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
   const [system, setSystem] = useState(null);
   const [decision, setDecision] = useState(null);

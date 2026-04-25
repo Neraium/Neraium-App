@@ -67,6 +67,29 @@ def register_system(system_id: str, template: str, label: str,
     return rec
 
 
+_RANK = {"STABLE": 0, "TRANSITION": 1, "UNSTABLE": 2, "LOCK_IN": 3}
+
+
+def _smoothed_regime(history: List[Dict[str, Any]], k: int = 6) -> str:
+    """Hysteresis-smoothed display regime.
+
+    Takes the mode of the last `k` raw regimes (severity wins ties).
+    This keeps the user-facing state from flapping when the engine is
+    hovering near a threshold — the displayed state only changes when
+    the new regime is the dominant one across recent history.
+    """
+    if not history:
+        return "STABLE"
+    window = history[-k:]
+    counts: Dict[str, int] = {}
+    for x in window:
+        r = x.get("regime")
+        if r == "WARMUP" or r not in _RANK:
+            r = "STABLE"
+        counts[r] = counts.get(r, 0) + 1
+    return max(counts.items(), key=lambda kv: (kv[1], _RANK[kv[0]]))[0]
+
+
 def ingest_frame(system_id: str, sensor_values: Dict[str, float], timestamp: float) -> Dict[str, Any]:
     """Vectorise sensor_values in the system's stable variable order, ingest
     into the SII adapter, append unified state to history. Returns a JSON-
@@ -99,6 +122,8 @@ def ingest_frame(system_id: str, sensor_values: Dict[str, float], timestamp: flo
     if len(rec.history) > HISTORY_LIMIT:
         rec.history = rec.history[-HISTORY_LIMIT:]
         rec.sensor_history = rec.sensor_history[-HISTORY_LIMIT:]
+    # Add display_regime AFTER appending so it sees this frame too.
+    unified["display_regime"] = _smoothed_regime(rec.history)
     return unified
 
 

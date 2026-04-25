@@ -69,7 +69,7 @@ export default function App() {
       return;
     }
     const norm = (s) => {
-      const r = s.latest?.regime;
+      const r = s.latest?.display_regime || s.latest?.regime;
       return r === "WARMUP" || !r ? "STABLE" : r;
     };
     const worst = [...items].sort((a, b) => (order[norm(b)] || 0) - (order[norm(a)] || 0))[0];
