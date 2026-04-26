@@ -3,18 +3,14 @@
 Unified CMAPSS Validation Runner for Neraium SII Engine.
 
 Measures early instability detection across NASA CMAPSS datasets FD001-FD004.
+Properly handles short histories and provides comprehensive diagnostics.
 
 Core metrics:
 - first_alert_cycle: When engine first detects instability
 - failure_cycle: Last observed cycle + RUL
 - lead_time_cycles: failure_cycle - first_alert_cycle
 - detection_coverage: Units detected / total units
-- missed_units: Units with no alert before failure
-
-Alert logic (strict priority):
-1. drift_alert == True (engine's drift detection)
-2. regime/urgency indicating transition, unstable, degradation, lock-in
-3. structural_drift_score threshold as fallback (0.5 default)
+- Diagnostics: insufficient_history, engine_errors, etc.
 
 Usage:
   python tools/cmapss_unified_runner.py \\
@@ -22,7 +18,8 @@ Usage:
     --datasets FD001 FD002 FD003 FD004 \\
     --output validation_out \\
     --progress \\
-    --plot
+    --baseline-window 50 \\
+    --min-baseline 10
 """
 
 import argparse
@@ -75,15 +72,19 @@ class UnitDetectionResult:
     """Detection results for a single test unit."""
     unit_id: int
     dataset: str
-    total_cycles: int
+    cycles_observed: int
+    baseline_samples_used: int
     failure_cycle: int
     first_alert_cycle: Optional[int] = None
-    alert_cycle_type: Optional[str] = None  # "drift_alert", "regime", "threshold"
+    alert_cycle_type: Optional[str] = None  # "regime", "urgency", "structural_drift"
     alert_regime_at_detection: Optional[str] = None
     lead_time_cycles: Optional[int] = None
     detected: bool = False
     max_instability_score: float = 0.0
     instability_at_alert: float = 0.0
+    warmup_cycles: int = 0
+    error_message: Optional[str] = None
+    was_insufficient_history: bool = False
 
 
 @dataclass
@@ -92,13 +93,16 @@ class DatasetSummary:
     dataset: str
     units_total: int = 0
     units_detected: int = 0
+    units_missed: int = 0
+    units_insufficient_history: int = 0
+    units_engine_error: int = 0
     detection_coverage_pct: float = 0.0
     median_lead_time_cycles: Optional[float] = None
     mean_lead_time_cycles: Optional[float] = None
     min_lead_time_cycles: Optional[int] = None
     max_lead_time_cycles: Optional[int] = None
-    missed_units: int = 0
-    false_positive_count: int = 0
+    baseline_window_configured: int = 50
+    min_baseline_configured: int = 10
     engine_version: str = "SIIEngine Unified"
     per_unit_results: List[UnitDetectionResult] = field(default_factory=list)
 
@@ -110,12 +114,16 @@ class CMAPSSValidator:
         self,
         data_dir: Path,
         output_dir: Path,
+        baseline_window: int = 50,
+        min_baseline: int = 10,
         structural_drift_threshold: float = 0.5,
         progress: bool = True,
         plot: bool = False,
     ):
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
+        self.baseline_window = baseline_window
+        self.min_baseline = min_baseline
         self.structural_drift_threshold = structural_drift_threshold
         self.progress = progress and HAS_TQDM
         self.plot = plot
@@ -126,6 +134,7 @@ class CMAPSSValidator:
         print(f"🔬 Neraium SII Engine — CMAPSS Unified Validation")
         print(f"   Data directory: {self.data_dir}")
         print(f"   Output directory: {self.output_dir}")
+        print(f"   Baseline window: {self.baseline_window} cycles (min: {self.min_baseline})")
         print(f"   Drift threshold: {self.structural_drift_threshold}")
         print()
 
@@ -151,7 +160,12 @@ class CMAPSSValidator:
 
         if not test_file.exists() or not rul_file.exists():
             print(f"   ⚠️  Files not found: {test_file.name}, {rul_file.name}")
-            return DatasetSummary(dataset=dataset, units_total=0)
+            return DatasetSummary(
+                dataset=dataset,
+                units_total=0,
+                baseline_window_configured=self.baseline_window,
+                min_baseline_configured=self.min_baseline,
+            )
 
         # Load RUL values
         rul_map = self._load_rul_file(rul_file)
@@ -159,7 +173,12 @@ class CMAPSSValidator:
         # Load test data and group by unit
         units_data = self._load_test_file(test_file)
 
-        summary = DatasetSummary(dataset=dataset, units_total=len(units_data))
+        summary = DatasetSummary(
+            dataset=dataset,
+            units_total=len(units_data),
+            baseline_window_configured=self.baseline_window,
+            min_baseline_configured=self.min_baseline,
+        )
 
         # Create progress bar
         iterator = units_data.items()
@@ -174,32 +193,23 @@ class CMAPSSValidator:
 
         # Process each unit
         for unit_id, cycles_data in iterator:
-            try:
-                result = self._process_unit(
-                    dataset=dataset,
-                    unit_id=unit_id,
-                    cycles_data=cycles_data,
-                    rul_value=rul_map.get(unit_id),
-                )
-                summary.per_unit_results.append(result)
-                if result.detected:
-                    summary.units_detected += 1
-            except Exception as e:
-                # Log but continue with next unit
-                if self.progress:
-                    iterator.set_description(f"  {dataset} (error on unit {unit_id}: {str(e)[:50]})")
-                # Create a result for the failed unit
-                last_cycle = max(c.cycle for c in cycles_data)
-                failure_cycle = last_cycle + rul_map.get(unit_id, 0)
-                result = UnitDetectionResult(
-                    unit_id=unit_id,
-                    dataset=dataset,
-                    total_cycles=len(cycles_data),
-                    failure_cycle=failure_cycle,
-                    detected=False,
-                    max_instability_score=0.0,
-                )
-                summary.per_unit_results.append(result)
+            result = self._process_unit(
+                dataset=dataset,
+                unit_id=unit_id,
+                cycles_data=cycles_data,
+                rul_value=rul_map.get(unit_id),
+            )
+            summary.per_unit_results.append(result)
+
+            # Count outcomes
+            if result.error_message:
+                summary.units_engine_error += 1
+            elif result.was_insufficient_history:
+                summary.units_insufficient_history += 1
+            elif result.detected:
+                summary.units_detected += 1
+            else:
+                summary.units_missed += 1
 
         # Compute aggregate metrics
         self._compute_summary_metrics(summary)
@@ -213,84 +223,105 @@ class CMAPSSValidator:
         cycles_data: List[CMAPSSRow],
         rul_value: Optional[int],
     ) -> UnitDetectionResult:
-        """Process a single unit through the engine."""
+        """Process a single unit through the engine (one instance per unit)."""
         if rul_value is None:
             rul_value = 0
+
+        num_cycles = len(cycles_data)
 
         # Calculate failure cycle
         last_cycle = max(c.cycle for c in cycles_data)
         failure_cycle = last_cycle + rul_value
 
-        # Determine baseline window based on available data
-        # Use a smaller baseline for short sequences
-        num_cycles = len(cycles_data)
-        if num_cycles < 50:
-            baseline_window = max(5, num_cycles // 3)  # 1/3 of data for baseline if < 50 cycles
-        else:
-            baseline_window = 50
+        try:
+            # Create one engine per unit
+            engine = SIIEngine(baseline_window=self.baseline_window, recent_window=12)
 
-        # Initialize engine
-        engine = SIIEngine(baseline_window=baseline_window, recent_window=12)
+            first_alert_cycle = None
+            alert_cycle_type = None
+            alert_regime = None
+            max_instability = 0.0
+            instability_at_alert = 0.0
+            warmup_cycles = 0
+            baseline_used = 0
 
-        first_alert_cycle = None
-        alert_cycle_type = None
-        alert_regime = None
-        max_instability = 0.0
-        instability_at_alert = 0.0
+            # Stream each cycle through the same engine instance
+            for row in cycles_data:
+                sensor_vector = row.to_sensor_vector()
+                timestamp = float(row.cycle)
 
-        # Process each cycle
-        for row in cycles_data:
-            sensor_vector = row.to_sensor_vector()
-            timestamp = float(row.cycle)
+                output = engine.update(sensor_vector, timestamp)
 
-            output = engine.update(sensor_vector, timestamp)
+                # Track warmup
+                if output.regime == "WARMUP":
+                    warmup_cycles += 1
 
-            # Track max instability
-            max_instability = max(max_instability, output.instability_score)
+                # Track max instability
+                max_instability = max(max_instability, output.instability_score)
 
-            # Check for alert (strict priority)
-            if first_alert_cycle is None:
-                is_alert = self._check_alert(output, row)
-                if is_alert:
-                    first_alert_cycle = row.cycle
-                    instability_at_alert = output.instability_score
-                    alert_regime = output.regime
-                    alert_cycle_type = self._get_alert_type(output)
+                # Check for alert (only after warmup, strict priority)
+                if first_alert_cycle is None and output.regime != "WARMUP":
+                    is_alert = self._check_alert(output)
+                    if is_alert:
+                        first_alert_cycle = row.cycle
+                        instability_at_alert = output.instability_score
+                        alert_regime = output.regime
+                        alert_cycle_type = self._get_alert_type(output)
 
-        # Determine if unit was detected
-        detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
+            # If unit ended before baseline was ready, finalize it
+            baseline_used = engine.baseline.sample_count if engine.baseline.is_valid() else 0
 
-        # Calculate lead time
-        lead_time = None
-        if detected:
-            lead_time = failure_cycle - first_alert_cycle
+            # Determine if unit was detected
+            detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
 
-        return UnitDetectionResult(
-            unit_id=unit_id,
-            dataset=dataset,
-            total_cycles=len(cycles_data),
-            failure_cycle=failure_cycle,
-            first_alert_cycle=first_alert_cycle,
-            alert_cycle_type=alert_cycle_type,
-            alert_regime_at_detection=alert_regime,
-            lead_time_cycles=lead_time,
-            detected=detected,
-            max_instability_score=max_instability,
-            instability_at_alert=instability_at_alert,
-        )
+            # Check if insufficient history
+            insufficient_history = not engine.baseline_ready and num_cycles < self.min_baseline
 
-    def _check_alert(self, output: SIIEngineOutput, row: CMAPSSRow) -> bool:
+            # Calculate lead time
+            lead_time = None
+            if detected:
+                lead_time = failure_cycle - first_alert_cycle
+
+            return UnitDetectionResult(
+                unit_id=unit_id,
+                dataset=dataset,
+                cycles_observed=num_cycles,
+                baseline_samples_used=baseline_used,
+                failure_cycle=failure_cycle,
+                first_alert_cycle=first_alert_cycle,
+                alert_cycle_type=alert_cycle_type,
+                alert_regime_at_detection=alert_regime,
+                lead_time_cycles=lead_time,
+                detected=detected,
+                max_instability_score=max_instability,
+                instability_at_alert=instability_at_alert,
+                warmup_cycles=warmup_cycles,
+                was_insufficient_history=insufficient_history,
+            )
+
+        except Exception as e:
+            # Capture any engine errors but continue
+            return UnitDetectionResult(
+                unit_id=unit_id,
+                dataset=dataset,
+                cycles_observed=num_cycles,
+                baseline_samples_used=0,
+                failure_cycle=failure_cycle,
+                detected=False,
+                error_message=str(e)[:100],
+            )
+
+    def _check_alert(self, output: SIIEngineOutput) -> bool:
         """Check if alert condition met (strict priority)."""
-        # Priority 1: drift_alert indicator (if available in output)
-        # (SIIEngineOutput doesn't expose drift_alert directly, so check through regime/urgency)
-
-        # Priority 2: State/regime indicating instability
+        # Priority 1: Regime indicating instability
         if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
             return True
+
+        # Priority 2: Urgency indicating alert
         if output.urgency in ("ALERT", "CRITICAL"):
             return True
 
-        # Priority 3: Structural drift threshold fallback
+        # Priority 3: Structural drift threshold fallback (documented)
         if output.structural_drift >= self.structural_drift_threshold:
             return True
 
@@ -307,16 +338,12 @@ class CMAPSSValidator:
     def _compute_summary_metrics(self, summary: DatasetSummary) -> None:
         """Compute aggregate metrics for dataset."""
         if summary.per_unit_results:
-            summary.units_detected = sum(
-                1 for r in summary.per_unit_results if r.detected
-            )
-            summary.missed_units = summary.units_total - summary.units_detected
-
             lead_times = [
                 r.lead_time_cycles
                 for r in summary.per_unit_results
-                if r.lead_time_cycles is not None
+                if r.lead_time_cycles is not None and r.lead_time_cycles > 0
             ]
+
             if lead_times:
                 summary.median_lead_time_cycles = float(np.median(lead_times))
                 summary.mean_lead_time_cycles = float(np.mean(lead_times))
@@ -325,6 +352,8 @@ class CMAPSSValidator:
 
             summary.detection_coverage_pct = (
                 100.0 * summary.units_detected / summary.units_total
+                if summary.units_total > 0
+                else 0.0
             )
 
     def _load_rul_file(self, rul_file: Path) -> Dict[int, int]:
@@ -349,35 +378,44 @@ class CMAPSSValidator:
     def _print_dataset_summary(self, summary: DatasetSummary) -> None:
         """Print summary for dataset to console."""
         print(f"\n   📈 {summary.dataset} Results:")
-        print(f"      Units: {summary.units_detected}/{summary.units_total} detected ({summary.detection_coverage_pct:.1f}%)")
+        print(f"      Total units: {summary.units_total}")
+        print(f"      Detected: {summary.units_detected}/{summary.units_total} ({summary.detection_coverage_pct:.1f}%)")
+        print(f"      Missed: {summary.units_missed}")
+        print(f"      Insufficient history: {summary.units_insufficient_history}")
+        print(f"      Engine errors: {summary.units_engine_error}")
+
         if summary.median_lead_time_cycles is not None:
             print(f"      Lead time: {summary.mean_lead_time_cycles:.1f}±{summary.median_lead_time_cycles:.1f} cycles")
-            print(f"               (min: {summary.min_lead_time_cycles}, max: {summary.max_lead_time_cycles})")
-        if summary.missed_units > 0:
-            print(f"      ⚠️  Missed: {summary.missed_units} units")
+            print(f"                (min: {summary.min_lead_time_cycles}, max: {summary.max_lead_time_cycles})")
 
     def _print_combined_summary(self, all_results: Dict[str, DatasetSummary]) -> None:
         """Print combined summary across all datasets."""
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 70)
         print("📊 COMBINED SUMMARY")
-        print("=" * 60)
+        print("=" * 70)
 
         total_units = sum(s.units_total for s in all_results.values())
         total_detected = sum(s.units_detected for s in all_results.values())
+        total_insufficient = sum(s.units_insufficient_history for s in all_results.values())
+        total_errors = sum(s.units_engine_error for s in all_results.values())
         overall_coverage = 100.0 * total_detected / total_units if total_units > 0 else 0.0
 
-        print(f"\nTotal units:     {total_detected}/{total_units} detected ({overall_coverage:.1f}%)")
+        print(f"\nTotal units:              {total_units}")
+        print(f"  Detected:              {total_detected} ({overall_coverage:.1f}%)")
+        print(f"  Missed:                {total_units - total_detected - total_insufficient - total_errors}")
+        print(f"  Insufficient history:  {total_insufficient}")
+        print(f"  Engine errors:         {total_errors}")
 
         # All lead times
         all_lead_times = []
         for summary in all_results.values():
             all_lead_times.extend(
-                [r.lead_time_cycles for r in summary.per_unit_results if r.lead_time_cycles is not None]
+                [r.lead_time_cycles for r in summary.per_unit_results if r.lead_time_cycles is not None and r.lead_time_cycles > 0]
             )
 
         if all_lead_times:
-            print(f"Overall lead time: {np.mean(all_lead_times):.1f} cycles (median: {np.median(all_lead_times):.1f})")
-            print(f"                   (range: {np.min(all_lead_times)}-{np.max(all_lead_times)} cycles)")
+            print(f"\nOverall lead time:       {np.mean(all_lead_times):.1f} cycles (median: {np.median(all_lead_times):.1f})")
+            print(f"                         (range: {int(np.min(all_lead_times))}-{int(np.max(all_lead_times))} cycles)")
 
         print()
 
@@ -405,11 +443,17 @@ class CMAPSSValidator:
     def _write_per_unit_csv(self, filepath: Path, summary: DatasetSummary) -> None:
         """Write per-unit results to CSV."""
         with open(filepath, "w") as f:
-            f.write("unit_id,total_cycles,failure_cycle,first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,max_instability,instability_at_alert\n")
+            f.write(
+                "unit_id,cycles_observed,baseline_used,warmup_cycles,failure_cycle,"
+                "first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,"
+                "max_instability,instability_at_alert,insufficient_history,error_message\n"
+            )
             for result in summary.per_unit_results:
                 f.write(
                     f"{result.unit_id},"
-                    f"{result.total_cycles},"
+                    f"{result.cycles_observed},"
+                    f"{result.baseline_samples_used},"
+                    f"{result.warmup_cycles},"
                     f"{result.failure_cycle},"
                     f"{result.first_alert_cycle or '-'},"
                     f"{result.alert_cycle_type or '-'},"
@@ -417,7 +461,9 @@ class CMAPSSValidator:
                     f"{result.lead_time_cycles or '-'},"
                     f"{result.detected},"
                     f"{result.max_instability_score:.4f},"
-                    f"{result.instability_at_alert:.4f}\n"
+                    f"{result.instability_at_alert:.4f},"
+                    f"{result.was_insufficient_history},"
+                    f"\"{result.error_message or ''}\"\n"
                 )
 
     def _write_summary_json(self, filepath: Path, summary: DatasetSummary) -> None:
@@ -426,13 +472,16 @@ class CMAPSSValidator:
             "dataset": summary.dataset,
             "units_total": summary.units_total,
             "units_detected": summary.units_detected,
+            "units_missed": summary.units_missed,
+            "units_insufficient_history": summary.units_insufficient_history,
+            "units_engine_error": summary.units_engine_error,
             "detection_coverage_pct": summary.detection_coverage_pct,
             "median_lead_time_cycles": summary.median_lead_time_cycles,
             "mean_lead_time_cycles": summary.mean_lead_time_cycles,
             "min_lead_time_cycles": summary.min_lead_time_cycles,
             "max_lead_time_cycles": summary.max_lead_time_cycles,
-            "missed_units": summary.missed_units,
-            "false_positive_count": summary.false_positive_count,
+            "baseline_window_configured": summary.baseline_window_configured,
+            "min_baseline_configured": summary.min_baseline_configured,
             "engine_version": summary.engine_version,
         }
         with open(filepath, "w") as f:
@@ -443,19 +492,25 @@ class CMAPSSValidator:
     ) -> None:
         """Write combined summary to CSV."""
         with open(filepath, "w") as f:
-            f.write("dataset,units_total,units_detected,coverage_pct,median_lead_time,mean_lead_time,min_lead_time,max_lead_time,missed_units\n")
+            f.write(
+                "dataset,units_total,units_detected,units_missed,units_insufficient,"
+                "units_error,coverage_pct,median_lead_time,mean_lead_time,min_lead_time,"
+                "max_lead_time\n"
+            )
             for dataset in sorted(all_results.keys()):
                 summary = all_results[dataset]
                 f.write(
                     f"{dataset},"
                     f"{summary.units_total},"
                     f"{summary.units_detected},"
+                    f"{summary.units_missed},"
+                    f"{summary.units_insufficient_history},"
+                    f"{summary.units_engine_error},"
                     f"{summary.detection_coverage_pct:.1f},"
                     f"{summary.median_lead_time_cycles or '-'},"
                     f"{summary.mean_lead_time_cycles or '-'},"
                     f"{summary.min_lead_time_cycles or '-'},"
-                    f"{summary.max_lead_time_cycles or '-'},"
-                    f"{summary.missed_units}\n"
+                    f"{summary.max_lead_time_cycles or '-'}\n"
                 )
 
     def _write_combined_json(
@@ -467,12 +522,16 @@ class CMAPSSValidator:
             summaries[dataset] = {
                 "units_total": summary.units_total,
                 "units_detected": summary.units_detected,
+                "units_missed": summary.units_missed,
+                "units_insufficient_history": summary.units_insufficient_history,
+                "units_engine_error": summary.units_engine_error,
                 "detection_coverage_pct": summary.detection_coverage_pct,
                 "median_lead_time_cycles": summary.median_lead_time_cycles,
                 "mean_lead_time_cycles": summary.mean_lead_time_cycles,
                 "min_lead_time_cycles": summary.min_lead_time_cycles,
                 "max_lead_time_cycles": summary.max_lead_time_cycles,
-                "missed_units": summary.missed_units,
+                "baseline_window_configured": summary.baseline_window_configured,
+                "min_baseline_configured": summary.min_baseline_configured,
             }
 
         with open(filepath, "w") as f:
@@ -513,9 +572,16 @@ def main():
         help="Generate per-unit drift/alert plots (optional)",
     )
     parser.add_argument(
-        "--unit",
+        "--baseline-window",
         type=int,
-        help="Single unit to process (debug mode)",
+        default=50,
+        help="Baseline window size for engine (default: 50)",
+    )
+    parser.add_argument(
+        "--min-baseline",
+        type=int,
+        default=10,
+        help="Minimum baseline samples required (default: 10)",
     )
     parser.add_argument(
         "--drift-threshold",
@@ -530,6 +596,8 @@ def main():
         validator = CMAPSSValidator(
             data_dir=args.data_dir,
             output_dir=args.output,
+            baseline_window=args.baseline_window,
+            min_baseline=args.min_baseline,
             structural_drift_threshold=args.drift_threshold,
             progress=args.progress,
             plot=args.plot,

@@ -213,6 +213,63 @@ class SIIEngine:
         if self.baseline.is_valid():
             self.baseline_ready = True
 
+    def fit_baseline_adaptive(self, data: np.ndarray, min_samples: int = 5) -> bool:
+        """
+        Compute baseline from available data, using as much as possible.
+
+        Does not raise on insufficient data; returns success/failure instead.
+
+        Args:
+            data: Shape (N, d) where N >= min_samples, d = num features
+            min_samples: Minimum samples required (default 5)
+
+        Returns:
+            True if baseline was successfully created, False otherwise
+        """
+        if data.shape[0] < min_samples:
+            return False
+
+        # Use available data, up to baseline_window
+        actual_baseline_size = min(data.shape[0], self.baseline_window)
+        baseline_data = data[:actual_baseline_size]
+
+        # Forward-fill missing values
+        baseline_data = self._forward_fill(baseline_data)
+
+        # Compute baseline mean and covariance
+        self.baseline.mean = np.mean(baseline_data, axis=0, dtype=float)
+        self.baseline.cov = np.cov(baseline_data.T, dtype=float)
+        self.baseline.sample_count = actual_baseline_size
+
+        # Ensure covariance is 2D
+        if self.baseline.cov.ndim == 1:
+            self.baseline.cov = np.diag(self.baseline.cov)
+
+        # Compute regularized inverse covariance
+        self.baseline.cov_inv = self._safe_inverse_covariance(self.baseline.cov)
+
+        if self.baseline.is_valid():
+            self.baseline_ready = True
+            return True
+
+        return False
+
+    def finalize_baseline(self) -> bool:
+        """
+        Finalize baseline from accumulated history (for end-of-stream).
+
+        Returns:
+            True if baseline was successfully created, False otherwise
+        """
+        if self.baseline_ready:
+            return True
+
+        if len(self.sensor_history) > 0:
+            baseline_matrix = np.array(list(self.sensor_history), dtype=float)
+            return self.fit_baseline_adaptive(baseline_matrix, min_samples=5)
+
+        return False
+
     def update(
         self,
         x_t: np.ndarray,
