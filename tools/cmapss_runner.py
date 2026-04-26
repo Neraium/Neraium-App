@@ -105,6 +105,8 @@ class UnitResult:
     baseline_finalized_cycle: int = 0
     alert_before_baseline_finalized: bool = False
     warmup_alert: bool = False
+    state_at_alert: str = ""  # Regime at alert time
+    urgency_at_alert: str = ""  # Urgency at alert time
     novelty_score_at_alert: float = 0.0
     ensemble_agreement_at_alert: float = 1.0
     degradation_mode_at_alert: str = "unknown"
@@ -276,6 +278,7 @@ class CMAPSSValidator:
             first_alert_cycle = None
             alert_cycle_type = None
             alert_regime = None
+            alert_urgency = None
             alert_source = None
             alert_reason = None
             max_instability = 0.0
@@ -321,6 +324,7 @@ class CMAPSSValidator:
                         first_alert_cycle = row.cycle
                         instability_at_alert = output.instability_score
                         alert_regime = output.regime
+                        alert_urgency = output.urgency
                         alert_cycle_type = self._get_alert_type(output)
                         alert_output = output  # Capture full output at alert time
 
@@ -452,6 +456,8 @@ class CMAPSSValidator:
                 baseline_finalized_cycle=baseline_finalized_cycle,
                 alert_before_baseline_finalized=alert_before_baseline,
                 warmup_alert=is_warmup_alert,
+                state_at_alert=alert_regime or "",
+                urgency_at_alert=alert_urgency or "",
                 novelty_score_at_alert=novelty_at_alert,
                 ensemble_agreement_at_alert=ensemble_at_alert,
                 degradation_mode_at_alert=mode_at_alert,
@@ -540,14 +546,17 @@ class CMAPSSValidator:
                 continue
 
             # Count by alert source
-            if result.alert_source == "regime":
-                if result.state_at_alert not in summary.detections_by_regime:
-                    summary.detections_by_regime[result.state_at_alert] = 0
-                summary.detections_by_regime[result.state_at_alert] += 1
-            elif result.alert_source == "urgency":
-                if result.urgency_at_alert not in summary.detections_by_urgency:
-                    summary.detections_by_urgency[result.urgency_at_alert] = 0
-                summary.detections_by_urgency[result.urgency_at_alert] += 1
+            state = getattr(result, "state_at_alert", None)
+            urgency = getattr(result, "urgency_at_alert", None)
+
+            if result.alert_source == "regime" and state:
+                if state not in summary.detections_by_regime:
+                    summary.detections_by_regime[state] = 0
+                summary.detections_by_regime[state] += 1
+            elif result.alert_source == "urgency" and urgency:
+                if urgency not in summary.detections_by_urgency:
+                    summary.detections_by_urgency[urgency] = 0
+                summary.detections_by_urgency[urgency] += 1
             elif result.alert_source == "structural_drift":
                 summary.detections_by_drift += 1
 
