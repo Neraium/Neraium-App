@@ -155,6 +155,7 @@ class CMAPSSValidator:
         post_baseline_delay: int = 10,
         accumulation_window: int = 5,
         accumulation_threshold: float = 1.75,
+        use_inevitability_score: bool = False,
     ):
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
@@ -168,6 +169,7 @@ class CMAPSSValidator:
         self.post_baseline_delay = post_baseline_delay
         self.accumulation_window = accumulation_window
         self.accumulation_threshold = accumulation_threshold
+        self.use_inevitability_score = use_inevitability_score
         self.results: Dict[str, DatasetSummary] = {}
 
     def run(self, datasets: List[str]) -> Dict[str, DatasetSummary]:
@@ -183,6 +185,7 @@ class CMAPSSValidator:
         print(f"      post_baseline_delay: {self.post_baseline_delay}")
         print(f"      accumulation_window: {self.accumulation_window}")
         print(f"      accumulation_threshold: {self.accumulation_threshold}")
+        print(f"      use_inevitability_score: {self.use_inevitability_score}")
         print()
 
         all_results = {}
@@ -314,8 +317,11 @@ class CMAPSSValidator:
                 # Track max instability
                 max_instability = max(max_instability, output.instability_score)
 
-                # Store drift score for accumulation calculation
-                drift_score_history[current_cycle] = output.structural_drift
+                # Store drift/inevitability score for accumulation calculation
+                if self.use_inevitability_score:
+                    drift_score_history[current_cycle] = output.structural_inevitability_score
+                else:
+                    drift_score_history[current_cycle] = output.structural_drift
 
                 # Check for raw alert (after warmup only)
                 if output.regime != "WARMUP":
@@ -448,9 +454,15 @@ class CMAPSSValidator:
         if output.urgency in ("WATCH", "ALERT", "CRITICAL"):
             return True
 
-        # Check structural drift threshold
-        if output.structural_drift >= self.structural_drift_threshold:
-            return True
+        # Check structural drift/inevitability threshold
+        if self.use_inevitability_score:
+            # Use inevitability score if enabled (comparable threshold adjusted)
+            if output.structural_inevitability_score >= self.structural_drift_threshold:
+                return True
+        else:
+            # Use traditional structural drift
+            if output.structural_drift >= self.structural_drift_threshold:
+                return True
 
         return False
 
@@ -810,6 +822,11 @@ def main():
         default=1.75,
         help="Drift accumulation threshold for confirmation (default: 1.75)",
     )
+    parser.add_argument(
+        "--use-inevitability-score",
+        action="store_true",
+        help="Use structural inevitability score (S * R) instead of raw drift for confirmation logic",
+    )
 
     args = parser.parse_args()
 
@@ -827,6 +844,7 @@ def main():
             post_baseline_delay=args.post_baseline_delay,
             accumulation_window=args.accumulation_window,
             accumulation_threshold=args.accumulation_threshold,
+            use_inevitability_score=args.use_inevitability_score,
         )
         results = validator.run(args.datasets)
         sys.exit(0)

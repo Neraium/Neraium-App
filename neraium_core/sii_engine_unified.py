@@ -109,6 +109,14 @@ class SIIEngineOutput:
     instability_history: list[float] = field(default_factory=list)
     regime_history: list[str] = field(default_factory=list)
 
+    # Irreversibility layer: I(t) = S(t) * R(t)
+    structural_inevitability_score: float = 0.0  # I(t): instability * irreversibility
+    irreversibility_factor: float = 0.0  # R(t): composite irreversibility
+    persistence_score: float = 0.0  # Component 1: drift persistence
+    drift_acceleration_score: float = 0.0  # Component 2: acceleration of drift
+    covariance_persistence_score: float = 0.0  # Component 3: covariance persistence
+    failure_alignment_score: float = 0.0  # Component 4: alignment with failure modes
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -127,6 +135,13 @@ class SIIEngineOutput:
             "velocity_history": [float(v) for v in self.velocity_history[-50:]],
             "instability_history": [float(i) for i in self.instability_history[-50:]],
             "regime_history": self.regime_history[-50:],
+            # Irreversibility layer
+            "structural_inevitability_score": float(self.structural_inevitability_score),
+            "irreversibility_factor": float(self.irreversibility_factor),
+            "persistence_score": float(self.persistence_score),
+            "drift_acceleration_score": float(self.drift_acceleration_score),
+            "covariance_persistence_score": float(self.covariance_persistence_score),
+            "failure_alignment_score": float(self.failure_alignment_score),
         }
 
 
@@ -197,6 +212,10 @@ class SIIEngine:
         # Warmup tracking
         self.frame_count: int = 0
         self.baseline_ready: bool = False
+
+        # Irreversibility tracking
+        self.covariance_history: deque[np.ndarray] = deque(maxlen=recent_window)
+        self._prev_acceleration: Optional[float] = None
 
     def fit_baseline(self, data: np.ndarray) -> None:
         """
@@ -369,6 +388,27 @@ class SIIEngine:
         I_t = self.compute_instability_score(D_M, S_t, V_t, P_t, kappa)
         self.instability_history.append(I_t)
 
+        # Store covariance for irreversibility
+        self.covariance_history.append(cov_t)
+
+        # ======================================================================
+        # PIPELINE STAGE 5.5: Irreversibility layer R(t)
+        # ======================================================================
+        persistence_score = self._compute_persistence_score(S_t)
+        drift_acceleration_score = self._compute_drift_acceleration_score(V_t)
+        covariance_persistence_score = self._compute_covariance_persistence_score()
+        failure_alignment_score = self._compute_failure_alignment_score(P_t, V_t)
+
+        irreversibility_factor = self._compute_irreversibility_factor(
+            persistence_score,
+            drift_acceleration_score,
+            covariance_persistence_score,
+            failure_alignment_score
+        )
+
+        # Inevitability score: S(t) * R(t)
+        inevitability_score = I_t * irreversibility_factor
+
         # ======================================================================
         # PIPELINE STAGE 6: Regime classification
         # ======================================================================
@@ -406,6 +446,13 @@ class SIIEngine:
             velocity_history=list(self.velocity_history),
             instability_history=list(self.instability_history),
             regime_history=list(self.regime_history),
+            # Irreversibility layer
+            structural_inevitability_score=inevitability_score,
+            irreversibility_factor=irreversibility_factor,
+            persistence_score=persistence_score,
+            drift_acceleration_score=drift_acceleration_score,
+            covariance_persistence_score=covariance_persistence_score,
+            failure_alignment_score=failure_alignment_score,
         )
 
         return output
@@ -844,6 +891,144 @@ class SIIEngine:
         except (ValueError, np.linalg.LinAlgError):
             dim = cov.shape[0]
             return (1.0 / (COVARIANCE_REGULARIZATION + 1e-10)) * np.eye(dim)
+
+    def _compute_persistence_score(self, S_t: float) -> float:
+        """
+        Compute persistence score: how long drift has been sustained.
+
+        Based on the amount of time the drift has been above a threshold.
+        Higher score indicates longer sustained instability.
+
+        Args:
+            S_t: Current structural drift
+
+        Returns:
+            Persistence score [0, 1]
+        """
+        if len(self.drift_history) < 2:
+            return 0.0
+
+        # Count how many recent frames have high drift (> 0.3)
+        high_drift_count = sum(1 for d in self.drift_history if d > 0.3)
+        persistence = high_drift_count / max(len(self.drift_history), 1)
+
+        return float(np.clip(persistence, 0.0, 1.0))
+
+    def _compute_drift_acceleration_score(self, V_t: float) -> float:
+        """
+        Compute drift acceleration score: magnitude of velocity change.
+
+        Based on how quickly the drift velocity is changing. Indicates if
+        the system is accelerating toward failure.
+
+        Args:
+            V_t: Current drift velocity
+
+        Returns:
+            Acceleration score [0, 1]
+        """
+        if self._prev_acceleration is None:
+            self._prev_acceleration = 0.0
+            return 0.0
+
+        # Compute acceleration as change in velocity
+        acceleration = abs(V_t - self._prev_acceleration)
+        self._prev_acceleration = V_t
+
+        # Bound and normalize
+        accel_score = float(np.tanh(acceleration))
+        return float(np.clip(accel_score, 0.0, 1.0))
+
+    def _compute_covariance_persistence_score(self) -> float:
+        """
+        Compute covariance persistence score: consistency of covariance deviation.
+
+        Based on how stable (or consistently changing) the covariance structure is.
+        Higher score indicates more consistent deviation from baseline.
+
+        Returns:
+            Covariance persistence score [0, 1]
+        """
+        if len(self.covariance_history) < 2 or not self.baseline.is_valid():
+            return 0.0
+
+        # Compute distances from baseline for recent covariances
+        cov_dists = []
+        for cov in self.covariance_history:
+            diff = cov - self.baseline.cov
+            dist = float(np.linalg.norm(diff, "fro"))
+            cov_dists.append(dist)
+
+        if len(cov_dists) < 2:
+            return 0.0
+
+        # Persistence = inverse of variability (low variation = high persistence)
+        mean_dist = np.mean(cov_dists)
+        std_dist = np.std(cov_dists)
+
+        if mean_dist < EPSILON:
+            return 0.0
+
+        # Consistency metric (inverse coefficient of variation)
+        consistency = 1.0 / (1.0 + (std_dist / mean_dist))
+        return float(np.clip(consistency, 0.0, 1.0))
+
+    def _compute_failure_alignment_score(self, P_t: float, V_t: float) -> float:
+        """
+        Compute failure alignment score: how aligned state is with failure trajectory.
+
+        Combines transition pressure and velocity as indicators that the system
+        is following a path toward failure.
+
+        Args:
+            P_t: Transition pressure
+            V_t: Drift velocity
+
+        Returns:
+            Failure alignment score [0, 1]
+        """
+        # Failure alignment = combination of pressure and sustained velocity
+        V_bounded = float(np.tanh(V_t))
+
+        # High pressure + positive velocity = strong failure alignment
+        alignment = 0.6 * P_t + 0.4 * max(V_bounded, 0.0)
+
+        return float(np.clip(alignment, 0.0, 1.0))
+
+    def _compute_irreversibility_factor(
+        self,
+        persistence: float,
+        acceleration: float,
+        cov_persistence: float,
+        failure_alignment: float,
+    ) -> float:
+        """
+        Compute irreversibility factor R(t) from four components.
+
+        R(t) = weighted combination of:
+        - Persistence: how long drift has been sustained
+        - Acceleration: how fast the change is happening
+        - Covariance persistence: consistency of structural change
+        - Failure alignment: how aligned with failure trajectory
+
+        Higher R(t) means the instability is more irreversible (harder to recover from).
+
+        Args:
+            persistence: Drift persistence [0, 1]
+            acceleration: Drift acceleration [0, 1]
+            cov_persistence: Covariance persistence [0, 1]
+            failure_alignment: Failure alignment [0, 1]
+
+        Returns:
+            Irreversibility factor [0, 1]
+        """
+        # Equal weighting of components
+        R_t = 0.25 * (persistence + acceleration + cov_persistence + failure_alignment)
+
+        # Amplify high irreversibility to emphasize persistent instability
+        R_t = R_t ** 0.8  # Soften the amplification
+
+        return float(np.clip(R_t, 0.0, 1.0))
 
     @staticmethod
     def _forward_fill(data: np.ndarray) -> np.ndarray:
