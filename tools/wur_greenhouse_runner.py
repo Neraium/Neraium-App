@@ -120,7 +120,9 @@ class ZoneResult:
 class ValidationSummary:
     """Overall validation summary with audit trail."""
     data_source: str
+    validation_type: str = "unsupervised_telemetry"
     total_zones: int = 0
+    zones_with_anomalies: int = 0
     total_samples_processed: int = 0
     total_anomalies_detected: int = 0
     sampling_interval_minutes: Optional[float] = None
@@ -131,10 +133,16 @@ class ValidationSummary:
 
     zone_results: List[ZoneResult] = field(default_factory=list)
 
-    # Aggregate metrics
-    avg_detection_coverage: float = 0.0  # pct of zones with alerts
-    total_instability_duration: int = 0
+    # Aggregate metrics (unsupervised - no ground truth)
+    anomalies_per_zone: Dict[str, int] = field(default_factory=dict)
+    percent_time_unstable: float = 0.0  # % of samples in UNSTABLE/LOCK_IN states
     avg_missingness_rate: float = 0.0
+
+    # Instability duration stats
+    min_instability_duration: Optional[int] = None
+    max_instability_duration: Optional[int] = None
+    mean_instability_duration: Optional[float] = None
+    median_instability_duration: Optional[float] = None
 
     # Audit aggregates
     detections_by_source: Dict[str, int] = field(default_factory=dict)
@@ -142,7 +150,6 @@ class ValidationSummary:
     warmup_alerts: int = 0
 
     # Validation notes
-    validation_type: str = "unsupervised_telemetry"
     notes: List[str] = field(default_factory=list)
 
 
@@ -569,20 +576,36 @@ class GreenhouseValidator:
         return False
 
     def _compute_summary_metrics(self) -> None:
-        """Compute aggregate metrics."""
+        """Compute aggregate metrics (unsupervised - no ground truth)."""
         if not self.summary or not self.summary.zone_results:
             return
 
         results = self.summary.zone_results
 
-        # Compute coverage
+        # Zones with anomalies (unsupervised - no accuracy claim)
         zones_with_alerts = sum(1 for r in results if r.anomalies_detected > 0)
-        self.summary.avg_detection_coverage = (
-            100.0 * zones_with_alerts / len(results) if results else 0.0
-        )
+        self.summary.zones_with_anomalies = zones_with_alerts
 
-        # Aggregate instability
-        self.summary.total_instability_duration = sum(r.longest_instability_duration for r in results)
+        # Anomalies per zone
+        for result in results:
+            self.summary.anomalies_per_zone[result.zone_id] = result.anomalies_detected
+
+        # Percent time unstable (aggregate across all zones)
+        total_time_unstable = sum(r.time_unstable + r.time_lock_in for r in results)
+        total_time = sum(
+            r.time_stable + r.time_transition + r.time_unstable + r.time_lock_in
+            for r in results
+        )
+        if total_time > 0:
+            self.summary.percent_time_unstable = 100.0 * total_time_unstable / total_time
+
+        # Instability duration stats
+        durations = [r.longest_instability_duration for r in results if r.longest_instability_duration > 0]
+        if durations:
+            self.summary.min_instability_duration = min(durations)
+            self.summary.max_instability_duration = max(durations)
+            self.summary.mean_instability_duration = float(np.mean(durations))
+            self.summary.median_instability_duration = float(np.median(durations))
 
         # Aggregate missingness
         self.summary.avg_missingness_rate = (
@@ -622,15 +645,24 @@ class GreenhouseValidator:
         print()
 
         print(f"Total zones processed:  {self.summary.total_zones}")
+        print(f"Zones with anomalies:   {self.summary.zones_with_anomalies}")
         print(f"Total samples:          {self.summary.total_samples_processed:,}")
-        print(f"Anomaly detections:     {self.summary.total_anomalies_detected}")
-        print(f"Detection coverage:     {self.summary.avg_detection_coverage:.1f}% of zones")
+        print(f"Total anomalies:        {self.summary.total_anomalies_detected}")
         print()
 
         if self.summary.sampling_interval_minutes:
             print(f"Sampling interval:      {self.summary.sampling_interval_minutes:.1f} minutes")
         print(f"Baseline window:        {self.summary.baseline_window_configured} samples")
         print(f"Min baseline:           {self.summary.min_baseline_configured} samples")
+        print()
+
+        print(f"System Stability:")
+        print(f"  Time unstable/lock-in: {self.summary.percent_time_unstable:.1f}%")
+        if self.summary.min_instability_duration is not None:
+            print(f"  Instability duration:  min={self.summary.min_instability_duration}, "
+                  f"max={self.summary.max_instability_duration}, "
+                  f"mean={self.summary.mean_instability_duration:.1f}, "
+                  f"median={self.summary.median_instability_duration:.1f}")
         print()
 
         if self.summary.detections_by_source:
@@ -671,9 +703,19 @@ class GreenhouseValidator:
         print(f"\n✅ Results written to {self.output_dir}")
 
     def _write_summary_json(self) -> None:
-        """Write validation summary as JSON."""
+        """Write validation summary as JSON (unsupervised - no ground truth)."""
         if not self.summary:
             return
+
+        # Instability duration stats
+        instability_stats = {}
+        if self.summary.min_instability_duration is not None:
+            instability_stats = {
+                "min_samples": self.summary.min_instability_duration,
+                "max_samples": self.summary.max_instability_duration,
+                "mean_samples": round(self.summary.mean_instability_duration, 1),
+                "median_samples": round(self.summary.median_instability_duration, 1),
+            }
 
         output = {
             "data_source": self.summary.data_source,
@@ -681,16 +723,21 @@ class GreenhouseValidator:
             "execution_timestamp": self.summary.execution_timestamp,
             "sampling_interval_minutes": self.summary.sampling_interval_minutes,
             "total_zones": self.summary.total_zones,
+            "zones_with_anomalies": self.summary.zones_with_anomalies,
             "total_samples_processed": self.summary.total_samples_processed,
             "total_anomalies_detected": self.summary.total_anomalies_detected,
-            "detection_coverage_pct": self.summary.avg_detection_coverage,
+            "anomalies_per_zone": self.summary.anomalies_per_zone,
+            "percent_time_unstable": round(self.summary.percent_time_unstable, 1),
+            "instability_duration_stats": instability_stats,
             "baseline_window_configured": self.summary.baseline_window_configured,
             "min_baseline_configured": self.summary.min_baseline_configured,
             "engine_version": self.summary.engine_version,
             "detections_by_source": self.summary.detections_by_source,
-            "alerts_before_baseline": self.summary.alerts_before_baseline,
-            "warmup_alerts": self.summary.warmup_alerts,
-            "avg_missingness_rate": round(self.summary.avg_missingness_rate, 4),
+            "audit": {
+                "alerts_before_baseline": self.summary.alerts_before_baseline,
+                "warmup_alerts": self.summary.warmup_alerts,
+                "avg_missingness_rate": round(self.summary.avg_missingness_rate, 4),
+            },
             "notes": self.summary.notes,
         }
 
