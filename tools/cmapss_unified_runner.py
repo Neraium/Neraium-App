@@ -105,6 +105,11 @@ class UnitDetectionResult:
     post_baseline_gap: int = 0  # Cycles after baseline finalization before confirmation
     confirmed_detected: bool = False
 
+    # Score diagnostics at confirmation
+    drift_score_at_confirmation: float = 0.0  # S(t): structural drift when confirmed
+    inevitability_score_at_confirmation: float = 0.0  # I(t): inevitable score when confirmed
+    irreversibility_factor_at_confirmation: float = 0.0  # R(t): irreversibility factor when confirmed
+
 
 @dataclass
 class DatasetSummary:
@@ -148,6 +153,7 @@ class CMAPSSValidator:
         baseline_window: int = 50,
         min_baseline: int = 10,
         structural_drift_threshold: float = 0.5,
+        inevitability_threshold: float = 0.6,
         progress: bool = True,
         plot: bool = False,
         confirmation_hits: int = 3,
@@ -162,6 +168,7 @@ class CMAPSSValidator:
         self.baseline_window = baseline_window
         self.min_baseline = min_baseline
         self.structural_drift_threshold = structural_drift_threshold
+        self.inevitability_threshold = inevitability_threshold
         self.progress = progress and HAS_TQDM
         self.plot = plot
         self.confirmation_hits = confirmation_hits
@@ -179,6 +186,7 @@ class CMAPSSValidator:
         print(f"   Output directory: {self.output_dir}")
         print(f"   Baseline window: {self.baseline_window} cycles (min: {self.min_baseline})")
         print(f"   Drift threshold: {self.structural_drift_threshold}")
+        print(f"   Inevitability threshold: {self.inevitability_threshold}")
         print(f"\n   🔧 Confirmation Settings:")
         print(f"      confirmation_hits: {self.confirmation_hits}")
         print(f"      confirmation_window: {self.confirmation_window}")
@@ -186,6 +194,8 @@ class CMAPSSValidator:
         print(f"      accumulation_window: {self.accumulation_window}")
         print(f"      accumulation_threshold: {self.accumulation_threshold}")
         print(f"      use_inevitability_score: {self.use_inevitability_score}")
+        if self.use_inevitability_score:
+            print(f"      (using inevitability_threshold: {self.inevitability_threshold})")
         print()
 
         all_results = {}
@@ -292,6 +302,7 @@ class CMAPSSValidator:
             first_confirmed_alert_cycle = None
             raw_alert_history = {}  # cycle -> is_raw_alert
             drift_score_history = {}  # cycle -> drift_score
+            engine_output_history = {}  # cycle -> full output for score diagnostics
 
             max_instability = 0.0
             warmup_cycles = 0
@@ -323,6 +334,9 @@ class CMAPSSValidator:
                 else:
                     drift_score_history[current_cycle] = output.structural_drift
 
+                # Store full output for diagnostics
+                engine_output_history[current_cycle] = output
+
                 # Check for raw alert (after warmup only)
                 if output.regime != "WARMUP":
                     is_raw_alert = self._check_raw_alert(output)
@@ -341,6 +355,9 @@ class CMAPSSValidator:
             confirmation_method = None
             raw_alert_count_at_confirmation = 0
             rolling_instability_at_confirmation = 0.0
+            drift_score_at_confirmation = 0.0
+            inevitability_score_at_confirmation = 0.0
+            irreversibility_factor_at_confirmation = 0.0
 
             for cycle in sorted(raw_alert_history.keys()):
                 # Check if we can confirm alerts at this cycle
@@ -359,6 +376,13 @@ class CMAPSSValidator:
                     for c in drift_score_history.keys()
                     if (cycle - self.accumulation_window < c <= cycle)
                 )
+
+                # Capture scores at confirmation for diagnostics
+                cycle_output = engine_output_history.get(cycle)
+                if cycle_output:
+                    drift_score_at_confirmation = cycle_output.structural_drift
+                    inevitability_score_at_confirmation = cycle_output.structural_inevitability_score
+                    irreversibility_factor_at_confirmation = cycle_output.irreversibility_factor
 
                 # Determine confirmation
                 if raw_alerts_in_window >= self.confirmation_hits:
@@ -429,6 +453,10 @@ class CMAPSSValidator:
                 confirmation_method=confirmation_method,
                 post_baseline_gap=post_baseline_gap,
                 confirmed_detected=confirmed_detected,
+                # Score diagnostics
+                drift_score_at_confirmation=drift_score_at_confirmation,
+                inevitability_score_at_confirmation=inevitability_score_at_confirmation,
+                irreversibility_factor_at_confirmation=irreversibility_factor_at_confirmation,
             )
 
         except Exception as e:
@@ -454,13 +482,13 @@ class CMAPSSValidator:
         if output.urgency in ("WATCH", "ALERT", "CRITICAL"):
             return True
 
-        # Check structural drift/inevitability threshold
+        # Check structural drift/inevitability threshold based on mode
         if self.use_inevitability_score:
-            # Use inevitability score if enabled (comparable threshold adjusted)
-            if output.structural_inevitability_score >= self.structural_drift_threshold:
+            # Use inevitability score with dedicated threshold
+            if output.structural_inevitability_score >= self.inevitability_threshold:
                 return True
         else:
-            # Use traditional structural drift
+            # Use traditional structural drift with drift threshold
             if output.structural_drift >= self.structural_drift_threshold:
                 return True
 
@@ -633,6 +661,7 @@ class CMAPSSValidator:
                 "first_raw_alert_cycle,first_confirmed_alert_cycle,lead_time_cycles,"
                 "confirmed_detected,raw_alert_count_at_confirmation,rolling_instability_at_confirmation,"
                 "confirmation_method,post_baseline_gap,baseline_finalized_cycle,"
+                "drift_score_at_confirmation,inevitability_score_at_confirmation,irreversibility_factor_at_confirmation,"
                 "max_instability,insufficient_history,error_message\n"
             )
             for result in summary.per_unit_results:
@@ -651,6 +680,9 @@ class CMAPSSValidator:
                     f"{result.confirmation_method or '-'},"
                     f"{result.post_baseline_gap},"
                     f"{result.baseline_finalized_cycle},"
+                    f"{result.drift_score_at_confirmation:.4f},"
+                    f"{result.inevitability_score_at_confirmation:.4f},"
+                    f"{result.irreversibility_factor_at_confirmation:.4f},"
                     f"{result.max_instability_score:.4f},"
                     f"{result.was_insufficient_history},"
                     f"\"{result.error_message or ''}\"\n"
@@ -793,6 +825,12 @@ def main():
         help="Structural drift threshold for alert (default: 0.5)",
     )
     parser.add_argument(
+        "--inevitability-threshold",
+        type=float,
+        default=0.6,
+        help="Structural inevitability threshold when using --use-inevitability-score (default: 0.6)",
+    )
+    parser.add_argument(
         "--confirmation-hits",
         type=int,
         default=3,
@@ -837,6 +875,7 @@ def main():
             baseline_window=args.baseline_window,
             min_baseline=args.min_baseline,
             structural_drift_threshold=args.drift_threshold,
+            inevitability_threshold=args.inevitability_threshold,
             progress=args.progress,
             plot=args.plot,
             confirmation_hits=args.confirmation_hits,
