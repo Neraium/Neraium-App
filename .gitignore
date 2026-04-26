@@ -21,3 +21,12 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Validation and output directories
+validation_out/
+.pytest_cache/
