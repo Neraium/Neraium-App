@@ -1,12 +1,13 @@
 # Running Neraium for CMAPSS and iGrow
 
-## CMAPSS (NASA Bearing Dataset)
+## CMAPSS (NASA Turbofan Engine Dataset)
 
 ### What It Is
-- **Data**: Turbofan engine degradation time series
+- **Data**: Commercial turbofan engine degradation time series
+- **System**: Multi-sensor monitoring of jet engine performance
 - **Purpose**: Validate RUL (Remaining Useful Life) prediction
 - **Format**: train_FD00X.txt (training data) + RUL_FD00X.txt (ground truth)
-- **Datasets**: FD001, FD002, FD003, FD004 (4 failure modes)
+- **Datasets**: FD001, FD002, FD003, FD004 (different operational conditions & fault modes)
 
 ### Runner: `tools/cmapss_runner.py`
 
