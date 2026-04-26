@@ -1,22 +1,33 @@
 """
-Advanced SII Engine with Enhanced Detection Capabilities.
+Advanced SII Engine: Interpretable Metrics Derived from 5-Factor Core.
 
-Adds to the unified SII Engine:
-1. Multi-scale analysis (fast/medium/slow degradation detection)
-2. Novelty/out-of-distribution detection (new failure modes)
-3. Remaining Useful Life (RUL) estimation with confidence bounds
-4. Explainability via feature attribution
-5. Operating condition normalization
-6. Adaptive thresholds per system type
-7. Uncertainty quantification (Bayesian confidence intervals)
-8. Feedback integration & learning
-PLUS:
-9. Sensor diagnostics & health tracking
-10. Ensemble anomaly detection
-11. Early warning indicators
-12. Degradation mode classification
-13. System fingerprinting
-14. Change point detection
+The core formula computes: S(t) = w₁·D_M(t) + w₂·D_cov(t) + w₃·V_d(t) + w₄·P_t(t) + w₅·κ(t)
+
+All 15 detection capabilities are derived outputs from these 5 core factors:
+
+From D_M (Mahalanobis distance):
+1. Novelty detection (out-of-distribution points)
+2. Sensor contribution analysis
+
+From D_cov (Covariance drift):
+3. Structural breakdown detection
+4. Multi-scale analysis (fast/medium/slow windows)
+
+From V_d (Drift velocity):
+5. Rate-of-change analysis
+6. Velocity trending
+
+From κ (Curvature):
+7. Early warning signals (accelerating change)
+8. Change point detection (kappa spikes)
+
+From P_t (Transition pressure) and combinations:
+9. Degradation mode classification
+10. RUL estimation with confidence bounds
+11. Ensemble agreement (consistency across factors)
+12. Operating condition adaptation
+13. Adaptive threshold adjustment
+14. Uncertainty quantification
 15. Cost-benefit analysis
 """
 
@@ -320,13 +331,15 @@ class AdvancedSIIEngine(SIIEngine):
         # Get base output
         base_output = super().update(x_t, timestamp)
 
-        # Create advanced output from base
+        # Create advanced output from base (includes all 5-factor components)
         advanced = AdvancedSIIOutput(
             timestamp=base_output.timestamp,
             instability_score=base_output.instability_score,
             structural_drift=base_output.structural_drift,
             drift_velocity=base_output.drift_velocity,
             transition_pressure=base_output.transition_pressure,
+            mahalanobis_distance=base_output.mahalanobis_distance,
+            curvature=base_output.curvature,
             regime=base_output.regime,
             urgency=base_output.urgency,
             confidence=base_output.confidence,
@@ -345,8 +358,10 @@ class AdvancedSIIEngine(SIIEngine):
         advanced.drift_fast, advanced.drift_medium, advanced.drift_slow = \
             self._compute_multiscale_drift(x_t)
 
-        # 2. Novelty detection
-        advanced.novelty_score, advanced.is_novel = self._compute_novelty(x_t)
+        # 2. Novelty detection (derived from D_M - Mahalanobis distance)
+        advanced.novelty_score, advanced.is_novel = self._compute_novelty(
+            x_t, mahalanobis_distance=base_output.mahalanobis_distance
+        )
 
         # 3. RUL estimation
         advanced.rul = self._estimate_rul(base_output.instability_score, base_output.drift_velocity)
@@ -394,7 +409,14 @@ class AdvancedSIIEngine(SIIEngine):
         return advanced
 
     def _compute_multiscale_drift(self, x_t: np.ndarray) -> Tuple[float, float, float]:
-        """Compute structural drift at multiple timescales."""
+        """
+        Compute D_cov (covariance drift) at multiple timescales.
+
+        Analyzes structural breakdown at different window sizes:
+        - Fast (12 cycles): immediate/shock-driven changes
+        - Medium (120 cycles): medium-term degradation trends
+        - Slow (1200 cycles): long-term systematic drift
+        """
         if not self.baseline_ready:
             return 0.0, 0.0, 0.0
 
@@ -412,42 +434,63 @@ class AdvancedSIIEngine(SIIEngine):
 
         return drifts['fast'], drifts['medium'], drifts['slow']
 
-    def _compute_novelty(self, x_t: np.ndarray) -> Tuple[float, bool]:
-        """Detect out-of-distribution sensor patterns."""
-        if self.isolation_forest is None:
-            return 0.0, False
+    def _compute_novelty(self, x_t: np.ndarray, mahalanobis_distance: float = None) -> Tuple[float, bool]:
+        """
+        Detect out-of-distribution sensor patterns derived from D_M (Mahalanobis distance).
 
-        # Add to training data
+        Novelty score is high when:
+        - Mahalanobis distance is elevated (far from baseline)
+        - Sensor pattern hasn't been seen before (Isolation Forest backup)
+        """
+        if mahalanobis_distance is not None:
+            # Primary: use explicit Mahalanobis distance as novelty indicator
+            # Scale from [0, 1] to [0, 1] novelty
+            novelty = min(1.0, mahalanobis_distance * 2)
+            is_novel = novelty > 0.4
+        else:
+            novelty = 0.0
+            is_novel = False
+
+        # Secondary: Isolation Forest for multi-modal anomaly detection
+        if self.isolation_forest is None:
+            return novelty, is_novel
+
         self.novelty_training_data.append(x_t)
 
-        # Retrain periodically
         if len(self.novelty_training_data) > 50 and self.frame_count % 50 == 0:
             try:
                 self.isolation_forest.fit(np.array(list(self.novelty_training_data)))
             except:
                 pass
 
-        # Compute anomaly score (-1 = anomaly, 1 = normal)
         if len(self.novelty_training_data) > 10:
             try:
                 anomaly_score = self.isolation_forest.score_samples(x_t.reshape(1, -1))[0]
-                novelty = np.clip(-anomaly_score, 0.0, 1.0)  # Convert to 0-1
-                is_novel = novelty > 0.5
+                iso_novelty = np.clip(-anomaly_score, 0.0, 1.0)
+                # Combine: if either method signals novelty, mark it
+                novelty = max(novelty, iso_novelty)
+                is_novel = is_novel or (iso_novelty > 0.5)
             except:
-                novelty, is_novel = 0.0, False
-        else:
-            novelty, is_novel = 0.0, False
+                pass
 
         return novelty, is_novel
 
     def _estimate_rul(self, current_score: float, drift_velocity: float) -> Optional[RULEstimate]:
-        """Estimate remaining useful life with confidence bounds."""
+        """
+        Estimate remaining useful life derived from V_d (drift velocity).
+
+        Linear extrapolation: time_to_failure = (failure_threshold - current_score) / velocity
+
+        Args:
+            current_score: Current instability score S(t)
+            drift_velocity: V_d(t) - drift velocity component
+        """
         if not self.baseline_ready or len(self.instability_history) < 10:
             return None
 
         failure_threshold = self.thresholds['LOCK_IN']
 
-        # Simple linear extrapolation
+        # Estimate velocity from recent score trend
         recent_scores = list(self.instability_history)[-10:]
         if len(recent_scores) > 1:
             velocity = (recent_scores[-1] - recent_scores[0]) / len(recent_scores)
@@ -620,94 +663,113 @@ class AdvancedSIIEngine(SIIEngine):
         })
 
     def _compute_ensemble_agreement(self, x_t: np.ndarray, output: SIIEngineOutput) -> float:
-        """How much do different detection methods agree?"""
+        """
+        Ensemble agreement: how consistently do the 5 core factors indicate instability?
+
+        Checks if D_M, D_cov, V_d, P_t, κ are all pointing toward degradation.
+        High agreement (closer to 1.0) means all factors agree.
+        """
         agreements = []
 
-        # Method 1: Covariance-based (current)
-        cov_signal = output.instability_score > TRANSITION_THRESHOLD
-        agreements.append(cov_signal)
+        # Factor 1: Mahalanobis distance elevation (far from baseline)
+        mahal_signal = output.mahalanobis_distance > 0.3
+        agreements.append(mahal_signal)
 
-        # Method 2: Velocity-based
-        vel_signal = output.drift_velocity > 0.02
+        # Factor 2: Covariance drift (structural breakdown)
+        drift_signal = output.structural_drift > 0.2
+        agreements.append(drift_signal)
+
+        # Factor 3: Velocity magnitude (fast rate of change)
+        vel_signal = abs(output.drift_velocity) > 0.02
         agreements.append(vel_signal)
 
-        # Method 3: Pressure-based
-        pressure_signal = output.transition_pressure > 0.3
+        # Factor 4: Transition pressure (system actively deforming)
+        pressure_signal = output.transition_pressure > 0.2
         agreements.append(pressure_signal)
 
-        # Method 4: Sensor anomaly count
-        baseline_stds = np.sqrt(np.diag(self.baseline.cov))
-        anomalies = np.abs(x_t - self.baseline.mean) > 3 * baseline_stds
-        anomaly_count = np.sum(anomalies)
-        anomaly_signal = anomaly_count > 3
-        agreements.append(anomaly_signal)
+        # Factor 5: Curvature (acceleration of change)
+        curvature_signal = output.curvature > 0.05
+        agreements.append(curvature_signal)
 
-        # Compute agreement
+        # Compute agreement as fraction of factors signaling
         agreement = sum(agreements) / len(agreements)
         return float(agreement)
 
     def _detect_early_warnings(self) -> List[EarlyWarningSignal]:
-        """Detect precursors to state transitions."""
+        """
+        Detect early precursors using curvature and velocity trends.
+
+        Key indicator: κ(t) = dV_t/dt (acceleration of degradation).
+        """
         warnings = []
 
-        if len(self.instability_history) < 10:
+        if len(self.velocity_history) < 10:
             return warnings
 
-        # Check for increased volatility
-        recent = list(self.instability_history)[-10:]
-        volatility = float(np.std(recent))
+        # Signal 1: Increasing curvature (acceleration of velocity)
+        # This is the κ(t) component - second derivative of drift
+        recent_velocities = list(self.velocity_history)[-10:]
+        if len(recent_velocities) >= 3:
+            recent_curvatures = [
+                recent_velocities[i+1] - recent_velocities[i]
+                for i in range(len(recent_velocities) - 1)
+            ]
+            mean_curvature = float(np.mean([abs(c) for c in recent_curvatures]))
+            if mean_curvature > 0.03:
+                warnings.append(EarlyWarningSignal(
+                    signal_type="velocity_acceleration",
+                    strength=min(1.0, mean_curvature / 0.1),
+                    cycles_until_transition=5,
+                    confidence=0.7,
+                ))
+
+        # Signal 2: Volatility increase in instability score
+        recent_scores = list(self.instability_history)[-10:]
+        volatility = float(np.std(recent_scores))
         self.volatility_history.append(volatility)
 
         if len(self.volatility_history) > 5:
-            volatility_trend = np.mean(list(self.volatility_history)[-5:])
-            if volatility_trend > np.mean(list(self.volatility_history)[:-5]) * 1.5:
+            recent_vol = np.mean(list(self.volatility_history)[-5:])
+            prior_vol = np.mean(list(self.volatility_history)[:-5])
+            if prior_vol > 0 and recent_vol > prior_vol * 1.5:
                 warnings.append(EarlyWarningSignal(
                     signal_type="volatility_increase",
-                    strength=min(1.0, volatility_trend / 0.1),
-                    cycles_until_transition=5,
+                    strength=min(1.0, recent_vol / 0.1),
+                    cycles_until_transition=6,
                     confidence=0.6,
                 ))
-
-        # Check for correlation structure changes
-        if len(self.sensor_history) > 20:
-            window = np.array(list(self.sensor_history))[-20:]
-            corr = np.corrcoef(window.T)
-            corr_strength = float(np.mean(np.abs(np.triu(corr, k=1))))
-            self.correlation_history.append(corr_strength)
-
-            if len(self.correlation_history) > 5:
-                corr_change = self.correlation_history[-1] - np.mean(list(self.correlation_history)[:-1])
-                if abs(corr_change) > 0.1:
-                    warnings.append(EarlyWarningSignal(
-                        signal_type="correlation_change",
-                        strength=min(1.0, abs(corr_change)),
-                        cycles_until_transition=8,
-                        confidence=0.5,
-                    ))
 
         return warnings
 
     def _classify_degradation_mode(self) -> DegradationMode:
-        """Classify the type of degradation."""
-        if not self.baseline_ready or len(self.instability_history) < 10:
+        """
+        Classify degradation mode from 5-factor pattern.
+
+        Uses V_d (velocity) and κ (curvature) trends to identify failure modes.
+        """
+        if not self.baseline_ready or len(self.velocity_history) < 10:
             return DegradationMode.NORMAL
 
-        recent = list(self.instability_history)[-10:]
-        velocities = [recent[i+1] - recent[i] for i in range(len(recent)-1)]
+        recent_vel = list(self.velocity_history)[-10:]
 
-        # Check patterns
-        mean_vel = float(np.mean(velocities))
-        std_vel = float(np.std(velocities))
-        accel = velocities[-1] - velocities[0] if len(velocities) > 1 else 0
+        # Compute curvatures (second derivative)
+        curvatures = [
+            abs(recent_vel[i+1] - recent_vel[i])
+            for i in range(len(recent_vel) - 1)
+        ]
 
-        # Determine mode
-        if mean_vel < 0.001:
+        mean_vel = float(np.mean(recent_vel))
+        mean_curve = float(np.mean(curvatures))
+        std_vel = float(np.std(recent_vel))
+
+        # Classify by pattern
+        if abs(mean_vel) < 0.001:
             return DegradationMode.NORMAL
-        elif accel > std_vel * 2:
+        elif mean_curve > std_vel * 1.5:
             return DegradationMode.ACCELERATING_DRIFT
-        elif std_vel > mean_vel * 2:
+        elif std_vel > abs(mean_vel) * 2:
             return DegradationMode.PERIODIC_OSCILLATION
-        elif max(velocities) - min(velocities) > mean_vel * 5:
+        elif max(recent_vel) - min(recent_vel) > abs(mean_vel) * 5:
             return DegradationMode.SUDDEN_SPIKE
         else:
             return DegradationMode.LINEAR_DRIFT
