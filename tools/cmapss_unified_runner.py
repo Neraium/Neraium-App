@@ -174,15 +174,32 @@ class CMAPSSValidator:
 
         # Process each unit
         for unit_id, cycles_data in iterator:
-            result = self._process_unit(
-                dataset=dataset,
-                unit_id=unit_id,
-                cycles_data=cycles_data,
-                rul_value=rul_map.get(unit_id),
-            )
-            summary.per_unit_results.append(result)
-            if result.detected:
-                summary.units_detected += 1
+            try:
+                result = self._process_unit(
+                    dataset=dataset,
+                    unit_id=unit_id,
+                    cycles_data=cycles_data,
+                    rul_value=rul_map.get(unit_id),
+                )
+                summary.per_unit_results.append(result)
+                if result.detected:
+                    summary.units_detected += 1
+            except Exception as e:
+                # Log but continue with next unit
+                if self.progress:
+                    iterator.set_description(f"  {dataset} (error on unit {unit_id}: {str(e)[:50]})")
+                # Create a result for the failed unit
+                last_cycle = max(c.cycle for c in cycles_data)
+                failure_cycle = last_cycle + rul_map.get(unit_id, 0)
+                result = UnitDetectionResult(
+                    unit_id=unit_id,
+                    dataset=dataset,
+                    total_cycles=len(cycles_data),
+                    failure_cycle=failure_cycle,
+                    detected=False,
+                    max_instability_score=0.0,
+                )
+                summary.per_unit_results.append(result)
 
         # Compute aggregate metrics
         self._compute_summary_metrics(summary)
