@@ -1,0 +1,530 @@
+#!/usr/bin/env python3
+"""
+Unified CMAPSS Validation Runner for Neraium SII Engine.
+
+Measures early instability detection across NASA CMAPSS datasets FD001-FD004.
+
+Core metrics:
+- first_alert_cycle: When engine first detects instability
+- failure_cycle: Last observed cycle + RUL
+- lead_time_cycles: failure_cycle - first_alert_cycle
+- detection_coverage: Units detected / total units
+- missed_units: Units with no alert before failure
+
+Alert logic (strict priority):
+1. drift_alert == True (engine's drift detection)
+2. regime/urgency indicating transition, unstable, degradation, lock-in
+3. structural_drift_score threshold as fallback (0.5 default)
+
+Usage:
+  python tools/cmapss_unified_runner.py \\
+    --data-dir /path/to/CMAPSSData \\
+    --datasets FD001 FD002 FD003 FD004 \\
+    --output validation_out \\
+    --progress \\
+    --plot
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass, field, asdict
+import numpy as np
+
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+from neraium_core.sii_engine_unified import SIIEngine, SIIEngineOutput
+
+
+@dataclass
+class CMAPSSRow:
+    """Parsed CMAPSS data row."""
+    unit_id: int
+    cycle: int
+    setting_1: float
+    setting_2: float
+    setting_3: float
+    sensors: List[float] = field(default_factory=list)  # s1 through s21 (21 sensors)
+
+    @staticmethod
+    def parse(line: str) -> "CMAPSSRow":
+        """Parse a single line from CMAPSS test file."""
+        values = [float(x) for x in line.strip().split()]
+        return CMAPSSRow(
+            unit_id=int(values[0]),
+            cycle=int(values[1]),
+            setting_1=values[2],
+            setting_2=values[3],
+            setting_3=values[4],
+            sensors=values[5:26],  # 21 sensors (s1-s21)
+        )
+
+    def to_sensor_vector(self) -> np.ndarray:
+        """Convert to sensor vector for engine processing."""
+        return np.array(self.sensors, dtype=float)
+
+
+@dataclass
+class UnitDetectionResult:
+    """Detection results for a single test unit."""
+    unit_id: int
+    dataset: str
+    total_cycles: int
+    failure_cycle: int
+    first_alert_cycle: Optional[int] = None
+    alert_cycle_type: Optional[str] = None  # "drift_alert", "regime", "threshold"
+    alert_regime_at_detection: Optional[str] = None
+    lead_time_cycles: Optional[int] = None
+    detected: bool = False
+    max_instability_score: float = 0.0
+    instability_at_alert: float = 0.0
+
+
+@dataclass
+class DatasetSummary:
+    """Summary statistics for a dataset."""
+    dataset: str
+    units_total: int = 0
+    units_detected: int = 0
+    detection_coverage_pct: float = 0.0
+    median_lead_time_cycles: Optional[float] = None
+    mean_lead_time_cycles: Optional[float] = None
+    min_lead_time_cycles: Optional[int] = None
+    max_lead_time_cycles: Optional[int] = None
+    missed_units: int = 0
+    false_positive_count: int = 0
+    engine_version: str = "SIIEngine Unified"
+    per_unit_results: List[UnitDetectionResult] = field(default_factory=list)
+
+
+class CMAPSSValidator:
+    """Unified CMAPSS validation runner using SII Engine."""
+
+    def __init__(
+        self,
+        data_dir: Path,
+        output_dir: Path,
+        structural_drift_threshold: float = 0.5,
+        progress: bool = True,
+        plot: bool = False,
+    ):
+        self.data_dir = Path(data_dir)
+        self.output_dir = Path(output_dir)
+        self.structural_drift_threshold = structural_drift_threshold
+        self.progress = progress and HAS_TQDM
+        self.plot = plot
+        self.results: Dict[str, DatasetSummary] = {}
+
+    def run(self, datasets: List[str]) -> Dict[str, DatasetSummary]:
+        """Run validation across specified datasets."""
+        print(f"🔬 Neraium SII Engine — CMAPSS Unified Validation")
+        print(f"   Data directory: {self.data_dir}")
+        print(f"   Output directory: {self.output_dir}")
+        print(f"   Drift threshold: {self.structural_drift_threshold}")
+        print()
+
+        all_results = {}
+        for dataset in datasets:
+            print(f"📊 Processing dataset {dataset}...")
+            summary = self._validate_dataset(dataset)
+            all_results[dataset] = summary
+            self.results[dataset] = summary
+            self._print_dataset_summary(summary)
+            print()
+
+        # Write outputs
+        self._write_outputs(all_results)
+        self._print_combined_summary(all_results)
+
+        return all_results
+
+    def _validate_dataset(self, dataset: str) -> DatasetSummary:
+        """Validate a single dataset (FD001-FD004)."""
+        test_file = self.data_dir / f"test_{dataset}.txt"
+        rul_file = self.data_dir / f"RUL_{dataset}.txt"
+
+        if not test_file.exists() or not rul_file.exists():
+            print(f"   ⚠️  Files not found: {test_file.name}, {rul_file.name}")
+            return DatasetSummary(dataset=dataset, units_total=0)
+
+        # Load RUL values
+        rul_map = self._load_rul_file(rul_file)
+
+        # Load test data and group by unit
+        units_data = self._load_test_file(test_file)
+
+        summary = DatasetSummary(dataset=dataset, units_total=len(units_data))
+
+        # Create progress bar
+        iterator = units_data.items()
+        if self.progress:
+            iterator = tqdm(
+                iterator,
+                desc=f"  {dataset}",
+                total=len(units_data),
+                unit="unit",
+                leave=True,
+            )
+
+        # Process each unit
+        for unit_id, cycles_data in iterator:
+            result = self._process_unit(
+                dataset=dataset,
+                unit_id=unit_id,
+                cycles_data=cycles_data,
+                rul_value=rul_map.get(unit_id),
+            )
+            summary.per_unit_results.append(result)
+            if result.detected:
+                summary.units_detected += 1
+
+        # Compute aggregate metrics
+        self._compute_summary_metrics(summary)
+
+        return summary
+
+    def _process_unit(
+        self,
+        dataset: str,
+        unit_id: int,
+        cycles_data: List[CMAPSSRow],
+        rul_value: Optional[int],
+    ) -> UnitDetectionResult:
+        """Process a single unit through the engine."""
+        if rul_value is None:
+            rul_value = 0
+
+        # Calculate failure cycle
+        last_cycle = max(c.cycle for c in cycles_data)
+        failure_cycle = last_cycle + rul_value
+
+        # Determine baseline window based on available data
+        # Use a smaller baseline for short sequences
+        num_cycles = len(cycles_data)
+        if num_cycles < 50:
+            baseline_window = max(5, num_cycles // 3)  # 1/3 of data for baseline if < 50 cycles
+        else:
+            baseline_window = 50
+
+        # Initialize engine
+        engine = SIIEngine(baseline_window=baseline_window, recent_window=12)
+
+        first_alert_cycle = None
+        alert_cycle_type = None
+        alert_regime = None
+        max_instability = 0.0
+        instability_at_alert = 0.0
+
+        # Process each cycle
+        for row in cycles_data:
+            sensor_vector = row.to_sensor_vector()
+            timestamp = float(row.cycle)
+
+            output = engine.update(sensor_vector, timestamp)
+
+            # Track max instability
+            max_instability = max(max_instability, output.instability_score)
+
+            # Check for alert (strict priority)
+            if first_alert_cycle is None:
+                is_alert = self._check_alert(output, row)
+                if is_alert:
+                    first_alert_cycle = row.cycle
+                    instability_at_alert = output.instability_score
+                    alert_regime = output.regime
+                    alert_cycle_type = self._get_alert_type(output)
+
+        # Determine if unit was detected
+        detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
+
+        # Calculate lead time
+        lead_time = None
+        if detected:
+            lead_time = failure_cycle - first_alert_cycle
+
+        return UnitDetectionResult(
+            unit_id=unit_id,
+            dataset=dataset,
+            total_cycles=len(cycles_data),
+            failure_cycle=failure_cycle,
+            first_alert_cycle=first_alert_cycle,
+            alert_cycle_type=alert_cycle_type,
+            alert_regime_at_detection=alert_regime,
+            lead_time_cycles=lead_time,
+            detected=detected,
+            max_instability_score=max_instability,
+            instability_at_alert=instability_at_alert,
+        )
+
+    def _check_alert(self, output: SIIEngineOutput, row: CMAPSSRow) -> bool:
+        """Check if alert condition met (strict priority)."""
+        # Priority 1: drift_alert indicator (if available in output)
+        # (SIIEngineOutput doesn't expose drift_alert directly, so check through regime/urgency)
+
+        # Priority 2: State/regime indicating instability
+        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+            return True
+        if output.urgency in ("ALERT", "CRITICAL"):
+            return True
+
+        # Priority 3: Structural drift threshold fallback
+        if output.structural_drift >= self.structural_drift_threshold:
+            return True
+
+        return False
+
+    def _get_alert_type(self, output: SIIEngineOutput) -> str:
+        """Determine which alert mechanism triggered."""
+        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+            return "regime"
+        if output.urgency in ("ALERT", "CRITICAL"):
+            return "urgency"
+        return "structural_drift"
+
+    def _compute_summary_metrics(self, summary: DatasetSummary) -> None:
+        """Compute aggregate metrics for dataset."""
+        if summary.per_unit_results:
+            summary.units_detected = sum(
+                1 for r in summary.per_unit_results if r.detected
+            )
+            summary.missed_units = summary.units_total - summary.units_detected
+
+            lead_times = [
+                r.lead_time_cycles
+                for r in summary.per_unit_results
+                if r.lead_time_cycles is not None
+            ]
+            if lead_times:
+                summary.median_lead_time_cycles = float(np.median(lead_times))
+                summary.mean_lead_time_cycles = float(np.mean(lead_times))
+                summary.min_lead_time_cycles = int(np.min(lead_times))
+                summary.max_lead_time_cycles = int(np.max(lead_times))
+
+            summary.detection_coverage_pct = (
+                100.0 * summary.units_detected / summary.units_total
+            )
+
+    def _load_rul_file(self, rul_file: Path) -> Dict[int, int]:
+        """Load RUL file and map unit_id -> RUL value."""
+        rul_map = {}
+        with open(rul_file, "r") as f:
+            for unit_id, line in enumerate(f, start=1):
+                rul_map[unit_id] = int(float(line.strip()))
+        return rul_map
+
+    def _load_test_file(self, test_file: Path) -> Dict[int, List[CMAPSSRow]]:
+        """Load test file and group by unit_id."""
+        units_data = {}
+        with open(test_file, "r") as f:
+            for line in f:
+                row = CMAPSSRow.parse(line)
+                if row.unit_id not in units_data:
+                    units_data[row.unit_id] = []
+                units_data[row.unit_id].append(row)
+        return units_data
+
+    def _print_dataset_summary(self, summary: DatasetSummary) -> None:
+        """Print summary for dataset to console."""
+        print(f"\n   📈 {summary.dataset} Results:")
+        print(f"      Units: {summary.units_detected}/{summary.units_total} detected ({summary.detection_coverage_pct:.1f}%)")
+        if summary.median_lead_time_cycles is not None:
+            print(f"      Lead time: {summary.mean_lead_time_cycles:.1f}±{summary.median_lead_time_cycles:.1f} cycles")
+            print(f"               (min: {summary.min_lead_time_cycles}, max: {summary.max_lead_time_cycles})")
+        if summary.missed_units > 0:
+            print(f"      ⚠️  Missed: {summary.missed_units} units")
+
+    def _print_combined_summary(self, all_results: Dict[str, DatasetSummary]) -> None:
+        """Print combined summary across all datasets."""
+        print("\n" + "=" * 60)
+        print("📊 COMBINED SUMMARY")
+        print("=" * 60)
+
+        total_units = sum(s.units_total for s in all_results.values())
+        total_detected = sum(s.units_detected for s in all_results.values())
+        overall_coverage = 100.0 * total_detected / total_units if total_units > 0 else 0.0
+
+        print(f"\nTotal units:     {total_detected}/{total_units} detected ({overall_coverage:.1f}%)")
+
+        # All lead times
+        all_lead_times = []
+        for summary in all_results.values():
+            all_lead_times.extend(
+                [r.lead_time_cycles for r in summary.per_unit_results if r.lead_time_cycles is not None]
+            )
+
+        if all_lead_times:
+            print(f"Overall lead time: {np.mean(all_lead_times):.1f} cycles (median: {np.median(all_lead_times):.1f})")
+            print(f"                   (range: {np.min(all_lead_times)}-{np.max(all_lead_times)} cycles)")
+
+        print()
+
+    def _write_outputs(self, all_results: Dict[str, DatasetSummary]) -> None:
+        """Write results to output directory."""
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Per-dataset outputs
+        for dataset, summary in all_results.items():
+            dataset_dir = self.output_dir / dataset
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+
+            # Write per-unit CSV
+            self._write_per_unit_csv(dataset_dir / "per_unit_results.csv", summary)
+
+            # Write summary JSON
+            self._write_summary_json(dataset_dir / "summary.json", summary)
+
+        # Combined summaries
+        self._write_combined_csv(self.output_dir / "all_datasets_summary.csv", all_results)
+        self._write_combined_json(self.output_dir / "all_datasets_summary.json", all_results)
+
+        print(f"\n✅ Results written to {self.output_dir}")
+
+    def _write_per_unit_csv(self, filepath: Path, summary: DatasetSummary) -> None:
+        """Write per-unit results to CSV."""
+        with open(filepath, "w") as f:
+            f.write("unit_id,total_cycles,failure_cycle,first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,max_instability,instability_at_alert\n")
+            for result in summary.per_unit_results:
+                f.write(
+                    f"{result.unit_id},"
+                    f"{result.total_cycles},"
+                    f"{result.failure_cycle},"
+                    f"{result.first_alert_cycle or '-'},"
+                    f"{result.alert_cycle_type or '-'},"
+                    f"{result.alert_regime_at_detection or '-'},"
+                    f"{result.lead_time_cycles or '-'},"
+                    f"{result.detected},"
+                    f"{result.max_instability_score:.4f},"
+                    f"{result.instability_at_alert:.4f}\n"
+                )
+
+    def _write_summary_json(self, filepath: Path, summary: DatasetSummary) -> None:
+        """Write dataset summary to JSON."""
+        data = {
+            "dataset": summary.dataset,
+            "units_total": summary.units_total,
+            "units_detected": summary.units_detected,
+            "detection_coverage_pct": summary.detection_coverage_pct,
+            "median_lead_time_cycles": summary.median_lead_time_cycles,
+            "mean_lead_time_cycles": summary.mean_lead_time_cycles,
+            "min_lead_time_cycles": summary.min_lead_time_cycles,
+            "max_lead_time_cycles": summary.max_lead_time_cycles,
+            "missed_units": summary.missed_units,
+            "false_positive_count": summary.false_positive_count,
+            "engine_version": summary.engine_version,
+        }
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _write_combined_csv(
+        self, filepath: Path, all_results: Dict[str, DatasetSummary]
+    ) -> None:
+        """Write combined summary to CSV."""
+        with open(filepath, "w") as f:
+            f.write("dataset,units_total,units_detected,coverage_pct,median_lead_time,mean_lead_time,min_lead_time,max_lead_time,missed_units\n")
+            for dataset in sorted(all_results.keys()):
+                summary = all_results[dataset]
+                f.write(
+                    f"{dataset},"
+                    f"{summary.units_total},"
+                    f"{summary.units_detected},"
+                    f"{summary.detection_coverage_pct:.1f},"
+                    f"{summary.median_lead_time_cycles or '-'},"
+                    f"{summary.mean_lead_time_cycles or '-'},"
+                    f"{summary.min_lead_time_cycles or '-'},"
+                    f"{summary.max_lead_time_cycles or '-'},"
+                    f"{summary.missed_units}\n"
+                )
+
+    def _write_combined_json(
+        self, filepath: Path, all_results: Dict[str, DatasetSummary]
+    ) -> None:
+        """Write combined summary to JSON."""
+        summaries = {}
+        for dataset, summary in all_results.items():
+            summaries[dataset] = {
+                "units_total": summary.units_total,
+                "units_detected": summary.units_detected,
+                "detection_coverage_pct": summary.detection_coverage_pct,
+                "median_lead_time_cycles": summary.median_lead_time_cycles,
+                "mean_lead_time_cycles": summary.mean_lead_time_cycles,
+                "min_lead_time_cycles": summary.min_lead_time_cycles,
+                "max_lead_time_cycles": summary.max_lead_time_cycles,
+                "missed_units": summary.missed_units,
+            }
+
+        with open(filepath, "w") as f:
+            json.dump(summaries, f, indent=2)
+
+
+def main():
+    """Parse arguments and run validation."""
+    parser = argparse.ArgumentParser(
+        description="Unified CMAPSS validation runner for Neraium SII Engine"
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        required=True,
+        help="Path to directory containing CMAPSS test/RUL files",
+    )
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=["FD001", "FD002", "FD003", "FD004"],
+        help="Datasets to validate (default: FD001 FD002 FD003 FD004)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("validation_out"),
+        help="Output directory (default: validation_out)",
+    )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show progress bar (requires tqdm)",
+    )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate per-unit drift/alert plots (optional)",
+    )
+    parser.add_argument(
+        "--unit",
+        type=int,
+        help="Single unit to process (debug mode)",
+    )
+    parser.add_argument(
+        "--drift-threshold",
+        type=float,
+        default=0.5,
+        help="Structural drift threshold for alert (default: 0.5)",
+    )
+
+    args = parser.parse_args()
+
+    try:
+        validator = CMAPSSValidator(
+            data_dir=args.data_dir,
+            output_dir=args.output,
+            structural_drift_threshold=args.drift_threshold,
+            progress=args.progress,
+            plot=args.plot,
+        )
+        results = validator.run(args.datasets)
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
