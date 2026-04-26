@@ -30,3 +30,4 @@ env/
 # Validation and output directories
 validation_out/
 .pytest_cache/
+validation_out_advanced/
