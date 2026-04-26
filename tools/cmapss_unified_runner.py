@@ -96,6 +96,15 @@ class UnitDetectionResult:
     state_at_alert: Optional[str] = None  # Full regime/urgency state at alert
     urgency_at_alert: Optional[str] = None  # Urgency level when alert triggered
 
+    # Confirmed detection fields
+    first_raw_alert_cycle: Optional[int] = None
+    first_confirmed_alert_cycle: Optional[int] = None
+    raw_alert_count_at_confirmation: int = 0
+    rolling_instability_at_confirmation: float = 0.0
+    confirmation_method: Optional[str] = None  # "persistence" or "accumulation"
+    post_baseline_gap: int = 0  # Cycles after baseline finalization before confirmation
+    confirmed_detected: bool = False
+
 
 @dataclass
 class DatasetSummary:
@@ -141,6 +150,11 @@ class CMAPSSValidator:
         structural_drift_threshold: float = 0.5,
         progress: bool = True,
         plot: bool = False,
+        confirmation_hits: int = 3,
+        confirmation_window: int = 5,
+        post_baseline_delay: int = 10,
+        accumulation_window: int = 5,
+        accumulation_threshold: float = 1.75,
     ):
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
@@ -149,6 +163,11 @@ class CMAPSSValidator:
         self.structural_drift_threshold = structural_drift_threshold
         self.progress = progress and HAS_TQDM
         self.plot = plot
+        self.confirmation_hits = confirmation_hits
+        self.confirmation_window = confirmation_window
+        self.post_baseline_delay = post_baseline_delay
+        self.accumulation_window = accumulation_window
+        self.accumulation_threshold = accumulation_threshold
         self.results: Dict[str, DatasetSummary] = {}
 
     def run(self, datasets: List[str]) -> Dict[str, DatasetSummary]:
@@ -158,6 +177,12 @@ class CMAPSSValidator:
         print(f"   Output directory: {self.output_dir}")
         print(f"   Baseline window: {self.baseline_window} cycles (min: {self.min_baseline})")
         print(f"   Drift threshold: {self.structural_drift_threshold}")
+        print(f"\n   🔧 Confirmation Settings:")
+        print(f"      confirmation_hits: {self.confirmation_hits}")
+        print(f"      confirmation_window: {self.confirmation_window}")
+        print(f"      post_baseline_delay: {self.post_baseline_delay}")
+        print(f"      accumulation_window: {self.accumulation_window}")
+        print(f"      accumulation_threshold: {self.accumulation_threshold}")
         print()
 
         all_results = {}
@@ -259,21 +284,17 @@ class CMAPSSValidator:
             # Create one engine per unit
             engine = SIIEngine(baseline_window=self.baseline_window, recent_window=12)
 
-            first_alert_cycle = None
-            alert_cycle_type = None
-            alert_regime = None
-            alert_source = None
-            alert_reason = None
+            # Raw alert tracking
+            first_raw_alert_cycle = None
+            first_confirmed_alert_cycle = None
+            raw_alert_history = {}  # cycle -> is_raw_alert
+            drift_score_history = {}  # cycle -> drift_score
+
             max_instability = 0.0
-            instability_at_alert = 0.0
             warmup_cycles = 0
             baseline_used = 0
             baseline_finalized_cycle = 0
             baseline_was_ready = False
-            drift_at_alert = 0.0
-            urgency_at_alert = None
-            alert_before_baseline = False
-            is_warmup_alert = False
 
             # Stream each cycle through the same engine instance
             for row in cycles_data:
@@ -281,59 +302,94 @@ class CMAPSSValidator:
                 timestamp = float(row.cycle)
 
                 output = engine.update(sensor_vector, timestamp)
+                current_cycle = row.cycle
 
                 # Track warmup
                 if output.regime == "WARMUP":
                     warmup_cycles += 1
                 elif not baseline_was_ready and engine.baseline_ready:
-                    # Record when baseline was finalized
                     baseline_finalized_cycle = row.cycle
                     baseline_was_ready = True
 
                 # Track max instability
                 max_instability = max(max_instability, output.instability_score)
 
-                # Check for alert (only after warmup, strict priority)
-                if first_alert_cycle is None and output.regime != "WARMUP":
-                    is_alert = self._check_alert(output)
-                    if is_alert:
-                        first_alert_cycle = row.cycle
-                        instability_at_alert = output.instability_score
-                        alert_regime = output.regime
-                        alert_cycle_type = self._get_alert_type(output)
-                        drift_at_alert = output.structural_drift
-                        urgency_at_alert = output.urgency
+                # Store drift score for accumulation calculation
+                drift_score_history[current_cycle] = output.structural_drift
 
-                        # Determine alert source for audit
-                        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
-                            alert_source = "regime"
-                            alert_reason = f"regime={output.regime}"
-                        elif output.urgency in ("ALERT", "CRITICAL"):
-                            alert_source = "urgency"
-                            alert_reason = f"urgency={output.urgency}"
-                        else:
-                            alert_source = "structural_drift"
-                            alert_reason = f"drift={output.structural_drift:.4f}"
+                # Check for raw alert (after warmup only)
+                if output.regime != "WARMUP":
+                    is_raw_alert = self._check_raw_alert(output)
+                    raw_alert_history[current_cycle] = is_raw_alert
 
-                        # Check if this alert came before baseline was finalized
-                        alert_before_baseline = not baseline_was_ready
-                        is_warmup_alert = output.regime == "WARMUP"
+                    if is_raw_alert and first_raw_alert_cycle is None:
+                        first_raw_alert_cycle = current_cycle
 
             # If unit ended before baseline was ready, finalize it
             baseline_used = engine.baseline.sample_count if engine.baseline.is_valid() else 0
             if not baseline_was_ready:
                 baseline_finalized_cycle = warmup_cycles
 
-            # Determine if unit was detected
-            detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
+            # Compute confirmed alerts using persistence and accumulation logic
+            first_confirmed_alert_cycle = None
+            confirmation_method = None
+            raw_alert_count_at_confirmation = 0
+            rolling_instability_at_confirmation = 0.0
+
+            for cycle in sorted(raw_alert_history.keys()):
+                # Check if we can confirm alerts at this cycle
+                if cycle < baseline_finalized_cycle + self.post_baseline_delay:
+                    continue
+
+                # Check persistence: raw_alert_count in last confirmation_window
+                raw_alerts_in_window = sum(
+                    1 for c in raw_alert_history.keys()
+                    if (cycle - self.confirmation_window < c <= cycle) and raw_alert_history[c]
+                )
+
+                # Check accumulation: rolling sum of drift scores
+                rolling_instability = sum(
+                    drift_score_history.get(c, 0.0)
+                    for c in drift_score_history.keys()
+                    if (cycle - self.accumulation_window < c <= cycle)
+                )
+
+                # Determine confirmation
+                if raw_alerts_in_window >= self.confirmation_hits:
+                    first_confirmed_alert_cycle = cycle
+                    confirmation_method = "persistence"
+                    raw_alert_count_at_confirmation = raw_alerts_in_window
+                    rolling_instability_at_confirmation = rolling_instability
+                    break
+                elif rolling_instability >= self.accumulation_threshold:
+                    first_confirmed_alert_cycle = cycle
+                    confirmation_method = "accumulation"
+                    raw_alert_count_at_confirmation = raw_alerts_in_window
+                    rolling_instability_at_confirmation = rolling_instability
+                    break
+
+            # Determine confirmed detection
+            confirmed_detected = (
+                first_confirmed_alert_cycle is not None
+                and first_confirmed_alert_cycle < failure_cycle
+            )
+
+            # Calculate lead time from first confirmed alert
+            lead_time = None
+            if confirmed_detected:
+                lead_time = failure_cycle - first_confirmed_alert_cycle
+                # Safety check: if lead_time is negative, mark as missed
+                if lead_time < 0:
+                    confirmed_detected = False
+                    lead_time = None
+
+            # Calculate post_baseline_gap
+            post_baseline_gap = 0
+            if first_confirmed_alert_cycle is not None:
+                post_baseline_gap = first_confirmed_alert_cycle - baseline_finalized_cycle
 
             # Check if insufficient history
             insufficient_history = not engine.baseline_ready and num_cycles < self.min_baseline
-
-            # Calculate lead time
-            lead_time = None
-            if detected:
-                lead_time = failure_cycle - first_alert_cycle
 
             return UnitDetectionResult(
                 unit_id=unit_id,
@@ -341,24 +397,32 @@ class CMAPSSValidator:
                 cycles_observed=num_cycles,
                 baseline_samples_used=baseline_used,
                 failure_cycle=failure_cycle,
-                first_alert_cycle=first_alert_cycle,
-                alert_cycle_type=alert_cycle_type,
-                alert_regime_at_detection=alert_regime,
+                first_alert_cycle=first_raw_alert_cycle,  # Keep raw alert for compatibility
+                alert_cycle_type=None,
+                alert_regime_at_detection=None,
                 lead_time_cycles=lead_time,
-                detected=detected,
+                detected=confirmed_detected,  # Now means confirmed_detected
                 max_instability_score=max_instability,
-                instability_at_alert=instability_at_alert,
+                instability_at_alert=0.0,
                 warmup_cycles=warmup_cycles,
                 was_insufficient_history=insufficient_history,
-                # Audit fields
-                alert_source=alert_source,
-                first_alert_reason=alert_reason,
+                # Audit fields (legacy for compatibility)
+                alert_source=None,
+                first_alert_reason=None,
                 baseline_finalized_cycle=baseline_finalized_cycle,
-                alert_before_baseline_finalized=alert_before_baseline,
-                warmup_alert=is_warmup_alert,
-                structural_drift_score_at_alert=drift_at_alert,
-                state_at_alert=alert_regime,
-                urgency_at_alert=urgency_at_alert,
+                alert_before_baseline_finalized=False,
+                warmup_alert=False,
+                structural_drift_score_at_alert=0.0,
+                state_at_alert=None,
+                urgency_at_alert=None,
+                # New confirmed detection fields
+                first_raw_alert_cycle=first_raw_alert_cycle,
+                first_confirmed_alert_cycle=first_confirmed_alert_cycle,
+                raw_alert_count_at_confirmation=raw_alert_count_at_confirmation,
+                rolling_instability_at_confirmation=rolling_instability_at_confirmation,
+                confirmation_method=confirmation_method,
+                post_baseline_gap=post_baseline_gap,
+                confirmed_detected=confirmed_detected,
             )
 
         except Exception as e:
@@ -370,20 +434,21 @@ class CMAPSSValidator:
                 baseline_samples_used=0,
                 failure_cycle=failure_cycle,
                 detected=False,
+                confirmed_detected=False,
                 error_message=str(e)[:100],
             )
 
-    def _check_alert(self, output: SIIEngineOutput) -> bool:
-        """Check if alert condition met (strict priority)."""
-        # Priority 1: Regime indicating instability
-        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+    def _check_raw_alert(self, output: SIIEngineOutput) -> bool:
+        """Check if raw alert condition met (before confirmation)."""
+        # Check regime for instability
+        if output.regime in ("TRANSITION", "UNSTABLE", "DEGRADED", "FAILURE"):
             return True
 
-        # Priority 2: Urgency indicating alert
-        if output.urgency in ("ALERT", "CRITICAL"):
+        # Check urgency for alert conditions
+        if output.urgency in ("WATCH", "ALERT", "CRITICAL"):
             return True
 
-        # Priority 3: Structural drift threshold fallback (documented)
+        # Check structural drift threshold
         if output.structural_drift >= self.structural_drift_threshold:
             return True
 
@@ -398,12 +463,13 @@ class CMAPSSValidator:
         return "structural_drift"
 
     def _compute_summary_metrics(self, summary: DatasetSummary) -> None:
-        """Compute aggregate metrics for dataset including audit trail."""
+        """Compute aggregate metrics for dataset using confirmed detections."""
         if summary.per_unit_results:
+            # Use confirmed detections only
             lead_times = [
                 r.lead_time_cycles
                 for r in summary.per_unit_results
-                if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+                if r.confirmed_detected and r.lead_time_cycles is not None and r.lead_time_cycles > 0
             ]
 
             if lead_times:
@@ -422,45 +488,35 @@ class CMAPSSValidator:
             self._compute_audit_summary(summary)
 
     def _compute_audit_summary(self, summary: DatasetSummary) -> None:
-        """Compute audit trail statistics."""
+        """Compute audit trail statistics using confirmed detections."""
         from collections import Counter
 
         for result in summary.per_unit_results:
-            if not result.detected:
+            if not result.confirmed_detected:
                 continue
 
-            # Count by alert source
-            if result.alert_source == "regime":
-                if result.state_at_alert not in summary.detections_by_regime:
-                    summary.detections_by_regime[result.state_at_alert] = 0
-                summary.detections_by_regime[result.state_at_alert] += 1
-            elif result.alert_source == "urgency":
-                if result.urgency_at_alert not in summary.detections_by_urgency:
-                    summary.detections_by_urgency[result.urgency_at_alert] = 0
-                summary.detections_by_urgency[result.urgency_at_alert] += 1
-            elif result.alert_source == "structural_drift":
+            # Count by confirmation method
+            if result.confirmation_method == "persistence":
+                if "persistence" not in summary.detections_by_regime:
+                    summary.detections_by_regime["persistence"] = 0
+                summary.detections_by_regime["persistence"] += 1
+            elif result.confirmation_method == "accumulation":
                 summary.detections_by_drift += 1
 
-            # Count early alerts
-            if result.first_alert_cycle and result.first_alert_cycle <= 5:
+            # Count early confirmed alerts
+            if result.first_confirmed_alert_cycle and result.first_confirmed_alert_cycle <= 5:
                 summary.alerts_in_first_5_cycles += 1
-            if result.first_alert_cycle and result.first_alert_cycle <= 10:
+            if result.first_confirmed_alert_cycle and result.first_confirmed_alert_cycle <= 10:
                 summary.alerts_in_first_10_cycles += 1
-            if result.first_alert_cycle and result.first_alert_cycle <= 20:
+            if result.first_confirmed_alert_cycle and result.first_confirmed_alert_cycle <= 20:
                 summary.alerts_in_first_20_cycles += 1
 
-            # Count suspicious alerts
-            if result.alert_before_baseline_finalized:
-                summary.alerts_before_baseline_finalized += 1
-            if result.warmup_alert:
-                summary.warmup_alerts += 1
-
-        # Compute lead times excluding early/suspicious alerts
+        # Compute lead times excluding early confirmed alerts
         lead_times_no_early = [
             r.lead_time_cycles
             for r in summary.per_unit_results
-            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
-            and (r.first_alert_cycle is None or r.first_alert_cycle > 20)
+            if r.confirmed_detected and r.lead_time_cycles is not None and r.lead_time_cycles > 0
+            and (r.first_confirmed_alert_cycle is None or r.first_confirmed_alert_cycle > 20)
         ]
         if lead_times_no_early:
             summary.median_lead_time_excl_early_alerts = float(np.median(lead_times_no_early))
@@ -468,8 +524,7 @@ class CMAPSSValidator:
         lead_times_no_prebaseline = [
             r.lead_time_cycles
             for r in summary.per_unit_results
-            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
-            and not r.alert_before_baseline_finalized
+            if r.confirmed_detected and r.lead_time_cycles is not None and r.lead_time_cycles > 0
         ]
         if lead_times_no_prebaseline:
             summary.median_lead_time_excl_prebaseline = float(np.median(lead_times_no_prebaseline))
@@ -559,14 +614,14 @@ class CMAPSSValidator:
         print(f"\n✅ Results written to {self.output_dir}")
 
     def _write_per_unit_csv(self, filepath: Path, summary: DatasetSummary) -> None:
-        """Write per-unit results to CSV with audit trail."""
+        """Write per-unit results to CSV with audit trail and confirmation diagnostics."""
         with open(filepath, "w") as f:
             f.write(
                 "unit_id,cycles_observed,baseline_used,warmup_cycles,failure_cycle,"
-                "first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,"
-                "max_instability,instability_at_alert,insufficient_history,error_message,"
-                "alert_source,first_alert_reason,baseline_finalized_cycle,"
-                "alert_before_baseline,warmup_alert,drift_at_alert,state_at_alert,urgency_at_alert\n"
+                "first_raw_alert_cycle,first_confirmed_alert_cycle,lead_time_cycles,"
+                "confirmed_detected,raw_alert_count_at_confirmation,rolling_instability_at_confirmation,"
+                "confirmation_method,post_baseline_gap,baseline_finalized_cycle,"
+                "max_instability,insufficient_history,error_message\n"
             )
             for result in summary.per_unit_results:
                 f.write(
@@ -575,23 +630,18 @@ class CMAPSSValidator:
                     f"{result.baseline_samples_used},"
                     f"{result.warmup_cycles},"
                     f"{result.failure_cycle},"
-                    f"{result.first_alert_cycle or '-'},"
-                    f"{result.alert_cycle_type or '-'},"
-                    f"{result.alert_regime_at_detection or '-'},"
+                    f"{result.first_raw_alert_cycle or '-'},"
+                    f"{result.first_confirmed_alert_cycle or '-'},"
                     f"{result.lead_time_cycles or '-'},"
-                    f"{result.detected},"
-                    f"{result.max_instability_score:.4f},"
-                    f"{result.instability_at_alert:.4f},"
-                    f"{result.was_insufficient_history},"
-                    f"\"{result.error_message or ''}\","
-                    f"{result.alert_source or '-'},"
-                    f"\"{result.first_alert_reason or ''}\","
+                    f"{result.confirmed_detected},"
+                    f"{result.raw_alert_count_at_confirmation},"
+                    f"{result.rolling_instability_at_confirmation:.4f},"
+                    f"{result.confirmation_method or '-'},"
+                    f"{result.post_baseline_gap},"
                     f"{result.baseline_finalized_cycle},"
-                    f"{result.alert_before_baseline_finalized},"
-                    f"{result.warmup_alert},"
-                    f"{result.structural_drift_score_at_alert:.4f},"
-                    f"{result.state_at_alert or '-'},"
-                    f"{result.urgency_at_alert or '-'}\n"
+                    f"{result.max_instability_score:.4f},"
+                    f"{result.was_insufficient_history},"
+                    f"\"{result.error_message or ''}\"\n"
                 )
 
     def _write_summary_json(self, filepath: Path, summary: DatasetSummary) -> None:
@@ -730,6 +780,36 @@ def main():
         default=0.5,
         help="Structural drift threshold for alert (default: 0.5)",
     )
+    parser.add_argument(
+        "--confirmation-hits",
+        type=int,
+        default=3,
+        help="Number of raw alerts required for persistence confirmation (default: 3)",
+    )
+    parser.add_argument(
+        "--confirmation-window",
+        type=int,
+        default=5,
+        help="Cycle window for persistence confirmation (default: 5)",
+    )
+    parser.add_argument(
+        "--post-baseline-delay",
+        type=int,
+        default=10,
+        help="Cycles to wait after baseline finalization before confirming (default: 10)",
+    )
+    parser.add_argument(
+        "--accumulation-window",
+        type=int,
+        default=5,
+        help="Cycle window for accumulation sum (default: 5)",
+    )
+    parser.add_argument(
+        "--accumulation-threshold",
+        type=float,
+        default=1.75,
+        help="Drift accumulation threshold for confirmation (default: 1.75)",
+    )
 
     args = parser.parse_args()
 
@@ -742,6 +822,11 @@ def main():
             structural_drift_threshold=args.drift_threshold,
             progress=args.progress,
             plot=args.plot,
+            confirmation_hits=args.confirmation_hits,
+            confirmation_window=args.confirmation_window,
+            post_baseline_delay=args.post_baseline_delay,
+            accumulation_window=args.accumulation_window,
+            accumulation_threshold=args.accumulation_threshold,
         )
         results = validator.run(args.datasets)
         sys.exit(0)
