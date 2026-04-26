@@ -195,7 +195,8 @@ class CMAPSSValidator:
         print(f"      accumulation_threshold: {self.accumulation_threshold}")
         print(f"      use_inevitability_score: {self.use_inevitability_score}")
         if self.use_inevitability_score:
-            print(f"      (using inevitability_threshold: {self.inevitability_threshold})")
+            print(f"      (irreversibility_factor must be >= {self.inevitability_threshold} to confirm)")
+            print(f"      (confirmation requires BOTH persistence/accumulation AND irreversibility)")
         print()
 
         all_results = {}
@@ -384,19 +385,27 @@ class CMAPSSValidator:
                     inevitability_score_at_confirmation = cycle_output.structural_inevitability_score
                     irreversibility_factor_at_confirmation = cycle_output.irreversibility_factor
 
-                # Determine confirmation
-                if raw_alerts_in_window >= self.confirmation_hits:
-                    first_confirmed_alert_cycle = cycle
-                    confirmation_method = "persistence"
-                    raw_alert_count_at_confirmation = raw_alerts_in_window
-                    rolling_instability_at_confirmation = rolling_instability
-                    break
-                elif rolling_instability >= self.accumulation_threshold:
-                    first_confirmed_alert_cycle = cycle
-                    confirmation_method = "accumulation"
-                    raw_alert_count_at_confirmation = raw_alerts_in_window
-                    rolling_instability_at_confirmation = rolling_instability
-                    break
+                # Irreversibility gate: if using inevitability mode, require R(t) >= threshold
+                # This ensures confirmation requires BOTH persistence/accumulation AND irreversibility
+                if self.use_inevitability_score and cycle_output:
+                    irreversibility_gate_met = cycle_output.irreversibility_factor >= self.inevitability_threshold
+                else:
+                    irreversibility_gate_met = True  # No gate in legacy mode
+
+                # Determine confirmation (with optional irreversibility gate)
+                if irreversibility_gate_met:
+                    if raw_alerts_in_window >= self.confirmation_hits:
+                        first_confirmed_alert_cycle = cycle
+                        confirmation_method = "persistence"
+                        raw_alert_count_at_confirmation = raw_alerts_in_window
+                        rolling_instability_at_confirmation = rolling_instability
+                        break
+                    elif rolling_instability >= self.accumulation_threshold:
+                        first_confirmed_alert_cycle = cycle
+                        confirmation_method = "accumulation"
+                        raw_alert_count_at_confirmation = raw_alerts_in_window
+                        rolling_instability_at_confirmation = rolling_instability
+                        break
 
             # Determine confirmed detection
             confirmed_detected = (
