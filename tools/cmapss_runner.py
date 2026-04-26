@@ -115,6 +115,33 @@ class UnitResult:
 
 
 @dataclass
+class ExperimentalUnitResult:
+    """Experimental mode detection results (research layer)."""
+    unit_id: int
+    dataset: str
+    cycles_observed: int
+    first_alert_cycle: Optional[int] = None
+    alert_source: Optional[str] = None  # novel/ensemble/rul/degradation_mode/early_warning
+    first_alert_reason: Optional[str] = None
+    lead_time_cycles: Optional[int] = None
+    detected: bool = False
+    alert_before_baseline_finalized: bool = False
+    warmup_alert: bool = False
+
+    # Comparison with strict mode
+    gained_vs_strict: bool = False  # detected in experimental but not strict
+    lost_vs_strict: bool = False    # detected in strict but not experimental
+    lead_time_delta_cycles: Optional[int] = None  # experimental lead time - strict lead time
+
+    # Risk flags
+    is_warmup_artifact: bool = False
+    is_prebaseline_artifact: bool = False
+    ensemble_agreement_at_alert: float = 1.0
+    novelty_score_at_alert: float = 0.0
+    degradation_mode_at_alert: str = ""
+
+
+@dataclass
 class DatasetSummary:
     """Summary statistics for a dataset with advanced metrics and audit trail."""
     dataset: str
@@ -131,6 +158,7 @@ class DatasetSummary:
     baseline_window_configured: int = 50
     min_baseline_configured: int = 10
     engine_version: str = "AdvancedSIIEngine"
+    alert_mode: str = "strict"  # strict or experimental
     per_unit_results: List[UnitResult] = field(default_factory=list)
 
     # Advanced metrics aggregates
@@ -152,6 +180,38 @@ class DatasetSummary:
     median_lead_time_excl_prebaseline: Optional[float] = None
 
 
+@dataclass
+class ExperimentalDatasetSummary:
+    """Experimental mode summary with comparative metrics vs strict mode."""
+    dataset: str
+    strict_results: DatasetSummary = field(default_factory=lambda: DatasetSummary(dataset="", alert_mode="strict"))
+
+    # Experimental results
+    units_detected: int = 0
+    detection_coverage_pct: float = 0.0
+    median_lead_time_cycles: Optional[float] = None
+    mean_lead_time_cycles: Optional[float] = None
+    per_unit_results: List[ExperimentalUnitResult] = field(default_factory=list)
+
+    # Comparative metrics
+    detections_gained: int = 0  # detected in exp but not strict
+    detections_lost: int = 0    # detected in strict but not exp
+    median_lead_time_delta: Optional[float] = None
+    mean_lead_time_delta: Optional[float] = None
+
+    # Experimental alert sources
+    detections_by_source: Dict[str, int] = field(default_factory=dict)
+
+    # Risk assessment
+    alerts_before_baseline: int = 0
+    warmup_artifacts: int = 0
+    prebaseline_artifacts: int = 0
+    high_ensemble_confidence: int = 0  # detected with ensemble_agreement > 0.7
+
+    # Research notes
+    notes: List[str] = field(default_factory=list)
+
+
 class CMAPSSValidator:
     """Advanced CMAPSS validation runner using Advanced SII Engine."""
 
@@ -164,6 +224,7 @@ class CMAPSSValidator:
         min_baseline: int = 10,
         structural_drift_threshold: float = 0.5,
         progress: bool = True,
+        alert_mode: str = "strict",
     ):
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
@@ -172,7 +233,9 @@ class CMAPSSValidator:
         self.min_baseline = min_baseline
         self.structural_drift_threshold = structural_drift_threshold
         self.progress = progress and HAS_TQDM
+        self.alert_mode = alert_mode  # "strict" or "experimental"
         self.results: Dict[str, DatasetSummary] = {}
+        self.experimental_results: Dict[str, ExperimentalDatasetSummary] = {}
 
     def run(self, datasets: List[str]) -> Dict[str, DatasetSummary]:
         """Run validation across specified datasets."""
@@ -180,24 +243,41 @@ class CMAPSSValidator:
         print(f"   Data directory: {self.data_dir}")
         print(f"   Output directory: {self.output_dir}")
         print(f"   System type: {self.system_type}")
+        print(f"   Alert mode: {self.alert_mode.upper()}")
         print(f"   Baseline window: {self.baseline_window} cycles (min: {self.min_baseline})")
         print()
 
         all_results = {}
+        all_experimental_results = {}
+
         for dataset in datasets:
             print(f"📊 Processing dataset {dataset}...")
-            summary = self._validate_dataset(dataset)
+
+            # Always run strict mode (investor-safe benchmark)
+            summary = self._validate_dataset(dataset, alert_mode="strict")
             all_results[dataset] = summary
             self.results[dataset] = summary
             self._print_dataset_summary(summary)
+
+            # Optionally run experimental mode for comparison
+            if self.alert_mode == "experimental":
+                print(f"   [EXPERIMENTAL] Running experimental mode...")
+                exp_summary = self._validate_dataset_experimental(dataset, summary)
+                all_experimental_results[dataset] = exp_summary
+                self.experimental_results[dataset] = exp_summary
+                self._print_experimental_summary(exp_summary)
+
             print()
 
-        self._write_outputs(all_results)
+        self._write_outputs(all_results, all_experimental_results)
         self._print_combined_summary(all_results)
+
+        if self.alert_mode == "experimental" and all_experimental_results:
+            self._print_experimental_combined_summary(all_experimental_results)
 
         return all_results
 
-    def _validate_dataset(self, dataset: str) -> DatasetSummary:
+    def _validate_dataset(self, dataset: str, alert_mode: str = "strict") -> DatasetSummary:
         """Validate a single dataset."""
         test_file = self.data_dir / f"test_{dataset}.txt"
         rul_file = self.data_dir / f"RUL_{dataset}.txt"
@@ -209,6 +289,7 @@ class CMAPSSValidator:
                 units_total=0,
                 baseline_window_configured=self.baseline_window,
                 min_baseline_configured=self.min_baseline,
+                alert_mode=alert_mode,
             )
 
         rul_map = self._load_rul_file(rul_file)
@@ -219,6 +300,7 @@ class CMAPSSValidator:
             units_total=len(units_data),
             baseline_window_configured=self.baseline_window,
             min_baseline_configured=self.min_baseline,
+            alert_mode=alert_mode,
         )
 
         iterator = units_data.items()
@@ -237,6 +319,7 @@ class CMAPSSValidator:
                 unit_id=unit_id,
                 cycles_data=cycles_data,
                 rul_value=rul_map.get(unit_id),
+                alert_mode=alert_mode,
             )
             summary.per_unit_results.append(result)
 
@@ -252,12 +335,201 @@ class CMAPSSValidator:
         self._compute_summary_metrics(summary)
         return summary
 
+    def _validate_dataset_experimental(
+        self,
+        dataset: str,
+        strict_summary: DatasetSummary,
+    ) -> ExperimentalDatasetSummary:
+        """Run experimental mode and compare against strict mode."""
+        # Load data again
+        test_file = self.data_dir / f"test_{dataset}.txt"
+        rul_file = self.data_dir / f"RUL_{dataset}.txt"
+
+        if not test_file.exists() or not rul_file.exists():
+            return ExperimentalDatasetSummary(dataset=dataset, strict_results=strict_summary)
+
+        rul_map = self._load_rul_file(rul_file)
+        units_data = self._load_test_file(test_file)
+
+        exp_summary = ExperimentalDatasetSummary(dataset=dataset, strict_results=strict_summary)
+
+        iterator = units_data.items()
+        if self.progress:
+            iterator = tqdm(
+                iterator,
+                desc=f"  {dataset} (experimental)",
+                total=len(units_data),
+                unit="unit",
+                leave=True,
+            )
+
+        strict_results_map = {r.unit_id: r for r in strict_summary.per_unit_results}
+
+        for unit_id, cycles_data in iterator:
+            result = self._process_unit(
+                dataset=dataset,
+                unit_id=unit_id,
+                cycles_data=cycles_data,
+                rul_value=rul_map.get(unit_id),
+                alert_mode="experimental",
+            )
+
+            # Convert to ExperimentalUnitResult
+            strict_result = strict_results_map.get(unit_id)
+            exp_result = ExperimentalUnitResult(
+                unit_id=unit_id,
+                dataset=dataset,
+                cycles_observed=result.cycles_observed,
+                first_alert_cycle=result.first_alert_cycle,
+                alert_source=result.alert_source,
+                first_alert_reason=result.first_alert_reason,
+                lead_time_cycles=result.lead_time_cycles,
+                detected=result.detected,
+                alert_before_baseline_finalized=result.alert_before_baseline_finalized,
+                warmup_alert=result.warmup_alert,
+                ensemble_agreement_at_alert=result.ensemble_agreement_at_alert,
+                novelty_score_at_alert=result.novelty_score_at_alert,
+                degradation_mode_at_alert=result.degradation_mode_at_alert,
+            )
+
+            # Compare with strict mode
+            if strict_result:
+                exp_result.gained_vs_strict = result.detected and not strict_result.detected
+                exp_result.lost_vs_strict = not result.detected and strict_result.detected
+
+                if result.detected and strict_result.detected:
+                    # Both detected, compute lead time delta
+                    if result.lead_time_cycles is not None and strict_result.lead_time_cycles is not None:
+                        exp_result.lead_time_delta_cycles = (
+                            result.lead_time_cycles - strict_result.lead_time_cycles
+                        )
+
+                # Flag risk artifacts
+                exp_result.is_warmup_artifact = result.warmup_alert
+                exp_result.is_prebaseline_artifact = result.alert_before_baseline_finalized
+
+            exp_summary.per_unit_results.append(exp_result)
+
+            if exp_result.detected:
+                exp_summary.units_detected += 1
+
+            # Track alert sources
+            if exp_result.alert_source:
+                if exp_result.alert_source not in exp_summary.detections_by_source:
+                    exp_summary.detections_by_source[exp_result.alert_source] = 0
+                exp_summary.detections_by_source[exp_result.alert_source] += 1
+
+            # Count risk artifacts
+            if exp_result.is_warmup_artifact:
+                exp_summary.warmup_artifacts += 1
+            if exp_result.is_prebaseline_artifact:
+                exp_summary.prebaseline_artifacts += 1
+            if exp_result.alert_before_baseline_finalized:
+                exp_summary.alerts_before_baseline += 1
+            if exp_result.ensemble_agreement_at_alert > 0.7:
+                exp_summary.high_ensemble_confidence += 1
+
+        # Compute comparative metrics
+        exp_summary.detection_coverage_pct = (
+            100.0 * exp_summary.units_detected / len(units_data) if units_data else 0.0
+        )
+
+        strict_detected = {r.unit_id for r in strict_summary.per_unit_results if r.detected}
+        exp_detected = {r.unit_id for r in exp_summary.per_unit_results if r.detected}
+
+        exp_summary.detections_gained = len(exp_detected - strict_detected)
+        exp_summary.detections_lost = len(strict_detected - exp_detected)
+
+        # Lead time stats
+        lead_times = [
+            r.lead_time_cycles
+            for r in exp_summary.per_unit_results
+            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+        ]
+        if lead_times:
+            exp_summary.median_lead_time_cycles = float(np.median(lead_times))
+            exp_summary.mean_lead_time_cycles = float(np.mean(lead_times))
+
+        # Lead time deltas
+        deltas = [
+            r.lead_time_delta_cycles
+            for r in exp_summary.per_unit_results
+            if r.lead_time_delta_cycles is not None
+        ]
+        if deltas:
+            exp_summary.median_lead_time_delta = float(np.median(deltas))
+            exp_summary.mean_lead_time_delta = float(np.mean(deltas))
+
+        # Research notes
+        if exp_summary.detections_gained > 0:
+            exp_summary.notes.append(f"Gained {exp_summary.detections_gained} detection(s) vs strict mode")
+        if exp_summary.detections_lost > 0:
+            exp_summary.notes.append(f"Lost {exp_summary.detections_lost} detection(s) vs strict mode")
+        if exp_summary.warmup_artifacts > 0:
+            exp_summary.notes.append(f"⚠️  {exp_summary.warmup_artifacts} warmup artifact(s) detected")
+        if exp_summary.prebaseline_artifacts > 0:
+            exp_summary.notes.append(f"⚠️  {exp_summary.prebaseline_artifacts} pre-baseline artifact(s) detected")
+        if exp_summary.high_ensemble_confidence > 0:
+            exp_summary.notes.append(
+                f"✓ {exp_summary.high_ensemble_confidence} detection(s) with high ensemble confidence (>0.7)"
+            )
+
+        return exp_summary
+
+    def _check_alert_strict(self, output: AdvancedSIIOutput) -> bool:
+        """Strict mode alert: regime/urgency/structural_drift only."""
+        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+            return True
+        if output.urgency in ("ALERT", "CRITICAL"):
+            return True
+        if output.structural_drift >= self.structural_drift_threshold:
+            return True
+        return False
+
+    def _check_alert_experimental(self, output: AdvancedSIIOutput) -> Tuple[bool, Optional[str]]:
+        """Experimental mode alert: advanced metrics + strict baseline.
+
+        Returns:
+            (is_alert, alert_source) where alert_source is: novelty/ensemble/rul/degradation_mode/early_warning/strict
+        """
+        # First check strict criteria
+        if self._check_alert_strict(output):
+            return True, "strict"
+
+        # Advanced metrics
+        # Novelty-based alert: out-of-distribution patterns
+        if output.novelty_score > 0.4:
+            return True, "novelty"
+
+        # Ensemble-based alert: high confidence + instability trending up
+        if output.ensemble_agreement > 0.75 and output.instability_score > 0.5:
+            return True, "ensemble"
+
+        # Degradation mode alerts: certain modes are more urgent
+        if output.degradation_mode.value in ("sudden_spike", "sensor_failure", "accelerating_drift"):
+            if output.ensemble_agreement > 0.6:
+                return True, "degradation_mode"
+
+        # Early warning signals: precursor detection
+        if output.early_warning_signals:
+            for signal in output.early_warning_signals:
+                if signal.confidence > 0.8:
+                    return True, "early_warning"
+
+        # RUL-based alert: imminent failure prediction
+        if output.rul and output.rul.median_cycles is not None:
+            if output.rul.median_cycles < 50:  # Less than 50 cycles to failure
+                return True, "rul"
+
+        return False, None
+
     def _process_unit(
         self,
         dataset: str,
         unit_id: int,
         cycles_data: List[CMAPSSRow],
         rul_value: Optional[int],
+        alert_mode: str = "strict",
     ) -> UnitResult:
         """Process a single unit through advanced engine."""
         if rul_value is None:
@@ -317,9 +589,14 @@ class CMAPSSValidator:
 
                 max_instability = max(max_instability, output.instability_score)
 
-                # Check for alert
+                # Check for alert (mode-dependent)
                 if first_alert_cycle is None and output.regime != "WARMUP":
-                    is_alert = self._check_alert(output)
+                    if alert_mode == "strict":
+                        is_alert = self._check_alert_strict(output)
+                        alert_source_result = None
+                    else:  # experimental
+                        is_alert, alert_source_result = self._check_alert_experimental(output)
+
                     if is_alert:
                         first_alert_cycle = row.cycle
                         instability_at_alert = output.instability_score
@@ -329,7 +606,11 @@ class CMAPSSValidator:
                         alert_output = output  # Capture full output at alert time
 
                         # Determine alert source for audit
-                        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+                        if alert_mode == "experimental" and alert_source_result:
+                            # Experimental mode source
+                            alert_source = alert_source_result
+                            alert_reason = f"{alert_source_result}"
+                        elif output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
                             alert_source = "regime"
                             alert_reason = f"regime={output.regime}"
                         elif output.urgency in ("ALERT", "CRITICAL"):
@@ -477,18 +758,8 @@ class CMAPSSValidator:
                 error_message=str(e)[:100],
             )
 
-    def _check_alert(self, output: AdvancedSIIOutput) -> bool:
-        """Check if alert condition met."""
-        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
-            return True
-        if output.urgency in ("ALERT", "CRITICAL"):
-            return True
-        if output.structural_drift >= self.structural_drift_threshold:
-            return True
-        return False
-
     def _get_alert_type(self, output: AdvancedSIIOutput) -> str:
-        """Determine which alert mechanism triggered."""
+        """Determine which strict alert mechanism triggered."""
         if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
             return "regime"
         if output.urgency in ("ALERT", "CRITICAL"):
@@ -614,7 +885,8 @@ class CMAPSSValidator:
 
     def _print_dataset_summary(self, summary: DatasetSummary) -> None:
         """Print dataset summary."""
-        print(f"\n   📈 {summary.dataset} Results:")
+        label = f"{summary.dataset} ({summary.alert_mode.upper()})" if summary.alert_mode != "strict" else summary.dataset
+        print(f"\n   📈 {label} Results:")
         print(f"      Total units: {summary.units_total}")
         print(f"      Detected: {summary.units_detected}/{summary.units_total} ({summary.detection_coverage_pct:.1f}%)")
         print(f"      Missed: {summary.units_missed}")
@@ -630,6 +902,40 @@ class CMAPSSValidator:
         print(f"      Avg ensemble agreement: {summary.avg_ensemble_agreement:.4f}")
         if summary.most_common_degradation_mode:
             print(f"      Most common mode: {summary.most_common_degradation_mode}")
+
+    def _print_experimental_summary(self, exp_summary: ExperimentalDatasetSummary) -> None:
+        """Print experimental mode summary with comparisons."""
+        strict = exp_summary.strict_results
+        print(f"\n   🔬 {exp_summary.dataset} Experimental Results:")
+        print(f"      Detected: {exp_summary.units_detected}/{len(exp_summary.per_unit_results)}")
+        print(f"      Coverage: {exp_summary.detection_coverage_pct:.1f}%")
+        print()
+
+        print(f"      Vs Strict Mode:")
+        print(f"        Gained: +{exp_summary.detections_gained}")
+        print(f"        Lost:   -{exp_summary.detections_lost}")
+        if exp_summary.median_lead_time_delta is not None:
+            delta_str = f"+{exp_summary.median_lead_time_delta:.1f}" if exp_summary.median_lead_time_delta > 0 else f"{exp_summary.median_lead_time_delta:.1f}"
+            print(f"        Median lead time delta: {delta_str} cycles")
+
+        if exp_summary.median_lead_time_cycles is not None:
+            print(f"        Lead time: {exp_summary.mean_lead_time_cycles:.1f}±{exp_summary.median_lead_time_cycles:.1f} cycles")
+
+        print()
+        print(f"      Alert Sources (experimental):")
+        for source, count in exp_summary.detections_by_source.items():
+            print(f"        {source}: {count}")
+
+        print()
+        print(f"      Risk Assessment:")
+        print(f"        Warmup artifacts: {exp_summary.warmup_artifacts}")
+        print(f"        Pre-baseline artifacts: {exp_summary.prebaseline_artifacts}")
+        print(f"        High ensemble confidence (>0.7): {exp_summary.high_ensemble_confidence}")
+
+        if exp_summary.notes:
+            print(f"\n      Notes:")
+            for note in exp_summary.notes:
+                print(f"        {note}")
 
     def _print_combined_summary(self, all_results: Dict[str, DatasetSummary]) -> None:
         """Print combined summary."""
@@ -671,7 +977,49 @@ class CMAPSSValidator:
 
         print()
 
-    def _write_outputs(self, all_results: Dict[str, DatasetSummary]) -> None:
+    def _print_experimental_combined_summary(
+        self, all_experimental_results: Dict[str, ExperimentalDatasetSummary]
+    ) -> None:
+        """Print experimental combined summary."""
+        print("\n" + "=" * 70)
+        print("🔬 EXPERIMENTAL MODE ANALYSIS")
+        print("=" * 70)
+
+        total_gained = sum(r.detections_gained for r in all_experimental_results.values())
+        total_lost = sum(r.detections_lost for r in all_experimental_results.values())
+        total_warmup = sum(r.warmup_artifacts for r in all_experimental_results.values())
+        total_prebaseline = sum(r.prebaseline_artifacts for r in all_experimental_results.values())
+
+        print(f"\nComparison vs Strict Mode:")
+        print(f"  Detections gained: +{total_gained}")
+        print(f"  Detections lost:   -{total_lost}")
+
+        print(f"\nRisk Assessment:")
+        print(f"  Warmup artifacts:      {total_warmup}")
+        print(f"  Pre-baseline artifacts: {total_prebaseline}")
+
+        if total_warmup > 0 or total_prebaseline > 0:
+            print(f"\n  ⚠️  WARNING: {total_warmup + total_prebaseline} artifact(s) detected")
+            print(f"      These may inflate results; review carefully before promoting to production")
+
+        print(f"\nAlert Sources (experimental):")
+        all_sources: Dict[str, int] = {}
+        for exp_summary in all_experimental_results.values():
+            for source, count in exp_summary.detections_by_source.items():
+                if source not in all_sources:
+                    all_sources[source] = 0
+                all_sources[source] += count
+
+        for source, count in sorted(all_sources.items(), key=lambda x: x[1], reverse=True):
+            print(f"  {source}: {count}")
+
+        print()
+
+    def _write_outputs(
+        self,
+        all_results: Dict[str, DatasetSummary],
+        all_experimental_results: Optional[Dict[str, ExperimentalDatasetSummary]] = None,
+    ) -> None:
         """Write results to output directory."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -684,6 +1032,18 @@ class CMAPSSValidator:
 
         self._write_combined_csv(self.output_dir / "all_datasets_summary.csv", all_results)
         self._write_combined_json(self.output_dir / "all_datasets_summary.json", all_results)
+
+        # Write experimental results if provided
+        if all_experimental_results:
+            exp_dir = self.output_dir / "experimental"
+            exp_dir.mkdir(parents=True, exist_ok=True)
+
+            for dataset, exp_summary in all_experimental_results.items():
+                dataset_dir = exp_dir / dataset
+                dataset_dir.mkdir(parents=True, exist_ok=True)
+
+                self._write_experimental_per_unit_csv(dataset_dir / "per_unit_results.csv", exp_summary)
+                self._write_experimental_summary_json(dataset_dir / "summary.json", exp_summary)
 
         print(f"\n✅ Results written to {self.output_dir}")
 
@@ -845,6 +1205,68 @@ class CMAPSSValidator:
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
+    def _write_experimental_per_unit_csv(
+        self, filepath: Path, exp_summary: ExperimentalDatasetSummary
+    ) -> None:
+        """Write experimental per-unit CSV with comparative metrics."""
+        with open(filepath, "w") as f:
+            f.write(
+                "unit_id,cycles_observed,first_alert_cycle,alert_source,detected,"
+                "lead_time_cycles,lead_time_delta_vs_strict,gained_vs_strict,lost_vs_strict,"
+                "alert_before_baseline,warmup_alert,is_warmup_artifact,is_prebaseline_artifact,"
+                "ensemble_agreement_at_alert,novelty_score_at_alert,degradation_mode_at_alert\n"
+            )
+            for result in exp_summary.per_unit_results:
+                f.write(
+                    f"{result.unit_id},"
+                    f"{result.cycles_observed},"
+                    f"{result.first_alert_cycle or '-'},"
+                    f"{result.alert_source or '-'},"
+                    f"{result.detected},"
+                    f"{result.lead_time_cycles or '-'},"
+                    f"{result.lead_time_delta_cycles or '-'},"
+                    f"{result.gained_vs_strict},"
+                    f"{result.lost_vs_strict},"
+                    f"{result.alert_before_baseline_finalized},"
+                    f"{result.warmup_alert},"
+                    f"{result.is_warmup_artifact},"
+                    f"{result.is_prebaseline_artifact},"
+                    f"{result.ensemble_agreement_at_alert:.4f},"
+                    f"{result.novelty_score_at_alert:.4f},"
+                    f"{result.degradation_mode_at_alert}\n"
+                )
+
+    def _write_experimental_summary_json(
+        self, filepath: Path, exp_summary: ExperimentalDatasetSummary
+    ) -> None:
+        """Write experimental summary JSON with comparisons."""
+        strict = exp_summary.strict_results
+        data = {
+            "dataset": exp_summary.dataset,
+            "alert_mode": "experimental",
+            "units_detected": exp_summary.units_detected,
+            "detection_coverage_pct": exp_summary.detection_coverage_pct,
+            "median_lead_time_cycles": exp_summary.median_lead_time_cycles,
+            "mean_lead_time_cycles": exp_summary.mean_lead_time_cycles,
+            "comparison_vs_strict": {
+                "strict_coverage_pct": strict.detection_coverage_pct,
+                "detections_gained": exp_summary.detections_gained,
+                "detections_lost": exp_summary.detections_lost,
+                "median_lead_time_delta_cycles": exp_summary.median_lead_time_delta,
+                "mean_lead_time_delta_cycles": exp_summary.mean_lead_time_delta,
+            },
+            "alert_sources": exp_summary.detections_by_source,
+            "risk_assessment": {
+                "warmup_artifacts": exp_summary.warmup_artifacts,
+                "prebaseline_artifacts": exp_summary.prebaseline_artifacts,
+                "alerts_before_baseline": exp_summary.alerts_before_baseline,
+                "high_ensemble_confidence_detections": exp_summary.high_ensemble_confidence,
+            },
+            "notes": exp_summary.notes,
+        }
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
 
 def main():
     """Main entry point."""
@@ -893,6 +1315,12 @@ def main():
         default=True,
         help="Show progress bars",
     )
+    parser.add_argument(
+        "--alert-mode",
+        choices=["strict", "experimental"],
+        default="strict",
+        help="Alert detection mode: strict (validated baseline) or experimental (advanced metrics research)",
+    )
 
     args = parser.parse_args()
 
@@ -903,6 +1331,7 @@ def main():
         baseline_window=args.baseline_window,
         min_baseline=args.min_baseline,
         progress=args.progress,
+        alert_mode=args.alert_mode,
     )
 
     try:
