@@ -127,7 +127,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_alert_on_regime_unstable(self):
         """Test alert detection on UNSTABLE regime."""
@@ -148,7 +148,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_alert_on_regime_lock_in(self):
         """Test alert detection on LOCK_IN regime."""
@@ -169,7 +169,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_alert_on_urgency_alert(self):
         """Test alert detection on ALERT urgency."""
@@ -190,7 +190,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_alert_on_urgency_critical(self):
         """Test alert detection on CRITICAL urgency."""
@@ -211,7 +211,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_alert_on_drift_threshold(self):
         """Test alert detection on structural_drift threshold."""
@@ -232,7 +232,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is True
+        assert validator._check_alert(output) is True
 
     def test_no_alert_below_threshold(self):
         """Test no alert when all conditions are below threshold."""
@@ -253,7 +253,7 @@ class TestAlertDetection:
         output = MockOutput()
         row = MockRow()
 
-        assert validator._check_alert(output, row) is False
+        assert validator._check_alert(output) is False
 
     def test_alert_type_regime(self):
         """Test alert type identification: regime."""
@@ -314,15 +314,15 @@ class TestSummaryAggregation:
         summary = DatasetSummary(dataset="FD001", units_total=5)
         summary.per_unit_results = [
             UnitDetectionResult(
-                unit_id=1, dataset="FD001", total_cycles=100, failure_cycle=125,
+                unit_id=1, dataset="FD001", cycles_observed=100, baseline_samples_used=50, failure_cycle=125,
                 first_alert_cycle=100, lead_time_cycles=25, detected=True
             ),
             UnitDetectionResult(
-                unit_id=2, dataset="FD001", total_cycles=100, failure_cycle=125,
+                unit_id=2, dataset="FD001", cycles_observed=100, baseline_samples_used=50, failure_cycle=125,
                 first_alert_cycle=105, lead_time_cycles=20, detected=True
             ),
             UnitDetectionResult(
-                unit_id=3, dataset="FD001", total_cycles=100, failure_cycle=125,
+                unit_id=3, dataset="FD001", cycles_observed=100, baseline_samples_used=50, failure_cycle=125,
                 first_alert_cycle=110, lead_time_cycles=15, detected=True
             ),
         ]
@@ -339,16 +339,17 @@ class TestSummaryAggregation:
         """Test missed units count."""
         summary = DatasetSummary(dataset="FD001", units_total=100)
         summary.units_detected = 85
-        summary.missed_units = summary.units_total - summary.units_detected
+        summary.units_missed = summary.units_total - summary.units_detected
 
-        assert summary.missed_units == 15
+        assert summary.units_missed == 15
 
     def test_detection_with_late_alert(self):
         """Test that detection is False when alert comes after failure."""
         result = UnitDetectionResult(
             unit_id=1,
             dataset="FD001",
-            total_cycles=100,
+            cycles_observed=100,
+            baseline_samples_used=50,
             failure_cycle=120,
             first_alert_cycle=125,  # After failure
             lead_time_cycles=-5,
@@ -372,13 +373,13 @@ class TestFileIO:
             summary = DatasetSummary(dataset="FD001", units_total=2)
             summary.per_unit_results = [
                 UnitDetectionResult(
-                    unit_id=1, dataset="FD001", total_cycles=100, failure_cycle=125,
+                    unit_id=1, dataset="FD001", cycles_observed=100, baseline_samples_used=50, failure_cycle=125,
                     first_alert_cycle=100, alert_cycle_type="regime",
                     alert_regime_at_detection="UNSTABLE", lead_time_cycles=25, detected=True,
                     max_instability_score=0.8, instability_at_alert=0.7
                 ),
                 UnitDetectionResult(
-                    unit_id=2, dataset="FD001", total_cycles=100, failure_cycle=125,
+                    unit_id=2, dataset="FD001", cycles_observed=100, baseline_samples_used=50, failure_cycle=125,
                     first_alert_cycle=None, alert_cycle_type=None,
                     alert_regime_at_detection=None, lead_time_cycles=None, detected=False,
                     max_instability_score=0.4, instability_at_alert=0.0
@@ -411,7 +412,7 @@ class TestFileIO:
                 mean_lead_time_cycles=21.5,
                 min_lead_time_cycles=10,
                 max_lead_time_cycles=30,
-                missed_units=15,
+                units_missed=15,
             )
 
             json_file = Path(tmpdir) / "summary.json"
