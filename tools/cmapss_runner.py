@@ -112,6 +112,7 @@ class UnitResult:
     degradation_mode_at_alert: str = "unknown"
     top_sensors_at_alert: str = ""  # JSON string
     rul_estimate_at_alert: str = ""  # JSON string
+    structural_drift_at_alert: float = 0.0  # Structural drift at alert time
 
 
 @dataclass
@@ -617,6 +618,7 @@ class CMAPSSValidator:
             alert_reason = None
             max_instability = 0.0
             instability_at_alert = 0.0
+            drift_at_alert = 0.0
             warmup_cycles = 0
             baseline_used = 0
             baseline_finalized_cycle = 0
@@ -662,6 +664,7 @@ class CMAPSSValidator:
                     if is_alert:
                         first_alert_cycle = row.cycle
                         instability_at_alert = output.instability_score
+                        drift_at_alert = output.structural_drift
                         alert_regime = output.regime
                         alert_urgency = output.urgency
                         alert_cycle_type = self._get_alert_type(output)
@@ -806,6 +809,7 @@ class CMAPSSValidator:
                 degradation_mode_at_alert=mode_at_alert,
                 top_sensors_at_alert=sensors_at_alert,
                 rul_estimate_at_alert=rul_at_alert,
+                structural_drift_at_alert=drift_at_alert,
             )
 
         except Exception as e:
