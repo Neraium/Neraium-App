@@ -139,6 +139,12 @@ class ExperimentalUnitResult:
     ensemble_agreement_at_alert: float = 1.0
     novelty_score_at_alert: float = 0.0
     degradation_mode_at_alert: str = ""
+    structural_drift_at_alert: float = 0.0
+
+    # Validation strength for gained detections
+    validation_strength_score: int = 0  # 0-5: higher = more confident in detection
+    alert_persistence_cycles: int = 0   # consecutive cycles with alerts
+    is_high_confidence: bool = False    # True if score >= 3
 
 
 @dataclass
@@ -207,6 +213,11 @@ class ExperimentalDatasetSummary:
     warmup_artifacts: int = 0
     prebaseline_artifacts: int = 0
     high_ensemble_confidence: int = 0  # detected with ensemble_agreement > 0.7
+
+    # Validation strength for gained detections
+    gained_detections_high_confidence: int = 0  # score >= 3
+    gained_detections_low_confidence: int = 0   # score < 3
+    avg_validation_strength_score: Optional[float] = None
 
     # Research notes
     notes: List[str] = field(default_factory=list)
@@ -376,6 +387,19 @@ class CMAPSSValidator:
 
             # Convert to ExperimentalUnitResult
             strict_result = strict_results_map.get(unit_id)
+
+            # Compute alert persistence (consecutive cycles with alerts post-alert)
+            alert_persistence = 0
+            if result.first_alert_cycle is not None and result.detected:
+                for i in range(result.first_alert_cycle, min(result.first_alert_cycle + 20, result.cycles_observed)):
+                    ts_idx = i - result.first_alert_cycle
+                    if ts_idx < len(result.per_unit_results):
+                        ts_result = result.per_unit_results[ts_idx]
+                        if ts_result.get("regime") in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+                            alert_persistence += 1
+                        elif alert_persistence > 0:
+                            break
+
             exp_result = ExperimentalUnitResult(
                 unit_id=unit_id,
                 dataset=dataset,
@@ -390,9 +414,11 @@ class CMAPSSValidator:
                 ensemble_agreement_at_alert=result.ensemble_agreement_at_alert,
                 novelty_score_at_alert=result.novelty_score_at_alert,
                 degradation_mode_at_alert=result.degradation_mode_at_alert,
+                structural_drift_at_alert=result.structural_drift_at_alert,
+                alert_persistence_cycles=alert_persistence,
             )
 
-            # Compare with strict mode
+            # Compare with strict mode and compute validation strength
             if strict_result:
                 exp_result.gained_vs_strict = result.detected and not strict_result.detected
                 exp_result.lost_vs_strict = not result.detected and strict_result.detected
@@ -404,9 +430,25 @@ class CMAPSSValidator:
                             result.lead_time_cycles - strict_result.lead_time_cycles
                         )
 
-                # Flag risk artifacts
+                # Flag risk artifacts first
                 exp_result.is_warmup_artifact = result.warmup_alert
                 exp_result.is_prebaseline_artifact = result.alert_before_baseline_finalized
+
+                # Compute validation strength score for gained detections
+                if exp_result.gained_vs_strict:
+                    score = 0
+                    if exp_result.ensemble_agreement_at_alert > 0.7:
+                        score += 1
+                    if exp_result.novelty_score_at_alert > 0.3:
+                        score += 1
+                    if result.structural_drift_at_alert > self.structural_drift_threshold:
+                        score += 1
+                    if not exp_result.is_warmup_artifact and not exp_result.is_prebaseline_artifact:
+                        score += 1
+                    if alert_persistence >= 3:
+                        score += 1
+                    exp_result.validation_strength_score = score
+                    exp_result.is_high_confidence = score >= 3
 
             exp_summary.per_unit_results.append(exp_result)
 
@@ -460,9 +502,29 @@ class CMAPSSValidator:
             exp_summary.median_lead_time_delta = float(np.median(deltas))
             exp_summary.mean_lead_time_delta = float(np.mean(deltas))
 
+        # Validation strength for gained detections
+        gained_results = [r for r in exp_summary.per_unit_results if r.gained_vs_strict]
+        if gained_results:
+            high_conf = sum(1 for r in gained_results if r.is_high_confidence)
+            low_conf = len(gained_results) - high_conf
+            exp_summary.gained_detections_high_confidence = high_conf
+            exp_summary.gained_detections_low_confidence = low_conf
+
+            strength_scores = [r.validation_strength_score for r in gained_results]
+            if strength_scores:
+                exp_summary.avg_validation_strength_score = float(np.mean(strength_scores))
+
         # Research notes
         if exp_summary.detections_gained > 0:
             exp_summary.notes.append(f"Gained {exp_summary.detections_gained} detection(s) vs strict mode")
+            if exp_summary.gained_detections_high_confidence > 0:
+                exp_summary.notes.append(
+                    f"  ✓ {exp_summary.gained_detections_high_confidence} high confidence (score ≥3)"
+                )
+            if exp_summary.gained_detections_low_confidence > 0:
+                exp_summary.notes.append(
+                    f"  ⚠️  {exp_summary.gained_detections_low_confidence} low confidence (score <3)"
+                )
         if exp_summary.detections_lost > 0:
             exp_summary.notes.append(f"Lost {exp_summary.detections_lost} detection(s) vs strict mode")
         if exp_summary.warmup_artifacts > 0:
@@ -922,6 +984,13 @@ class CMAPSSValidator:
             print(f"        Lead time: {exp_summary.mean_lead_time_cycles:.1f}±{exp_summary.median_lead_time_cycles:.1f} cycles")
 
         print()
+        print(f"      Gained Detections Validation Strength:")
+        print(f"        High confidence (score ≥3): {exp_summary.gained_detections_high_confidence}")
+        print(f"        Low confidence (score <3):  {exp_summary.gained_detections_low_confidence}")
+        if exp_summary.avg_validation_strength_score is not None:
+            print(f"        Avg strength score: {exp_summary.avg_validation_strength_score:.2f}/5.0")
+
+        print()
         print(f"      Alert Sources (experimental):")
         for source, count in exp_summary.detections_by_source.items():
             print(f"        {source}: {count}")
@@ -1208,13 +1277,15 @@ class CMAPSSValidator:
     def _write_experimental_per_unit_csv(
         self, filepath: Path, exp_summary: ExperimentalDatasetSummary
     ) -> None:
-        """Write experimental per-unit CSV with comparative metrics."""
+        """Write experimental per-unit CSV with comparative metrics and validation strength."""
         with open(filepath, "w") as f:
             f.write(
                 "unit_id,cycles_observed,first_alert_cycle,alert_source,detected,"
                 "lead_time_cycles,lead_time_delta_vs_strict,gained_vs_strict,lost_vs_strict,"
                 "alert_before_baseline,warmup_alert,is_warmup_artifact,is_prebaseline_artifact,"
-                "ensemble_agreement_at_alert,novelty_score_at_alert,degradation_mode_at_alert\n"
+                "ensemble_agreement_at_alert,novelty_score_at_alert,structural_drift_at_alert,"
+                "degradation_mode_at_alert,alert_persistence_cycles,"
+                "validation_strength_score,is_high_confidence\n"
             )
             for result in exp_summary.per_unit_results:
                 f.write(
@@ -1233,7 +1304,11 @@ class CMAPSSValidator:
                     f"{result.is_prebaseline_artifact},"
                     f"{result.ensemble_agreement_at_alert:.4f},"
                     f"{result.novelty_score_at_alert:.4f},"
-                    f"{result.degradation_mode_at_alert}\n"
+                    f"{result.structural_drift_at_alert:.4f},"
+                    f"{result.degradation_mode_at_alert},"
+                    f"{result.alert_persistence_cycles},"
+                    f"{result.validation_strength_score},"
+                    f"{result.is_high_confidence}\n"
                 )
 
     def _write_experimental_summary_json(
@@ -1256,6 +1331,11 @@ class CMAPSSValidator:
                 "mean_lead_time_delta_cycles": exp_summary.mean_lead_time_delta,
             },
             "alert_sources": exp_summary.detections_by_source,
+            "validation_strength": {
+                "gained_detections_high_confidence": exp_summary.gained_detections_high_confidence,
+                "gained_detections_low_confidence": exp_summary.gained_detections_low_confidence,
+                "avg_validation_strength_score": exp_summary.avg_validation_strength_score,
+            },
             "risk_assessment": {
                 "warmup_artifacts": exp_summary.warmup_artifacts,
                 "prebaseline_artifacts": exp_summary.prebaseline_artifacts,
