@@ -69,7 +69,7 @@ class CMAPSSRow:
 
 @dataclass
 class UnitDetectionResult:
-    """Detection results for a single test unit."""
+    """Detection results for a single test unit with audit trail."""
     unit_id: int
     dataset: str
     cycles_observed: int
@@ -86,10 +86,20 @@ class UnitDetectionResult:
     error_message: Optional[str] = None
     was_insufficient_history: bool = False
 
+    # Audit trail fields
+    alert_source: Optional[str] = None  # "regime", "urgency", or "structural_drift"
+    first_alert_reason: Optional[str] = None  # Detailed reason (e.g., "regime=TRANSITION")
+    baseline_finalized_cycle: int = 0  # Cycle when baseline was complete
+    alert_before_baseline_finalized: bool = False  # Alert came before baseline ready?
+    warmup_alert: bool = False  # Alert came during warmup?
+    structural_drift_score_at_alert: float = 0.0  # Drift score when alert triggered
+    state_at_alert: Optional[str] = None  # Full regime/urgency state at alert
+    urgency_at_alert: Optional[str] = None  # Urgency level when alert triggered
+
 
 @dataclass
 class DatasetSummary:
-    """Summary statistics for a dataset."""
+    """Summary statistics for a dataset with audit trail."""
     dataset: str
     units_total: int = 0
     units_detected: int = 0
@@ -105,6 +115,18 @@ class DatasetSummary:
     min_baseline_configured: int = 10
     engine_version: str = "SIIEngine Unified"
     per_unit_results: List[UnitDetectionResult] = field(default_factory=list)
+
+    # Audit summary fields
+    detections_by_regime: Dict[str, int] = field(default_factory=dict)
+    detections_by_urgency: Dict[str, int] = field(default_factory=dict)
+    detections_by_drift: int = 0
+    alerts_in_first_5_cycles: int = 0
+    alerts_in_first_10_cycles: int = 0
+    alerts_in_first_20_cycles: int = 0
+    alerts_before_baseline_finalized: int = 0
+    warmup_alerts: int = 0
+    median_lead_time_excl_early_alerts: Optional[float] = None
+    median_lead_time_excl_prebaseline: Optional[float] = None
 
 
 class CMAPSSValidator:
@@ -240,10 +262,18 @@ class CMAPSSValidator:
             first_alert_cycle = None
             alert_cycle_type = None
             alert_regime = None
+            alert_source = None
+            alert_reason = None
             max_instability = 0.0
             instability_at_alert = 0.0
             warmup_cycles = 0
             baseline_used = 0
+            baseline_finalized_cycle = 0
+            baseline_was_ready = False
+            drift_at_alert = 0.0
+            urgency_at_alert = None
+            alert_before_baseline = False
+            is_warmup_alert = False
 
             # Stream each cycle through the same engine instance
             for row in cycles_data:
@@ -255,6 +285,10 @@ class CMAPSSValidator:
                 # Track warmup
                 if output.regime == "WARMUP":
                     warmup_cycles += 1
+                elif not baseline_was_ready and engine.baseline_ready:
+                    # Record when baseline was finalized
+                    baseline_finalized_cycle = row.cycle
+                    baseline_was_ready = True
 
                 # Track max instability
                 max_instability = max(max_instability, output.instability_score)
@@ -267,9 +301,28 @@ class CMAPSSValidator:
                         instability_at_alert = output.instability_score
                         alert_regime = output.regime
                         alert_cycle_type = self._get_alert_type(output)
+                        drift_at_alert = output.structural_drift
+                        urgency_at_alert = output.urgency
+
+                        # Determine alert source for audit
+                        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+                            alert_source = "regime"
+                            alert_reason = f"regime={output.regime}"
+                        elif output.urgency in ("ALERT", "CRITICAL"):
+                            alert_source = "urgency"
+                            alert_reason = f"urgency={output.urgency}"
+                        else:
+                            alert_source = "structural_drift"
+                            alert_reason = f"drift={output.structural_drift:.4f}"
+
+                        # Check if this alert came before baseline was finalized
+                        alert_before_baseline = not baseline_was_ready
+                        is_warmup_alert = output.regime == "WARMUP"
 
             # If unit ended before baseline was ready, finalize it
             baseline_used = engine.baseline.sample_count if engine.baseline.is_valid() else 0
+            if not baseline_was_ready:
+                baseline_finalized_cycle = warmup_cycles
 
             # Determine if unit was detected
             detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
@@ -297,6 +350,15 @@ class CMAPSSValidator:
                 instability_at_alert=instability_at_alert,
                 warmup_cycles=warmup_cycles,
                 was_insufficient_history=insufficient_history,
+                # Audit fields
+                alert_source=alert_source,
+                first_alert_reason=alert_reason,
+                baseline_finalized_cycle=baseline_finalized_cycle,
+                alert_before_baseline_finalized=alert_before_baseline,
+                warmup_alert=is_warmup_alert,
+                structural_drift_score_at_alert=drift_at_alert,
+                state_at_alert=alert_regime,
+                urgency_at_alert=urgency_at_alert,
             )
 
         except Exception as e:
@@ -336,7 +398,7 @@ class CMAPSSValidator:
         return "structural_drift"
 
     def _compute_summary_metrics(self, summary: DatasetSummary) -> None:
-        """Compute aggregate metrics for dataset."""
+        """Compute aggregate metrics for dataset including audit trail."""
         if summary.per_unit_results:
             lead_times = [
                 r.lead_time_cycles
@@ -355,6 +417,62 @@ class CMAPSSValidator:
                 if summary.units_total > 0
                 else 0.0
             )
+
+            # Compute audit summary
+            self._compute_audit_summary(summary)
+
+    def _compute_audit_summary(self, summary: DatasetSummary) -> None:
+        """Compute audit trail statistics."""
+        from collections import Counter
+
+        for result in summary.per_unit_results:
+            if not result.detected:
+                continue
+
+            # Count by alert source
+            if result.alert_source == "regime":
+                if result.state_at_alert not in summary.detections_by_regime:
+                    summary.detections_by_regime[result.state_at_alert] = 0
+                summary.detections_by_regime[result.state_at_alert] += 1
+            elif result.alert_source == "urgency":
+                if result.urgency_at_alert not in summary.detections_by_urgency:
+                    summary.detections_by_urgency[result.urgency_at_alert] = 0
+                summary.detections_by_urgency[result.urgency_at_alert] += 1
+            elif result.alert_source == "structural_drift":
+                summary.detections_by_drift += 1
+
+            # Count early alerts
+            if result.first_alert_cycle and result.first_alert_cycle <= 5:
+                summary.alerts_in_first_5_cycles += 1
+            if result.first_alert_cycle and result.first_alert_cycle <= 10:
+                summary.alerts_in_first_10_cycles += 1
+            if result.first_alert_cycle and result.first_alert_cycle <= 20:
+                summary.alerts_in_first_20_cycles += 1
+
+            # Count suspicious alerts
+            if result.alert_before_baseline_finalized:
+                summary.alerts_before_baseline_finalized += 1
+            if result.warmup_alert:
+                summary.warmup_alerts += 1
+
+        # Compute lead times excluding early/suspicious alerts
+        lead_times_no_early = [
+            r.lead_time_cycles
+            for r in summary.per_unit_results
+            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+            and (r.first_alert_cycle is None or r.first_alert_cycle > 20)
+        ]
+        if lead_times_no_early:
+            summary.median_lead_time_excl_early_alerts = float(np.median(lead_times_no_early))
+
+        lead_times_no_prebaseline = [
+            r.lead_time_cycles
+            for r in summary.per_unit_results
+            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+            and not r.alert_before_baseline_finalized
+        ]
+        if lead_times_no_prebaseline:
+            summary.median_lead_time_excl_prebaseline = float(np.median(lead_times_no_prebaseline))
 
     def _load_rul_file(self, rul_file: Path) -> Dict[int, int]:
         """Load RUL file and map unit_id -> RUL value."""
@@ -441,12 +559,14 @@ class CMAPSSValidator:
         print(f"\n✅ Results written to {self.output_dir}")
 
     def _write_per_unit_csv(self, filepath: Path, summary: DatasetSummary) -> None:
-        """Write per-unit results to CSV."""
+        """Write per-unit results to CSV with audit trail."""
         with open(filepath, "w") as f:
             f.write(
                 "unit_id,cycles_observed,baseline_used,warmup_cycles,failure_cycle,"
                 "first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,"
-                "max_instability,instability_at_alert,insufficient_history,error_message\n"
+                "max_instability,instability_at_alert,insufficient_history,error_message,"
+                "alert_source,first_alert_reason,baseline_finalized_cycle,"
+                "alert_before_baseline,warmup_alert,drift_at_alert,state_at_alert,urgency_at_alert\n"
             )
             for result in summary.per_unit_results:
                 f.write(
@@ -463,7 +583,15 @@ class CMAPSSValidator:
                     f"{result.max_instability_score:.4f},"
                     f"{result.instability_at_alert:.4f},"
                     f"{result.was_insufficient_history},"
-                    f"\"{result.error_message or ''}\"\n"
+                    f"\"{result.error_message or ''}\","
+                    f"{result.alert_source or '-'},"
+                    f"\"{result.first_alert_reason or ''}\","
+                    f"{result.baseline_finalized_cycle},"
+                    f"{result.alert_before_baseline_finalized},"
+                    f"{result.warmup_alert},"
+                    f"{result.structural_drift_score_at_alert:.4f},"
+                    f"{result.state_at_alert or '-'},"
+                    f"{result.urgency_at_alert or '-'}\n"
                 )
 
     def _write_summary_json(self, filepath: Path, summary: DatasetSummary) -> None:
@@ -483,6 +611,19 @@ class CMAPSSValidator:
             "baseline_window_configured": summary.baseline_window_configured,
             "min_baseline_configured": summary.min_baseline_configured,
             "engine_version": summary.engine_version,
+            # Audit summary
+            "audit": {
+                "detections_by_regime": summary.detections_by_regime,
+                "detections_by_urgency": summary.detections_by_urgency,
+                "detections_by_drift_threshold": summary.detections_by_drift,
+                "alerts_in_first_5_cycles": summary.alerts_in_first_5_cycles,
+                "alerts_in_first_10_cycles": summary.alerts_in_first_10_cycles,
+                "alerts_in_first_20_cycles": summary.alerts_in_first_20_cycles,
+                "alerts_before_baseline_finalized": summary.alerts_before_baseline_finalized,
+                "warmup_alerts": summary.warmup_alerts,
+                "median_lead_time_excl_early_alerts": summary.median_lead_time_excl_early_alerts,
+                "median_lead_time_excl_prebaseline": summary.median_lead_time_excl_prebaseline,
+            }
         }
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)

@@ -70,7 +70,7 @@ class CMAPSSRow:
 
 @dataclass
 class AdvancedUnitResult:
-    """Detection results with advanced metrics for a single unit."""
+    """Detection results with advanced metrics and audit trail for a single unit."""
     unit_id: int
     dataset: str
     cycles_observed: int
@@ -99,10 +99,22 @@ class AdvancedUnitResult:
     failure_cost: float = 0.0
     recommended_action: str = ""
 
+    # Audit trail fields
+    alert_source: Optional[str] = None
+    first_alert_reason: Optional[str] = None
+    baseline_finalized_cycle: int = 0
+    alert_before_baseline_finalized: bool = False
+    warmup_alert: bool = False
+    novelty_score_at_alert: float = 0.0
+    ensemble_agreement_at_alert: float = 1.0
+    degradation_mode_at_alert: str = "unknown"
+    top_sensors_at_alert: str = ""  # JSON string
+    rul_estimate_at_alert: str = ""  # JSON string
+
 
 @dataclass
 class AdvancedDatasetSummary:
-    """Summary statistics for a dataset with advanced metrics."""
+    """Summary statistics for a dataset with advanced metrics and audit trail."""
     dataset: str
     units_total: int = 0
     units_detected: int = 0
@@ -124,6 +136,18 @@ class AdvancedDatasetSummary:
     novel_units_count: int = 0
     avg_ensemble_agreement: float = 0.0
     most_common_degradation_mode: str = ""
+
+    # Audit summary fields
+    detections_by_regime: Dict[str, int] = field(default_factory=dict)
+    detections_by_urgency: Dict[str, int] = field(default_factory=dict)
+    detections_by_drift: int = 0
+    alerts_in_first_5_cycles: int = 0
+    alerts_in_first_10_cycles: int = 0
+    alerts_in_first_20_cycles: int = 0
+    alerts_before_baseline_finalized: int = 0
+    warmup_alerts: int = 0
+    median_lead_time_excl_early_alerts: Optional[float] = None
+    median_lead_time_excl_prebaseline: Optional[float] = None
 
 
 class AdvancedCMAPSSValidator:
@@ -252,12 +276,19 @@ class AdvancedCMAPSSValidator:
             first_alert_cycle = None
             alert_cycle_type = None
             alert_regime = None
+            alert_source = None
+            alert_reason = None
             max_instability = 0.0
             instability_at_alert = 0.0
             warmup_cycles = 0
             baseline_used = 0
+            baseline_finalized_cycle = 0
+            baseline_was_ready = False
+            alert_before_baseline = False
+            is_warmup_alert = False
 
             last_output: Optional[AdvancedSIIOutput] = None
+            alert_output: Optional[AdvancedSIIOutput] = None
             novelty_scores = []
             ensemble_agreements = []
             degradation_modes = []
@@ -272,6 +303,9 @@ class AdvancedCMAPSSValidator:
 
                 if output.regime == "WARMUP":
                     warmup_cycles += 1
+                elif not baseline_was_ready and engine.baseline_ready:
+                    baseline_finalized_cycle = row.cycle
+                    baseline_was_ready = True
                 else:
                     # Track advanced metrics
                     novelty_scores.append(output.novelty_score)
@@ -288,8 +322,27 @@ class AdvancedCMAPSSValidator:
                         instability_at_alert = output.instability_score
                         alert_regime = output.regime
                         alert_cycle_type = self._get_alert_type(output)
+                        alert_output = output  # Capture full output at alert time
+
+                        # Determine alert source for audit
+                        if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+                            alert_source = "regime"
+                            alert_reason = f"regime={output.regime}"
+                        elif output.urgency in ("ALERT", "CRITICAL"):
+                            alert_source = "urgency"
+                            alert_reason = f"urgency={output.urgency}"
+                        else:
+                            alert_source = "structural_drift"
+                            alert_reason = f"drift={output.structural_drift:.4f}"
+
+                        # Check if alert came before baseline was finalized
+                        alert_before_baseline = not baseline_was_ready
+                        is_warmup_alert = output.regime == "WARMUP"
 
             baseline_used = engine.baseline.sample_count if engine.baseline.is_valid() else 0
+            if not baseline_was_ready:
+                baseline_finalized_cycle = warmup_cycles
+
             detected = first_alert_cycle is not None and first_alert_cycle < failure_cycle
             insufficient_history = not engine.baseline_ready and num_cycles < self.min_baseline
 
@@ -317,6 +370,13 @@ class AdvancedCMAPSSValidator:
             failure_cost = 0.0
             recommended_action = ""
 
+            # Audit metrics at alert time
+            novelty_at_alert = 0.0
+            ensemble_at_alert = 1.0
+            mode_at_alert = "unknown"
+            sensors_at_alert = ""
+            rul_at_alert = ""
+
             if last_output and last_output.top_sensors:
                 sensors_data = [
                     {
@@ -335,6 +395,31 @@ class AdvancedCMAPSSValidator:
                 maintenance_cost = float(last_output.maintenance_cost)
                 failure_cost = float(last_output.failure_cost)
                 recommended_action = last_output.recommended_action
+
+            # Capture metrics at alert time for audit trail
+            if alert_output:
+                novelty_at_alert = float(alert_output.novelty_score)
+                ensemble_at_alert = float(alert_output.ensemble_agreement)
+                mode_at_alert = alert_output.degradation_mode.value
+
+                if alert_output.top_sensors:
+                    sensors_alert_data = [
+                        {
+                            "sensor_id": s.sensor_id,
+                            "contribution": round(float(s.contribution_to_instability), 4),
+                            "health_score": round(float(s.health_score), 4),
+                        }
+                        for s in alert_output.top_sensors[:3]
+                    ]
+                    sensors_at_alert = json.dumps(sensors_alert_data)
+
+                if alert_output.rul:
+                    rul_alert_data = {
+                        "median": alert_output.rul.median_cycles,
+                        "p90": alert_output.rul.p90_cycles,
+                        "confidence": round(float(alert_output.rul.confidence), 4),
+                    }
+                    rul_at_alert = json.dumps(rul_alert_data)
 
             return AdvancedUnitResult(
                 unit_id=unit_id,
@@ -361,6 +446,17 @@ class AdvancedCMAPSSValidator:
                 maintenance_cost=maintenance_cost,
                 failure_cost=failure_cost,
                 recommended_action=recommended_action,
+                # Audit fields
+                alert_source=alert_source,
+                first_alert_reason=alert_reason,
+                baseline_finalized_cycle=baseline_finalized_cycle,
+                alert_before_baseline_finalized=alert_before_baseline,
+                warmup_alert=is_warmup_alert,
+                novelty_score_at_alert=novelty_at_alert,
+                ensemble_agreement_at_alert=ensemble_at_alert,
+                degradation_mode_at_alert=mode_at_alert,
+                top_sensors_at_alert=sensors_at_alert,
+                rul_estimate_at_alert=rul_at_alert,
             )
 
         except Exception as e:
@@ -431,6 +527,62 @@ class AdvancedCMAPSSValidator:
             if modes:
                 mode_counts = Counter(modes)
                 summary.most_common_degradation_mode = mode_counts.most_common(1)[0][0]
+
+            # Compute audit summary
+            self._compute_audit_summary(summary)
+
+    def _compute_audit_summary(self, summary: AdvancedDatasetSummary) -> None:
+        """Compute audit trail statistics."""
+        from collections import Counter
+
+        for result in summary.per_unit_results:
+            if not result.detected:
+                continue
+
+            # Count by alert source
+            if result.alert_source == "regime":
+                if result.state_at_alert not in summary.detections_by_regime:
+                    summary.detections_by_regime[result.state_at_alert] = 0
+                summary.detections_by_regime[result.state_at_alert] += 1
+            elif result.alert_source == "urgency":
+                if result.urgency_at_alert not in summary.detections_by_urgency:
+                    summary.detections_by_urgency[result.urgency_at_alert] = 0
+                summary.detections_by_urgency[result.urgency_at_alert] += 1
+            elif result.alert_source == "structural_drift":
+                summary.detections_by_drift += 1
+
+            # Count early alerts
+            if result.first_alert_cycle and result.first_alert_cycle <= 5:
+                summary.alerts_in_first_5_cycles += 1
+            if result.first_alert_cycle and result.first_alert_cycle <= 10:
+                summary.alerts_in_first_10_cycles += 1
+            if result.first_alert_cycle and result.first_alert_cycle <= 20:
+                summary.alerts_in_first_20_cycles += 1
+
+            # Count suspicious alerts
+            if result.alert_before_baseline_finalized:
+                summary.alerts_before_baseline_finalized += 1
+            if result.warmup_alert:
+                summary.warmup_alerts += 1
+
+        # Compute lead times excluding early/suspicious alerts
+        lead_times_no_early = [
+            r.lead_time_cycles
+            for r in summary.per_unit_results
+            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+            and (r.first_alert_cycle is None or r.first_alert_cycle > 20)
+        ]
+        if lead_times_no_early:
+            summary.median_lead_time_excl_early_alerts = float(np.median(lead_times_no_early))
+
+        lead_times_no_prebaseline = [
+            r.lead_time_cycles
+            for r in summary.per_unit_results
+            if r.lead_time_cycles is not None and r.lead_time_cycles > 0
+            and not r.alert_before_baseline_finalized
+        ]
+        if lead_times_no_prebaseline:
+            summary.median_lead_time_excl_prebaseline = float(np.median(lead_times_no_prebaseline))
 
     def _load_rul_file(self, rul_file: Path) -> Dict[int, int]:
         """Load RUL file."""
@@ -527,14 +679,17 @@ class AdvancedCMAPSSValidator:
         print(f"\n✅ Results written to {self.output_dir}")
 
     def _write_per_unit_csv(self, filepath: Path, summary: AdvancedDatasetSummary) -> None:
-        """Write per-unit CSV with advanced metrics."""
+        """Write per-unit CSV with advanced metrics and audit trail."""
         with open(filepath, "w") as f:
             f.write(
                 "unit_id,cycles_observed,baseline_used,warmup_cycles,failure_cycle,"
                 "first_alert_cycle,alert_type,alert_regime,lead_time_cycles,detected,"
                 "max_instability,instability_at_alert,novelty_score,is_novel,"
                 "degradation_mode,top_sensors,rul_median,rul_p90,ensemble_agreement,"
-                "maintenance_cost,failure_cost,recommended_action,insufficient_history,error_message\n"
+                "maintenance_cost,failure_cost,recommended_action,insufficient_history,error_message,"
+                "alert_source,first_alert_reason,baseline_finalized_cycle,"
+                "alert_before_baseline,warmup_alert,novelty_at_alert,ensemble_at_alert,"
+                "mode_at_alert,sensors_at_alert,rul_at_alert\n"
             )
             for result in summary.per_unit_results:
                 f.write(
@@ -561,11 +716,21 @@ class AdvancedCMAPSSValidator:
                     f"{result.failure_cost:.2f},"
                     f"\"{result.recommended_action}\","
                     f"{result.was_insufficient_history},"
-                    f"\"{result.error_message or ''}\"\n"
+                    f"\"{result.error_message or ''}\","
+                    f"{result.alert_source or '-'},"
+                    f"\"{result.first_alert_reason or ''}\","
+                    f"{result.baseline_finalized_cycle},"
+                    f"{result.alert_before_baseline_finalized},"
+                    f"{result.warmup_alert},"
+                    f"{result.novelty_score_at_alert:.4f},"
+                    f"{result.ensemble_agreement_at_alert:.4f},"
+                    f"{result.degradation_mode_at_alert},"
+                    f"\"{result.top_sensors_at_alert}\","
+                    f"\"{result.rul_estimate_at_alert}\"\n"
                 )
 
     def _write_summary_json(self, filepath: Path, summary: AdvancedDatasetSummary) -> None:
-        """Write dataset summary JSON."""
+        """Write dataset summary JSON with audit trail."""
         data = {
             "dataset": summary.dataset,
             "units_total": summary.units_total,
@@ -585,6 +750,19 @@ class AdvancedCMAPSSValidator:
             "novel_units_count": summary.novel_units_count,
             "avg_ensemble_agreement": summary.avg_ensemble_agreement,
             "most_common_degradation_mode": summary.most_common_degradation_mode,
+            # Audit summary
+            "audit": {
+                "detections_by_regime": summary.detections_by_regime,
+                "detections_by_urgency": summary.detections_by_urgency,
+                "detections_by_drift_threshold": summary.detections_by_drift,
+                "alerts_in_first_5_cycles": summary.alerts_in_first_5_cycles,
+                "alerts_in_first_10_cycles": summary.alerts_in_first_10_cycles,
+                "alerts_in_first_20_cycles": summary.alerts_in_first_20_cycles,
+                "alerts_before_baseline_finalized": summary.alerts_before_baseline_finalized,
+                "warmup_alerts": summary.warmup_alerts,
+                "median_lead_time_excl_early_alerts": summary.median_lead_time_excl_early_alerts,
+                "median_lead_time_excl_prebaseline": summary.median_lead_time_excl_prebaseline,
+            }
         }
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
