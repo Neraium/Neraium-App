@@ -48,17 +48,23 @@ def list_templates() -> List[Dict[str, Any]]:
 
 def _build_systems(specs: List[Dict[str, Any]]) -> List[syn.System]:
     """Build N synthetic systems from a spec list. Each spec:
-       {system_id, template, drift_at?, drift_severity?, drift_duration?, seed?}
+       {system_id, template, drift_schedule?, drift_at?, drift_severity?, drift_duration?, seed?}
     """
     built = []
     for i, spec in enumerate(specs):
         sid = spec.get("system_id") or f"sys-{i+1:02d}"
         template = spec.get("template") or "industrial"
         seed = spec.get("seed", 42 + i)
-        drift_at = spec.get("drift_at", 80 + i * 12)
-        severity = float(spec.get("drift_severity", 0.85))
-        duration = int(spec.get("drift_duration", 240))
-        sched = syn.standard_drift_schedule(start=drift_at, severity=severity, duration=duration) if severity > 0 else []
+
+        # Use explicit drift_schedule if provided, otherwise construct from individual params
+        if "drift_schedule" in spec:
+            sched = spec.get("drift_schedule", [])
+        else:
+            drift_at = spec.get("drift_at", 80 + i * 12)
+            severity = float(spec.get("drift_severity", 0.85))
+            duration = int(spec.get("drift_duration", 240))
+            sched = syn.standard_drift_schedule(start=drift_at, severity=severity, duration=duration) if severity > 0 else []
+
         sysobj = syn.make_system(sid, template=template, seed=seed, drift_schedule=sched)
         ss.register_system(
             system_id=sid, template=template,
@@ -119,10 +125,28 @@ def set_speed(speed: str) -> Dict[str, Any]:
 
 
 def _default_specs() -> List[Dict[str, Any]]:
-    """Default playback: 4 systems across 3 templates; drift cascades over time."""
+    """Default playback: hero system shows STABLE → TRANSITION → UNSTABLE → LOCK_IN.
+
+    Multi-stage drift schedule:
+    - Cycles 0-40: STABLE (baseline)
+    - Cycles 40-100: TRANSITION (mild drift 0.35)
+    - Cycles 100-180: UNSTABLE (moderate drift 0.65)
+    - Cycles 180+: LOCK_IN (severe drift 0.92)
+
+    Three stable comparison systems for context.
+    """
+    # Multi-stage drift: gentle → moderate → severe
+    hero_drift = [
+        (40, 60, 0.35),    # Transition: cycles 40-100, mild drift
+        (100, 80, 0.65),   # Unstable: cycles 100-180, moderate drift
+        (180, 150, 0.92),  # Lock-in: cycles 180+, severe drift
+    ]
+
     return [
-        {"system_id": "sys-A1", "template": "industrial", "drift_at": 70, "drift_severity": 0.85, "drift_duration": 220},
+        # HERO SYSTEM: shows full state progression
+        {"system_id": "sys-DEMO", "template": "industrial", "drift_at": None, "drift_schedule": hero_drift, "seed": 100},
+        # Stable comparison systems
         {"system_id": "sys-A2", "template": "industrial", "drift_at": 0,  "drift_severity": 0.0},
-        {"system_id": "sys-E1", "template": "environmental", "drift_at": 110, "drift_severity": 0.75, "drift_duration": 260},
+        {"system_id": "sys-E1", "template": "environmental", "drift_at": 0, "drift_severity": 0.0},
         {"system_id": "sys-G1", "template": "generic", "drift_at": 0, "drift_severity": 0.0},
     ]

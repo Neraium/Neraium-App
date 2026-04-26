@@ -29,10 +29,13 @@ from typing import Any, Optional
 import numpy as np
 
 
-# Configuration: default weights for instability score composition
-DEFAULT_DRIFT_WEIGHT = 0.40      # Weight on structural drift S_t
-DEFAULT_VELOCITY_WEIGHT = 0.35   # Weight on drift velocity V_t
-DEFAULT_PRESSURE_WEIGHT = 0.25   # Weight on transition pressure P_t
+# Configuration: 5-factor core formula weights
+# S(t) = w₁·D_M(t) + w₂·D_cov(t) + w₃·V_d(t) + w₄·P_t(t) + w₅·κ(t)
+DEFAULT_MAHALANOBIS_WEIGHT = 0.25  # w₁: Distance from baseline state
+DEFAULT_DRIFT_WEIGHT = 0.30        # w₂: Covariance breakdown
+DEFAULT_VELOCITY_WEIGHT = 0.20     # w₃: Rate of destabilization
+DEFAULT_PRESSURE_WEIGHT = 0.15     # w₄: Likelihood of state shift
+DEFAULT_CURVATURE_WEIGHT = 0.10    # w₅: Structural bending
 
 # Regularization and stability
 COVARIANCE_REGULARIZATION = 1e-4
@@ -92,12 +95,14 @@ class SIIEngineOutput:
     """Unified output object with all derived metrics."""
     timestamp: float
     instability_score: float
-    structural_drift: float
-    drift_velocity: float
-    transition_pressure: float
+    structural_drift: float  # D_cov(t)
+    drift_velocity: float    # V_d(t)
+    transition_pressure: float  # P_t(t)
     regime: str
     urgency: str
     confidence: float
+    mahalanobis_distance: float = 0.0  # D_M(t): distance from baseline state
+    curvature: float = 0.0  # κ(t): second derivative of drift
     gradient_norm: float = 0.0
     recovery_alignment: float = 0.0
     velocity_history: list[float] = field(default_factory=list)
@@ -112,6 +117,8 @@ class SIIEngineOutput:
             "structural_drift": float(self.structural_drift),
             "drift_velocity": float(self.drift_velocity),
             "transition_pressure": float(self.transition_pressure),
+            "mahalanobis_distance": float(self.mahalanobis_distance),
+            "curvature": float(self.curvature),
             "regime": self.regime,
             "urgency": self.urgency,
             "confidence": float(self.confidence),
@@ -136,28 +143,39 @@ class SIIEngine:
         self,
         baseline_window: int = 50,
         recent_window: int = 12,
+        mahalanobis_weight: float = DEFAULT_MAHALANOBIS_WEIGHT,
         drift_weight: float = DEFAULT_DRIFT_WEIGHT,
         velocity_weight: float = DEFAULT_VELOCITY_WEIGHT,
         pressure_weight: float = DEFAULT_PRESSURE_WEIGHT,
+        curvature_weight: float = DEFAULT_CURVATURE_WEIGHT,
     ):
         """
-        Initialize the SII engine.
+        Initialize the SII engine with 5-factor core formula.
+
+        S(t) = w₁·D_M(t) + w₂·D_cov(t) + w₃·V_d(t) + w₄·P_t(t) + w₅·κ(t)
 
         Args:
             baseline_window: Number of samples for initial baseline period
             recent_window: Number of samples to maintain for rolling covariance
-            drift_weight: Weight on structural drift in instability score
-            velocity_weight: Weight on drift velocity in instability score
-            pressure_weight: Weight on transition pressure in instability score
+            mahalanobis_weight: w₁ - Distance from baseline state
+            drift_weight: w₂ - Covariance breakdown
+            velocity_weight: w₃ - Rate of destabilization
+            pressure_weight: w₄ - Likelihood of state shift
+            curvature_weight: w₅ - Structural bending
         """
         self.baseline_window = baseline_window
         self.recent_window = recent_window
 
         # Normalize weights to sum to 1
-        weights_sum = drift_weight + velocity_weight + pressure_weight
+        weights_sum = (
+            mahalanobis_weight + drift_weight + velocity_weight
+            + pressure_weight + curvature_weight
+        )
+        self.mahalanobis_weight = mahalanobis_weight / weights_sum
         self.drift_weight = drift_weight / weights_sum
         self.velocity_weight = velocity_weight / weights_sum
         self.pressure_weight = pressure_weight / weights_sum
+        self.curvature_weight = curvature_weight / weights_sum
 
         # Baseline profile (fixed after warmup)
         self.baseline = BaselineProfile()
@@ -213,6 +231,63 @@ class SIIEngine:
         if self.baseline.is_valid():
             self.baseline_ready = True
 
+    def fit_baseline_adaptive(self, data: np.ndarray, min_samples: int = 5) -> bool:
+        """
+        Compute baseline from available data, using as much as possible.
+
+        Does not raise on insufficient data; returns success/failure instead.
+
+        Args:
+            data: Shape (N, d) where N >= min_samples, d = num features
+            min_samples: Minimum samples required (default 5)
+
+        Returns:
+            True if baseline was successfully created, False otherwise
+        """
+        if data.shape[0] < min_samples:
+            return False
+
+        # Use available data, up to baseline_window
+        actual_baseline_size = min(data.shape[0], self.baseline_window)
+        baseline_data = data[:actual_baseline_size]
+
+        # Forward-fill missing values
+        baseline_data = self._forward_fill(baseline_data)
+
+        # Compute baseline mean and covariance
+        self.baseline.mean = np.mean(baseline_data, axis=0, dtype=float)
+        self.baseline.cov = np.cov(baseline_data.T, dtype=float)
+        self.baseline.sample_count = actual_baseline_size
+
+        # Ensure covariance is 2D
+        if self.baseline.cov.ndim == 1:
+            self.baseline.cov = np.diag(self.baseline.cov)
+
+        # Compute regularized inverse covariance
+        self.baseline.cov_inv = self._safe_inverse_covariance(self.baseline.cov)
+
+        if self.baseline.is_valid():
+            self.baseline_ready = True
+            return True
+
+        return False
+
+    def finalize_baseline(self) -> bool:
+        """
+        Finalize baseline from accumulated history (for end-of-stream).
+
+        Returns:
+            True if baseline was successfully created, False otherwise
+        """
+        if self.baseline_ready:
+            return True
+
+        if len(self.sensor_history) > 0:
+            baseline_matrix = np.array(list(self.sensor_history), dtype=float)
+            return self.fit_baseline_adaptive(baseline_matrix, min_samples=5)
+
+        return False
+
     def update(
         self,
         x_t: np.ndarray,
@@ -242,7 +317,12 @@ class SIIEngine:
             # Fit baseline when warmup window is full
             if self.frame_count == self.baseline_window:
                 baseline_matrix = np.array(list(self.sensor_history), dtype=float)
-                self.fit_baseline(baseline_matrix)
+                try:
+                    # Try strict baseline first
+                    self.fit_baseline(baseline_matrix)
+                except ValueError:
+                    # Fall back to adaptive if not enough samples
+                    self.fit_baseline_adaptive(baseline_matrix, min_samples=5)
 
             return self._warmup_output(timestamp)
 
@@ -269,14 +349,24 @@ class SIIEngine:
         V_t = self.compute_velocity(S_t, timestamp)
 
         # ======================================================================
+        # PIPELINE STAGE 3.5: Mahalanobis distance D_M(t)
+        # ======================================================================
+        D_M = self.compute_mahalanobis_distance(x_t)
+
+        # ======================================================================
         # PIPELINE STAGE 4: Transition pressure P_t
         # ======================================================================
         P_t = self.compute_transition_pressure(S_t, V_t)
 
         # ======================================================================
-        # PIPELINE STAGE 5: Unified instability score I_t
+        # PIPELINE STAGE 4.5: Curvature κ(t) = dV_t/dt
         # ======================================================================
-        I_t = self.compute_instability_score(S_t, V_t, P_t)
+        kappa = self.compute_curvature(V_t, timestamp)
+
+        # ======================================================================
+        # PIPELINE STAGE 5: 5-factor instability score S(t)
+        # ======================================================================
+        I_t = self.compute_instability_score(D_M, S_t, V_t, P_t, kappa)
         self.instability_history.append(I_t)
 
         # ======================================================================
@@ -306,6 +396,8 @@ class SIIEngine:
             structural_drift=S_t,
             drift_velocity=V_t,
             transition_pressure=P_t,
+            mahalanobis_distance=D_M,
+            curvature=kappa,
             regime=regime,
             urgency=urgency,
             confidence=confidence,
@@ -433,39 +525,103 @@ class SIIEngine:
         P_t = drift_component * abs(velocity_component)
         return float(np.clip(P_t, 0.0, 1.0))
 
-    def compute_instability_score(
-        self,
-        S_t: float,
-        V_t: float,
-        P_t: float,
-    ) -> float:
+    def compute_mahalanobis_distance(self, x_t: np.ndarray) -> float:
         """
-        Compute unified instability score.
+        Compute Mahalanobis distance from baseline.
 
-        I_t = α*S_t + β*V_t + γ*P_t
+        D_M(t) = sqrt((x_t - μ₀)ᵀ Σ₀⁻¹ (x_t - μ₀))
 
-        where α, β, γ are normalized weights. This single score represents
-        the overall system instability and drives all downstream decisions.
+        Measures how far current observation is from baseline state.
 
         Args:
-            S_t: Structural drift [0, 1]
-            V_t: Drift velocity (bounded contribution)
+            x_t: Current sensor vector
+
+        Returns:
+            Mahalanobis distance [0, ∞), clipped to [0, 1]
+        """
+        if not self.baseline.is_valid():
+            return 0.0
+
+        delta = x_t - self.baseline.mean
+        try:
+            mahal_sq = float(np.dot(delta, np.dot(self.baseline.cov_inv, delta)))
+            mahal = float(np.sqrt(np.clip(mahal_sq, 0.0, 1e10)))
+            return float(np.clip(mahal / 10.0, 0.0, 1.0))
+        except:
+            return 0.0
+
+    def compute_curvature(self, V_t: float, timestamp: float) -> float:
+        """
+        Compute curvature: second derivative of drift.
+
+        κ(t) = dV_t/dt = d²S_t/dt²
+
+        Measures how the rate of drift is changing (structural bending).
+
+        Args:
+            V_t: Current drift velocity
+            timestamp: Current timestamp
+
+        Returns:
+            Curvature [0, 1]
+        """
+        if self._prev_velocity is None:
+            self._prev_velocity = V_t
+            return 0.0
+        else:
+            if len(self.timestamp_history) >= 2:
+                dt = self.timestamp_history[-1] - self.timestamp_history[-2]
+                dt = max(dt, EPSILON)
+            else:
+                dt = 1.0
+
+            kappa = (V_t - self._prev_velocity) / dt
+            self._prev_velocity = V_t
+            return float(np.clip(abs(kappa), 0.0, 1.0))
+
+    def compute_instability_score(
+        self,
+        D_M: float,
+        D_cov: float,
+        V_d: float,
+        P_t: float,
+        kappa: float,
+    ) -> float:
+        """
+        Compute 5-factor core instability score.
+
+        S(t) = w₁·D_M(t) + w₂·D_cov(t) + w₃·V_d(t) + w₄·P_t(t) + w₅·κ(t)
+
+        where:
+        - D_M(t) = Mahalanobis distance (distance from baseline state)
+        - D_cov(t) = Covariance drift (structural breakdown)
+        - V_d(t) = Drift velocity (rate of destabilization)
+        - P_t(t) = Transition pressure (likelihood of state shift)
+        - κ(t) = Curvature (structural bending)
+
+        Args:
+            D_M: Mahalanobis distance [0, 1]
+            D_cov: Covariance drift [0, 1]
+            V_d: Drift velocity (bounded contribution)
             P_t: Transition pressure [0, 1]
+            kappa: Curvature [0, 1]
 
         Returns:
             Instability score [0, 1]
         """
         # Bound velocity to [-1, 1] for contribution
-        V_t_bounded = float(np.tanh(V_t))
+        V_d_bounded = float(np.tanh(V_d))
 
-        # Weighted combination
-        I_t = (
-            self.drift_weight * S_t
-            + self.velocity_weight * abs(V_t_bounded)
+        # 5-factor weighted combination
+        S_t = (
+            self.mahalanobis_weight * D_M
+            + self.drift_weight * D_cov
+            + self.velocity_weight * abs(V_d_bounded)
             + self.pressure_weight * P_t
+            + self.curvature_weight * kappa
         )
 
-        return float(np.clip(I_t, 0.0, 1.0))
+        return float(np.clip(S_t, 0.0, 1.0))
 
     def classify_regime(self, I_t: float) -> str:
         """

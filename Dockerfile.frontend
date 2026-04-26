@@ -1,0 +1,8 @@
+FROM node:18-alpine
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ .
+ENV REACT_APP_BACKEND_URL=http://localhost:8000
+EXPOSE 3000
+CMD ["npm", "start"]

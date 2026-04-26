@@ -377,3 +377,25 @@ __all__ = [
     "EPSILON",
     "REGULARIZATION_LAMBDA",
 ]
+
+
+class StabilityEnergyCalculator:
+    """Compatibility wrapper for stability energy computations."""
+
+    def compute(
+        self,
+        z_current,
+        z_previous=None,
+        mu_baseline=None,
+        sigma_baseline=None,
+        prev_energy=None,
+        prev_energy_velocity=None,
+    ):
+        return compute_stability_energy(
+            z_current=z_current,
+            z_previous=z_previous,
+            mu_baseline=mu_baseline,
+            sigma_baseline=sigma_baseline,
+            prev_energy=prev_energy,
+            prev_energy_velocity=prev_energy_velocity,
+        )

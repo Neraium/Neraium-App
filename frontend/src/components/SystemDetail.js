@@ -68,7 +68,6 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
   const color = REGIME_COLOR[state] || "#A1A1AA";
   const pulse = PULSE_CLASS[state] || "";
   const Icon = REGIME_ICON[state] || Activity;
-  const phrases = decision.driver_phrases || [];
   const rawDrivers = decision.drivers || [];
   const consequenceShort = decision.consequence_short || CONSEQUENCE_FOR[state];
 
@@ -84,16 +83,14 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
         className={`grain border border-zinc-900 bg-[#0A0A0A] ${pulse}`}
         style={{ borderLeftWidth: 3, borderLeftColor: color }}>
 
-        {/* Field 1 — STATE (DOMINANT, brightest) */}
+        {/* Field 1 — STATUS (DOMINANT, brightest) */}
         <div data-testid="field-state" className="px-7 pt-7 pb-2 flex items-start gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-zinc-500">
             <Icon className="w-4 h-4" style={{ color }} strokeWidth={1.5} />
-            <span className="font-mono text-[10px] tracking-[0.25em] uppercase">SYSTEM STATE</span>
+            <span className="font-mono text-[10px] tracking-[0.25em] uppercase">STATUS</span>
           </div>
           <div className="flex items-center gap-3 ml-auto font-mono text-[10px] uppercase tracking-wider text-zinc-500">
             <span>{system.system_id}</span>
-            <span className="text-zinc-700">·</span>
-            <span>{system.template} · {system.variables.length} variables</span>
             <span className="text-zinc-700">·</span>
             <span>cycle {system.latest?.cycle ?? "—"}</span>
           </div>
@@ -102,9 +99,19 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
           <h1 data-testid="state-headline"
             className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold leading-none tracking-[0.18em]"
             style={{ color }}>
-            SYSTEM STATE: {state}
+            {state}
           </h1>
         </div>
+
+        {/* TIME-TO-INSTABILITY ANCHOR METRIC — most critical operator metric */}
+        {state !== "STABLE" && decision.time_to_instability_cycles !== null && (
+          <div className="px-7 pb-4 border-t border-zinc-900 pt-4">
+            <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">Time to critical window</div>
+            <div className="font-mono text-2xl font-bold" style={{ color }}>
+              {decision.time_to_instability_cycles} cycles
+            </div>
+          </div>
+        )}
 
         {/* Field 2 — WHAT IS HAPPENING (primary + secondary) */}
         <div className="px-7 pb-5 border-t border-zinc-900 pt-5">
@@ -117,25 +124,22 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
               {decision.what_secondary}
             </p>
           )}
-          {phrases.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-3">
-              {phrases.map((p, i) => {
-                const raw = rawDrivers[i];
-                const tip = raw ? `${raw.variable} ×${raw.variance_ratio?.toFixed(2)}` : undefined;
-                return (
-                  <span key={i} title={tip}
-                    data-testid={`field-driver-${i}`}
-                    className="font-mono text-[11px] text-zinc-100 bg-zinc-900/70 border border-zinc-800 px-2 py-0.5">
-                    {p}
-                  </span>
-                );
-              })}
-            </div>
-          )}
         </div>
 
-        {/* RISK / ACTION / CONSEQUENCE — vertical labelled list, eye flow 2→3 */}
+        {/* ACTION / CONSEQUENCE — operator decision priority */}
         <div className="px-7 py-6 border-t border-zinc-900 space-y-4">
+          <FieldRow label="ACTION" testid="field-action" tone="#10B981">
+            <div data-testid="action-text"
+              className="font-mono text-base text-zinc-100 whitespace-pre-line leading-snug">
+              {decision.action}
+            </div>
+            {decision.expected_effect && (
+              <div className="font-mono text-[11px] text-zinc-500 mt-1.5 leading-relaxed">{decision.expected_effect}</div>
+            )}
+            {decision.action_timeframe && (
+              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-1">window · {decision.action_timeframe}</div>
+            )}
+          </FieldRow>
           {decision.risk && (
             <FieldRow label="RISK" testid="field-risk" tone={color}>
               <span data-testid="risk-value" className="font-mono text-base font-semibold" style={{ color }}>
@@ -146,19 +150,7 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
               )}
             </FieldRow>
           )}
-          <FieldRow label="ACTION" testid="field-action" tone="#10B981">
-            <div data-testid="action-text"
-              className="font-mono text-base text-zinc-100 whitespace-pre-line leading-snug">
-              {decision.action}
-            </div>
-            {decision.expected_effect && (
-              <div className="font-mono text-[11px] text-zinc-500 mt-1.5 leading-relaxed">{decision.expected_effect}</div>
-            )}
-            {decision.action_timeframe && (
-              <div className="font-mono text-[10px] text-zinc-600 uppercase tracking-wider mt-1">timeframe · {decision.action_timeframe}</div>
-            )}
-          </FieldRow>
-          <FieldRow label="CONSEQUENCE" testid="field-consequence" tone={color}>
+          <FieldRow label="IF IGNORED" testid="field-consequence" tone={color}>
             <div data-testid="consequence-headline"
               className="font-mono text-base font-semibold" style={{ color }}>
               {consequenceShort}
@@ -169,14 +161,23 @@ export default function SystemDetail({ systemId, onBack, onAcknowledge }) {
           </FieldRow>
         </div>
 
-        {/* WHY (secondary inside panel) */}
-        <div className="border-t border-zinc-900 px-7 py-4 flex items-start gap-3">
-          <GitBranch className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
-          <div className="flex-1">
-            <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-1.5">Why</div>
-            <p data-testid="field-why" className="font-mono text-sm text-zinc-300 leading-relaxed">{decision.why}</p>
+        {/* WHAT'S DRIVING THIS (secondary inside panel) */}
+        {state !== "STABLE" && decision.driver_phrases?.length > 0 && (
+          <div className="border-t border-zinc-900 px-7 py-4 flex items-start gap-3">
+            <GitBranch className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" strokeWidth={1.5} />
+            <div className="flex-1">
+              <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em] mb-2">Signals changing</div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {decision.driver_phrases.map((p, i) => (
+                  <span key={i} data-testid={`driver-phrase-${i}`}
+                    className="font-mono text-[11px] text-zinc-100 bg-zinc-900/70 border border-zinc-800 px-2 py-0.5">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Operator buttons */}
         <div className="border-t border-zinc-900 px-7 py-3 flex items-center gap-2">
@@ -208,18 +209,6 @@ function FieldRow({ label, testid, tone, children }) {
       <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-zinc-500 w-28 shrink-0 mt-1"
         style={tone ? { color: tone } : {}}>{label}</span>
       <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function Field({ icon: Icon, label, tone, children, testid }) {
-  return (
-    <div data-testid={testid} className="px-6 py-5">
-      <div className="flex items-center gap-2 mb-3 text-zinc-500">
-        <Icon className="w-3.5 h-3.5" style={{ color: tone || "#A1A1AA" }} strokeWidth={1.5} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: tone || "#A1A1AA" }}>{label}</span>
-      </div>
-      {children}
     </div>
   );
 }
@@ -266,8 +255,8 @@ function Variables({ system, drivers }) {
     <section data-testid="variables-panel" className="border border-zinc-900 bg-[#0A0A0A]">
       <div className="px-4 py-3 border-b border-zinc-900 flex items-center gap-2">
         <Activity className="w-3.5 h-3.5 text-zinc-500" strokeWidth={1.5} />
-        <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Variables · supporting</span>
-        <span className="font-mono text-[10px] text-zinc-600 ml-auto">{system.variables.length} signals</span>
+        <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.25em]">All signals</span>
+        <span className="font-mono text-[10px] text-zinc-600 ml-auto">{system.variables.length} monitored</span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0">
         {system.variables.map(v => {
@@ -279,7 +268,7 @@ function Variables({ system, drivers }) {
                 {formatNum(latestSensors[v], 2)}
                 <span className="text-[10px] text-zinc-500 ml-1">{system.units?.[v] || ""}</span>
               </div>
-              {ratio && <div className="font-mono text-[10px] text-zinc-500 mt-0.5">×{ratio.toFixed(2)} variance</div>}
+              {ratio && ratio > 1.15 && <div className="font-mono text-[10px] text-amber-400/60 mt-0.5">↑ changed</div>}
             </div>
           );
         })}

@@ -5,11 +5,12 @@ import SystemGrid from "@/components/SystemGrid";
 import SystemDetail from "@/components/SystemDetail";
 import AuditView from "@/components/AuditView";
 import SettingsView from "@/components/SettingsView";
+import DemoControls from "@/components/DemoControls";
 import StateFlashBanners from "@/components/StateFlashBanners";
 import { Playback, Systems, Audit } from "@/api";
 
 export default function App() {
-  const [view, setView] = useState("grid");                  // grid | audit | settings
+  const [view, setView] = useState("grid");                  // grid | audit | settings | demo
   const [selectedId, setSelectedId] = useState(null);        // when set on grid view, show SystemDetail
   const [systems, setSystems] = useState([]);
   const [pb, setPb] = useState({ running: false, system_count: 0, cycle: 0, speed: "normal" });
@@ -61,12 +62,12 @@ export default function App() {
 
   // Browser tab title — operator at-a-glance status using the canonical
   // four-state vocabulary (STABLE / TRANSITION / UNSTABLE / LOCK_IN).
-  // e.g. "(1) sys-A1 TRANSITION · 3 stable — Neraium SII"
+  // e.g. "(1) sys-A1 TRANSITION · 3 stable — Neraium"
   useEffect(() => {
     const order = { LOCK_IN: 4, UNSTABLE: 3, TRANSITION: 2, STABLE: 1 };
     const items = systems || [];
     if (!items.length) {
-      document.title = "Neraium SII \u2014 idle";
+      document.title = "Neraium \u2014 idle";
       return;
     }
     const norm = (s) => {
@@ -78,9 +79,9 @@ export default function App() {
     const stable = items.filter(s => norm(s) === "STABLE").length;
     const atRisk = items.length - stable;
     if (ws === "STABLE") {
-      document.title = `\u25CB ${items.length} stable \u2014 Neraium SII`;
+      document.title = `\u25CB ${items.length} stable \u2014 Neraium`;
     } else {
-      document.title = `(${atRisk}) ${worst.system_id} ${ws} \u00B7 ${stable} stable \u2014 Neraium SII`;
+      document.title = `(${atRisk}) ${worst.system_id} ${ws} \u00B7 ${stable} stable \u2014 Neraium`;
     }
   }, [systems]);
 
@@ -119,6 +120,8 @@ export default function App() {
         {view === "audit" && (
           <AuditView scopeSystemId="" />
         )}
+
+        {view === "demo" && <DemoControls />}
 
         {view === "settings" && <SettingsView />}
       </main>
