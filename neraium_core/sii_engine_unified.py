@@ -299,7 +299,12 @@ class SIIEngine:
             # Fit baseline when warmup window is full
             if self.frame_count == self.baseline_window:
                 baseline_matrix = np.array(list(self.sensor_history), dtype=float)
-                self.fit_baseline(baseline_matrix)
+                try:
+                    # Try strict baseline first
+                    self.fit_baseline(baseline_matrix)
+                except ValueError:
+                    # Fall back to adaptive if not enough samples
+                    self.fit_baseline_adaptive(baseline_matrix, min_samples=5)
 
             return self._warmup_output(timestamp)
 
