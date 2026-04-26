@@ -86,6 +86,7 @@ class UnitResult:
     warmup_cycles: int = 0
     error_message: Optional[str] = None
     was_insufficient_history: bool = False
+    alert_persistence_cycles: int = 0  # Consecutive cycles with instability after alert
 
     # Advanced metrics
     novelty_score: float = 0.0
@@ -389,18 +390,6 @@ class CMAPSSValidator:
             # Convert to ExperimentalUnitResult
             strict_result = strict_results_map.get(unit_id)
 
-            # Compute alert persistence (consecutive cycles with alerts post-alert)
-            alert_persistence = 0
-            if result.first_alert_cycle is not None and result.detected:
-                for i in range(result.first_alert_cycle, min(result.first_alert_cycle + 20, result.cycles_observed)):
-                    ts_idx = i - result.first_alert_cycle
-                    if ts_idx < len(result.per_unit_results):
-                        ts_result = result.per_unit_results[ts_idx]
-                        if ts_result.get("regime") in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
-                            alert_persistence += 1
-                        elif alert_persistence > 0:
-                            break
-
             exp_result = ExperimentalUnitResult(
                 unit_id=unit_id,
                 dataset=dataset,
@@ -416,7 +405,7 @@ class CMAPSSValidator:
                 novelty_score_at_alert=result.novelty_score_at_alert,
                 degradation_mode_at_alert=result.degradation_mode_at_alert,
                 structural_drift_at_alert=result.structural_drift_at_alert,
-                alert_persistence_cycles=alert_persistence,
+                alert_persistence_cycles=result.alert_persistence_cycles,
             )
 
             # Compare with strict mode and compute validation strength
@@ -631,6 +620,7 @@ class CMAPSSValidator:
             novelty_scores = []
             ensemble_agreements = []
             degradation_modes = []
+            alert_persistence_cycles = 0  # Track consecutive unstable cycles after alert
 
             # Stream each cycle
             for row in cycles_data:
@@ -653,6 +643,14 @@ class CMAPSSValidator:
 
                 max_instability = max(max_instability, output.instability_score)
 
+                # Track alert persistence (consecutive cycles with instability after alert)
+                if first_alert_cycle is not None:
+                    if output.regime in ("TRANSITION", "UNSTABLE", "LOCK_IN"):
+                        alert_persistence_cycles += 1
+                    elif alert_persistence_cycles > 0:
+                        # Alert persistence ended
+                        pass
+
                 # Check for alert (mode-dependent)
                 if first_alert_cycle is None and output.regime != "WARMUP":
                     if alert_mode == "strict":
@@ -669,6 +667,7 @@ class CMAPSSValidator:
                         alert_urgency = output.urgency
                         alert_cycle_type = self._get_alert_type(output)
                         alert_output = output  # Capture full output at alert time
+                        alert_persistence_cycles = 0  # Reset to start counting from alert
 
                         # Determine alert source for audit
                         if alert_mode == "experimental" and alert_source_result:
@@ -802,6 +801,7 @@ class CMAPSSValidator:
                 baseline_finalized_cycle=baseline_finalized_cycle,
                 alert_before_baseline_finalized=alert_before_baseline,
                 warmup_alert=is_warmup_alert,
+                alert_persistence_cycles=alert_persistence_cycles,
                 state_at_alert=alert_regime or "",
                 urgency_at_alert=alert_urgency or "",
                 novelty_score_at_alert=novelty_at_alert,
