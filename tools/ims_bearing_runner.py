@@ -344,6 +344,7 @@ class IMSBearingRunner:
         confirmation_hits: int = 5,
         confirmation_window: int = 10,
         post_baseline_delay: int = 50,
+        temporal_window: int = 50,
         progress: bool = False,
         debug_discovery: bool = False,
     ):
@@ -355,6 +356,7 @@ class IMSBearingRunner:
         self.confirmation_hits = confirmation_hits
         self.confirmation_window = confirmation_window
         self.post_baseline_delay = post_baseline_delay
+        self.temporal_window = temporal_window
         self.progress = progress
         self.debug_discovery = debug_discovery
 
@@ -525,64 +527,59 @@ class IMSBearingRunner:
                 continue
 
         # ====== TEMPORAL COUPLING DETECTION ======
-        # Apply temporal detection: irreversibility as leading signal,
-        # instability as confirmation within forward window
-        forward_window = 50  # Timesteps to search for instability after irreversibility
+        # Simplified temporal detection: irreversibility triggers first,
+        # then search forward for instability within temporal window
 
-        for i, tr in enumerate(timestep_results):
-            if tr.raw_irreversibility_gate and tr.timestep >= self.baseline_window + self.post_baseline_delay:
-                # Found an irreversibility trigger, search forward for instability
-                irreversible_trigger_ts = tr.timestep
-                instability_found_ts = None
+        irreversible_gates = [
+            (i, tr.timestep) for i, tr in enumerate(timestep_results)
+            if tr.raw_irreversibility_gate
+        ]
+        instability_gates = [
+            (i, tr.timestep) for i, tr in enumerate(timestep_results)
+            if tr.raw_instability_gate
+        ]
 
-                # Search forward window for instability gate
-                search_end = min(
-                    len(timestep_results),
-                    i + forward_window + 1
-                )
+        print(f"  Irreversible gates: {len(irreversible_gates)}")
+        print(f"  Instability gates: {len(instability_gates)}")
 
-                for j in range(i, search_end):
-                    if timestep_results[j].raw_instability_gate:
-                        instability_found_ts = timestep_results[j].timestep
+        # Find first irreversibility trigger and search for instability followup
+        temporal_pair_found = False
+        if irreversible_gates and instability_gates:
+            for irrev_idx, irrev_ts in irreversible_gates:
+                # Search forward for instability within temporal window
+                for inst_idx, inst_ts in instability_gates:
+                    if inst_ts > irrev_ts and (inst_ts - irrev_ts) <= self.temporal_window:
+                        # Found temporal pair!
+                        detection_lag = inst_ts - irrev_ts
+                        temporal_pair_found = True
 
-                        # Apply confirmation logic to this temporal pair
-                        detection_lag = instability_found_ts - irreversible_trigger_ts
+                        print(f"  Temporal pair found: irrev_ts={irrev_ts}, inst_ts={inst_ts}, lag={detection_lag}")
 
-                        # Count hits in window around instability
-                        window_start = max(
-                            0, instability_found_ts - self.confirmation_window + 1
-                        )
+                        # Mark detection
+                        result.first_confirmed_alert_timestep = inst_ts
+                        result.irreversible_trigger_timestep = irrev_ts
+                        result.instability_followup_timestep = inst_ts
+                        result.detection_lag = detection_lag
 
-                        recent_instability = sum(
-                            1 for tr2 in timestep_results
-                            if tr2.raw_instability_gate
-                            and window_start <= tr2.timestep <= instability_found_ts
-                        )
-                        recent_irreversibility = sum(
-                            1 for tr2 in timestep_results
-                            if tr2.raw_irreversibility_gate
-                            and irreversible_trigger_ts <= tr2.timestep <= instability_found_ts
-                        )
+                        # Get metrics at instability point
+                        inst_result = timestep_results[inst_idx]
+                        result.instability_at_detection = inst_result.instability
+                        result.irreversibility_at_detection = timestep_results[irrev_idx].irreversibility
+                        result.velocity_at_detection = inst_result.velocity
+                        result.acceleration_at_detection = inst_result.acceleration
+                        result.regime_at_detection = inst_result.regime
+                        result.urgency_at_detection = inst_result.urgency
 
-                        if (
-                            recent_instability >= self.confirmation_hits
-                            and recent_irreversibility >= self.confirmation_hits
-                        ):
-                            # Temporal detection confirmed
-                            timestep_results[j].temporal_confirmed_alert = True
+                        # Mark this timestep as confirmed
+                        inst_result.temporal_confirmed_alert = True
 
-                            if result.first_confirmed_alert_timestep is None:
-                                result.first_confirmed_alert_timestep = instability_found_ts
-                                result.irreversible_trigger_timestep = irreversible_trigger_ts
-                                result.instability_followup_timestep = instability_found_ts
-                                result.detection_lag = detection_lag
-                                result.instability_at_detection = timestep_results[j].instability
-                                result.irreversibility_at_detection = tr.irreversibility
-                                result.velocity_at_detection = timestep_results[j].velocity
-                                result.acceleration_at_detection = timestep_results[j].acceleration
-                                result.regime_at_detection = timestep_results[j].regime
-                                result.urgency_at_detection = timestep_results[j].urgency
-                        break  # Use first instability after irreversibility trigger
+                        break  # Use first instability after this irreversibility
+
+                if temporal_pair_found:
+                    break  # Use first valid temporal pair
+
+        if not temporal_pair_found:
+            print(f"  No temporal pair found")
 
         # Compute percentages
         if timestep_results:
@@ -769,6 +766,12 @@ def main():
         help="Delay after baseline before allowing detection",
     )
     parser.add_argument(
+        "--temporal-window",
+        type=int,
+        default=50,
+        help="Forward search window for instability after irreversibility trigger",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         help="Show progress bar",
@@ -790,6 +793,7 @@ def main():
         confirmation_hits=args.confirmation_hits,
         confirmation_window=args.confirmation_window,
         post_baseline_delay=args.post_baseline_delay,
+        temporal_window=args.temporal_window,
         progress=args.progress,
         debug_discovery=args.debug_discovery,
     )
