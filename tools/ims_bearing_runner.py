@@ -69,6 +69,9 @@ class IMSDetectionResult:
     first_instability_timestep: Optional[int] = None
     first_irreversible_timestep: Optional[int] = None
     first_confirmed_alert_timestep: Optional[int] = None
+    irreversible_trigger_timestep: Optional[int] = None
+    instability_followup_timestep: Optional[int] = None
+    detection_lag: Optional[int] = None
     instability_at_detection: float = 0.0
     irreversibility_at_detection: float = 0.0
     velocity_at_detection: float = 0.0
@@ -90,6 +93,9 @@ class IMSDetectionResult:
             "first_instability_timestep": self.first_instability_timestep or "",
             "first_irreversible_timestep": self.first_irreversible_timestep or "",
             "first_confirmed_alert_timestep": self.first_confirmed_alert_timestep or "",
+            "irreversible_trigger_timestep": self.irreversible_trigger_timestep or "",
+            "instability_followup_timestep": self.instability_followup_timestep or "",
+            "detection_lag": self.detection_lag or "",
             "instability_at_detection": f"{self.instability_at_detection:.6f}",
             "irreversibility_at_detection": f"{self.irreversibility_at_detection:.6f}",
             "velocity_at_detection": f"{self.velocity_at_detection:.6f}",
@@ -119,6 +125,7 @@ class TimestepResult:
     raw_instability_gate: bool
     raw_irreversibility_gate: bool
     confirmed_alert: bool
+    temporal_confirmed_alert: bool = False
     persistence_component: float = 0.0
     acceleration_component: float = 0.0
     consistency_component: float = 0.0
@@ -138,6 +145,7 @@ class TimestepResult:
             "raw_instability_gate": str(self.raw_instability_gate),
             "raw_irreversibility_gate": str(self.raw_irreversibility_gate),
             "confirmed_alert": str(self.confirmed_alert),
+            "temporal_confirmed_alert": str(self.temporal_confirmed_alert),
             "persistence_component": f"{self.persistence_component:.6f}",
             "acceleration_component": f"{self.acceleration_component:.6f}",
             "consistency_component": f"{self.consistency_component:.6f}",
@@ -516,6 +524,66 @@ class IMSBearingRunner:
                 result.error_message = str(e)
                 continue
 
+        # ====== TEMPORAL COUPLING DETECTION ======
+        # Apply temporal detection: irreversibility as leading signal,
+        # instability as confirmation within forward window
+        forward_window = 50  # Timesteps to search for instability after irreversibility
+
+        for i, tr in enumerate(timestep_results):
+            if tr.raw_irreversibility_gate and tr.timestep >= self.baseline_window + self.post_baseline_delay:
+                # Found an irreversibility trigger, search forward for instability
+                irreversible_trigger_ts = tr.timestep
+                instability_found_ts = None
+
+                # Search forward window for instability gate
+                search_end = min(
+                    len(timestep_results),
+                    i + forward_window + 1
+                )
+
+                for j in range(i, search_end):
+                    if timestep_results[j].raw_instability_gate:
+                        instability_found_ts = timestep_results[j].timestep
+
+                        # Apply confirmation logic to this temporal pair
+                        detection_lag = instability_found_ts - irreversible_trigger_ts
+
+                        # Count hits in window around instability
+                        window_start = max(
+                            0, instability_found_ts - self.confirmation_window + 1
+                        )
+
+                        recent_instability = sum(
+                            1 for tr2 in timestep_results
+                            if tr2.raw_instability_gate
+                            and window_start <= tr2.timestep <= instability_found_ts
+                        )
+                        recent_irreversibility = sum(
+                            1 for tr2 in timestep_results
+                            if tr2.raw_irreversibility_gate
+                            and irreversible_trigger_ts <= tr2.timestep <= instability_found_ts
+                        )
+
+                        if (
+                            recent_instability >= self.confirmation_hits
+                            and recent_irreversibility >= self.confirmation_hits
+                        ):
+                            # Temporal detection confirmed
+                            timestep_results[j].temporal_confirmed_alert = True
+
+                            if result.first_confirmed_alert_timestep is None:
+                                result.first_confirmed_alert_timestep = instability_found_ts
+                                result.irreversible_trigger_timestep = irreversible_trigger_ts
+                                result.instability_followup_timestep = instability_found_ts
+                                result.detection_lag = detection_lag
+                                result.instability_at_detection = timestep_results[j].instability
+                                result.irreversibility_at_detection = tr.irreversibility
+                                result.velocity_at_detection = timestep_results[j].velocity
+                                result.acceleration_at_detection = timestep_results[j].acceleration
+                                result.regime_at_detection = timestep_results[j].regime
+                                result.urgency_at_detection = timestep_results[j].urgency
+                        break  # Use first instability after irreversibility trigger
+
         # Compute percentages
         if timestep_results:
             total_timesteps = len(timestep_results)
@@ -607,6 +675,7 @@ class IMSBearingRunner:
                     "raw_instability_gate",
                     "raw_irreversibility_gate",
                     "confirmed_alert",
+                    "temporal_confirmed_alert",
                     "persistence_component",
                     "acceleration_component",
                     "consistency_component",
