@@ -31,6 +31,7 @@ import csv
 import json
 import re
 import sys
+from collections import deque
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -120,11 +121,12 @@ class TimestepResult:
     velocity: float
     acceleration: float
     irreversibility: float
-    regime: str
-    urgency: str
-    raw_instability_gate: bool
-    raw_irreversibility_gate: bool
-    confirmed_alert: bool
+    irreversibility_normalized: float = 0.0
+    regime: str = ""
+    urgency: str = ""
+    raw_instability_gate: bool = False
+    raw_irreversibility_gate: bool = False
+    confirmed_alert: bool = False
     temporal_confirmed_alert: bool = False
     persistence_component: float = 0.0
     acceleration_component: float = 0.0
@@ -140,6 +142,7 @@ class TimestepResult:
             "velocity": f"{self.velocity:.6f}",
             "acceleration": f"{self.acceleration:.6f}",
             "irreversibility": f"{self.irreversibility:.6f}",
+            "irreversibility_normalized": f"{self.irreversibility_normalized:.6f}",
             "regime": self.regime,
             "urgency": self.urgency,
             "raw_instability_gate": str(self.raw_instability_gate),
@@ -415,6 +418,8 @@ class IMSBearingRunner:
 
         instability_gate_hits = []  # Track confirmed detections
         irreversibility_gate_hits = []
+        irreversibility_rolling_window = deque(maxlen=100)  # Rolling window for normalization
+        max_irreversibility_observed = 0.0
 
         for timestep, file_path in enumerate(files):
             try:
@@ -451,14 +456,31 @@ class IMSBearingRunner:
                     result.max_irreversibility, output.irreversibility
                 )
 
-                # Check gates
+                # Rolling normalization of irreversibility
+                irreversibility_rolling_window.append(output.irreversibility)
+                max_in_window = float(np.max(list(irreversibility_rolling_window)))
+                max_irreversibility_observed = max(max_irreversibility_observed, max_in_window)
+
+                # Compute normalized irreversibility
+                if max_in_window > 0.0:
+                    irreversibility_normalized = output.irreversibility / max_in_window
+                else:
+                    irreversibility_normalized = 0.0
+
+                # Check gates using NORMALIZED irreversibility
                 instability_gate = output.instability_score >= self.drift_threshold
-                irreversibility_gate = output.irreversibility >= self.irreversibility_threshold
+                irreversibility_gate = irreversibility_normalized >= self.irreversibility_threshold
 
                 if instability_gate:
                     instability_gate_hits.append(timestep)
                     if result.first_instability_timestep is None:
                         result.first_instability_timestep = timestep
+
+                if irreversibility_gate:
+                    irreversibility_gate_hits.append(timestep)
+                    if result.first_irreversible_timestep is None:
+                        result.first_irreversible_timestep = timestep
+                        print(f"    First irreversible: t={timestep}, R_raw={output.irreversibility:.6f}, R_norm={irreversibility_normalized:.6f}, max_in_window={max_in_window:.6f}")
 
                 if irreversibility_gate:
                     irreversibility_gate_hits.append(timestep)
@@ -511,11 +533,13 @@ class IMSBearingRunner:
                         velocity=output.drift_velocity,
                         acceleration=output.acceleration,
                         irreversibility=output.irreversibility,
+                        irreversibility_normalized=irreversibility_normalized,
                         regime=output.regime,
                         urgency=output.urgency,
                         raw_instability_gate=instability_gate,
                         raw_irreversibility_gate=irreversibility_gate,
                         confirmed_alert=confirmed_alert,
+                        temporal_confirmed_alert=False,
                         persistence_component=output.persistence_component,
                         acceleration_component=output.acceleration_component,
                         consistency_component=output.consistency_component,
@@ -595,6 +619,12 @@ class IMSBearingRunner:
                 100.0 * irreversible_count / total_timesteps
             )
 
+        # Debug: Report scaling
+        print(f"  Max irreversibility observed: {max_irreversibility_observed:.6f}")
+        if result.first_irreversible_timestep is not None:
+            first_irrev_result = timestep_results[result.first_irreversible_timestep]
+            print(f"  First irreversibility: R_norm={first_irrev_result.irreversibility_normalized:.6f}")
+
         return result, timestep_results
 
     def _compute_summary(self, results: List[IMSDetectionResult]) -> Dict[str, any]:
@@ -670,6 +700,7 @@ class IMSBearingRunner:
                     "velocity",
                     "acceleration",
                     "irreversibility",
+                    "irreversibility_normalized",
                     "regime",
                     "urgency",
                     "raw_instability_gate",
