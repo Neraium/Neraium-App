@@ -29,6 +29,7 @@ Requirements:
 import argparse
 import csv
 import json
+import re
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -145,47 +146,86 @@ class IMSDataLoader:
     """Loads and discovers IMS bearing data."""
 
     @staticmethod
-    def discover_timestamp_files(data_dir: Path) -> Dict[str, List[Path]]:
+    def discover_timestamp_files(data_dir: Path, debug: bool = False) -> Dict[str, List[Path]]:
         """
         Recursively discover IMS timestamp files.
 
         Files are:
-        - No extension or numeric extension (e.g., 2003.10.31.22.11.44)
+        - Timestamp format: YYYY.MM.DD.HH.MM.SS (e.g., 2003.10.31.22.11.44)
+        - Or standard data formats: .txt, .csv, .dat
         - Not .rar, .pdf, or __MACOSX
         - Not starting with ._
+
+        Args:
+            data_dir: Root directory to scan
+            debug: Print debug information about file discovery
 
         Returns:
             Dict mapping bearing_name to sorted list of file paths
         """
         bearings: Dict[str, List[Path]] = {}
+        timestamp_pattern = re.compile(r"^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}$")
+        data_extensions = {".txt", ".csv", ".dat"}
 
-        for item in sorted(data_dir.rglob("*")):
+        print(f"Starting discovery in: {data_dir}")
+        all_files = list(data_dir.rglob("*"))
+        print(f"Total items scanned: {len(all_files)}")
+
+        accepted_files = []
+        scanned_count = 0
+
+        for item in sorted(all_files):
+            scanned_count += 1
+            debug_msg = None
+
             # Skip directories and special files
             if item.is_dir():
+                if debug and scanned_count <= 20:
+                    debug_msg = f"[SKIP DIR] {item.name}"
                 continue
-            if item.name.startswith("._") or item.name.startswith("__"):
+
+            if item.name.startswith("._"):
+                if debug and scanned_count <= 20:
+                    debug_msg = f"[SKIP ._] {item.name}"
                 continue
-            if item.suffix.lower() in [".rar", ".pdf"]:
-                continue
+
             if "__MACOSX" in str(item):
+                if debug and scanned_count <= 20:
+                    debug_msg = f"[SKIP MACOSX] {item.name}"
                 continue
 
-            # Extract bearing name from directory structure
-            # Assumes structure like: data/bearing_name/2003.10.31.22.11.44
-            parts = item.parts
-            if len(parts) >= 2:
-                bearing_name = parts[-2]  # Parent directory is bearing name
-                file_name = item.name
+            if item.suffix.lower() in [".rar", ".pdf"]:
+                if debug and scanned_count <= 20:
+                    debug_msg = f"[SKIP {item.suffix}] {item.name}"
+                continue
 
-                # Only include files with numeric content (timestamp-like)
-                try:
-                    # Verify it looks like a timestamp: 2003.10.31.22.11.44
-                    if file_name.replace(".", "").replace("-", "").isdigit():
-                        if bearing_name not in bearings:
-                            bearings[bearing_name] = []
-                        bearings[bearing_name].append(item)
-                except (ValueError, AttributeError):
-                    continue
+            file_name = item.name
+            bearing_name = item.parent.name
+
+            # Check if it matches timestamp pattern OR has data extension
+            is_timestamp = timestamp_pattern.match(file_name)
+            is_data_file = item.suffix.lower() in data_extensions
+
+            if is_timestamp or is_data_file:
+                if bearing_name not in bearings:
+                    bearings[bearing_name] = []
+                bearings[bearing_name].append(item)
+                accepted_files.append(item)
+
+                if debug and scanned_count <= 20:
+                    pattern_match = "TIMESTAMP" if is_timestamp else f"DATA({item.suffix})"
+                    debug_msg = f"[ACCEPT {pattern_match}] {file_name}"
+            else:
+                if debug and scanned_count <= 20:
+                    debug_msg = f"[REJECT] {file_name}"
+
+            if debug_msg:
+                print(f"  {debug_msg}")
+
+        print(f"Accepted data files: {len(accepted_files)}")
+        if accepted_files:
+            print(f"First accepted file: {accepted_files[0].name}")
+            print(f"Last accepted file: {accepted_files[-1].name}")
 
         # Sort files chronologically by filename
         for bearing_name in bearings:
@@ -291,6 +331,7 @@ class IMSBearingRunner:
         confirmation_window: int = 10,
         post_baseline_delay: int = 50,
         progress: bool = False,
+        debug_discovery: bool = False,
     ):
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
@@ -301,6 +342,7 @@ class IMSBearingRunner:
         self.confirmation_window = confirmation_window
         self.post_baseline_delay = post_baseline_delay
         self.progress = progress
+        self.debug_discovery = debug_discovery
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -311,8 +353,7 @@ class IMSBearingRunner:
         Returns:
             (results, summary_stats)
         """
-        print(f"Discovering IMS data in {self.data_dir}...")
-        bearings = IMSDataLoader.discover_timestamp_files(self.data_dir)
+        bearings = IMSDataLoader.discover_timestamp_files(self.data_dir, debug=self.debug_discovery)
 
         if not bearings:
             print("ERROR: No data files found. Check --data-dir.")
@@ -648,6 +689,11 @@ def main():
         action="store_true",
         help="Show progress bar",
     )
+    parser.add_argument(
+        "--debug-discovery",
+        action="store_true",
+        help="Print first 20 scanned files and acceptance/rejection reasons",
+    )
 
     args = parser.parse_args()
 
@@ -661,6 +707,7 @@ def main():
         confirmation_window=args.confirmation_window,
         post_baseline_delay=args.post_baseline_delay,
         progress=args.progress,
+        debug_discovery=args.debug_discovery,
     )
 
     results, summary = runner.run()
