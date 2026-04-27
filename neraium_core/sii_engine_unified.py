@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 
@@ -109,6 +109,9 @@ class SIIEngineOutput:
     curvature: float = 0.0  # κ(t): second derivative of drift
     acceleration: float = 0.0  # a_t: rate of change of velocity
     irreversibility: float = 0.0  # R(t): persistence, acceleration, consistency
+    persistence_component: float = 0.0  # Persistence score [0, 1]
+    acceleration_component: float = 0.0  # Acceleration trend score [0, 1]
+    consistency_component: float = 0.0  # Consistency score [0, 1]
     gradient_norm: float = 0.0
     recovery_alignment: float = 0.0
     velocity_history: list[float] = field(default_factory=list)
@@ -128,6 +131,9 @@ class SIIEngineOutput:
             "curvature": float(self.curvature),
             "acceleration": float(self.acceleration),
             "irreversibility": float(self.irreversibility),
+            "persistence_component": float(self.persistence_component),
+            "acceleration_component": float(self.acceleration_component),
+            "consistency_component": float(self.consistency_component),
             "regime": self.regime,
             "urgency": self.urgency,
             "confidence": float(self.confidence),
@@ -389,7 +395,7 @@ class SIIEngine:
         # ======================================================================
         # PIPELINE STAGE 5.5: Compute irreversibility factor (persistence, acceleration, consistency)
         # ======================================================================
-        irreversibility = self.compute_irreversibility(S_t, V_t, a_t)
+        irreversibility, persistence_component, acceleration_component, consistency_component = self.compute_irreversibility(S_t, V_t, a_t)
         self.irreversibility_history.append(irreversibility)
 
         # ======================================================================
@@ -429,6 +435,9 @@ class SIIEngine:
             curvature=kappa,
             acceleration=a_t,
             irreversibility=irreversibility,
+            persistence_component=persistence_component,
+            acceleration_component=acceleration_component,
+            consistency_component=consistency_component,
             regime=regime,
             urgency=urgency,
             confidence=confidence,
@@ -626,10 +635,15 @@ class SIIEngine:
         Returns:
             Acceleration (can be negative)
         """
-        if len(self.velocity_history) < 2:
+        if len(self.velocity_history) < 1:
             return 0.0
 
-        prev_velocity = self.velocity_history[-1]
+        # Use the previous velocity from history (not the one we just added)
+        if len(self.velocity_history) >= 2:
+            prev_velocity = self.velocity_history[-2]
+        else:
+            # First timestep: no previous velocity to compare
+            return 0.0
 
         if len(self.timestamp_history) >= 2:
             dt = self.timestamp_history[-1] - self.timestamp_history[-2]
@@ -640,16 +654,16 @@ class SIIEngine:
         a_t = (V_t - prev_velocity) / dt
         return float(a_t)
 
-    def compute_irreversibility(self, S_t: float, V_t: float, a_t: float) -> float:
+    def compute_irreversibility(self, S_t: float, V_t: float, a_t: float) -> Tuple[float, float, float, float]:
         """
         Compute irreversibility factor: measure of persistent, accelerating drift.
 
-        Combines:
-        - Persistence: How long drift is sustained (non-zero velocity)
-        - Acceleration: Positive acceleration (drift increasing over time)
-        - Consistency: Low variance in drift direction (stable positive velocity)
+        Combines three independent components:
+        - Persistence: Fraction of recent instability values above 0.2
+        - Acceleration trend: Normalized positive trend in instability over recent window
+        - Consistency: Fraction of recent velocity values with same positive direction
 
-        R(t) = persistence_factor * acceleration_component * consistency_factor
+        R(t) = persistence_score * acceleration_score * consistency_score
 
         Args:
             S_t: Current structural drift
@@ -657,43 +671,57 @@ class SIIEngine:
             a_t: Current acceleration (dV/dt)
 
         Returns:
-            Irreversibility factor [0, 1]
+            Tuple of (irreversibility, persistence, acceleration, consistency)
         """
         # Store current drift in rolling window
         self.rolling_drift_window.append(S_t)
 
         # ====== Persistence: How sustained is the drift? ======
+        # Fraction of recent instability values above 0.2 threshold
         if len(self.drift_history) < 5:
-            persistence = 0.0
+            persistence_score = 0.0
         else:
             recent_drifts = list(self.drift_history)[-10:]  # Last 10 drifts
-            # Count how many are above a low threshold (0.2)
+            # Count how many are above threshold
             sustained_count = sum(1 for d in recent_drifts if d > 0.2)
-            persistence = float(sustained_count) / len(recent_drifts)
+            persistence_score = float(sustained_count) / len(recent_drifts)
 
-        # ====== Acceleration: Is drift getting worse? ======
-        # Positive acceleration (V_t increasing) indicates worsening condition
-        # Higher positive acceleration = higher irreversibility
-        acceleration_component = float(np.tanh(max(a_t, 0.0)))
+        # ====== Acceleration: Positive trend in instability ======
+        # Compute normalized slope of instability over recent window
+        if len(self.drift_history) < 5:
+            acceleration_score = 0.0
+        else:
+            recent_drifts = list(self.drift_history)[-10:]
+            # Calculate trend: (current - oldest) / window_size
+            # Positive trend = instability increasing = higher irreversibility
+            drift_trend = (recent_drifts[-1] - recent_drifts[0]) / len(recent_drifts)
+            # Normalize to [0, 1] with tanh
+            acceleration_score = float(np.tanh(max(drift_trend, 0.0)))
 
-        # ====== Consistency: Is velocity direction stable? ======
+        # ====== Consistency: Velocity direction stability ======
+        # Fraction of recent velocity values with same positive direction
         if len(self.velocity_history) < 5:
-            consistency = 0.0
+            consistency_score = 0.0
         else:
             recent_velocities = list(self.velocity_history)[-10:]
-            # Count how many have positive velocity
+            # Count how many have positive velocity (increasing drift)
             positive_count = sum(1 for v in recent_velocities if v > 0.0)
-            # Variance penalty: high variance = low consistency
-            vel_std = float(np.std(recent_velocities)) if len(recent_velocities) > 1 else 0.0
             consistency_base = float(positive_count) / len(recent_velocities)
-            # Reduce by variance: high variance suggests temporary spike, not sustained
-            consistency = consistency_base * float(np.exp(-vel_std))
+            # Variance penalty: high variance suggests temporary spike
+            vel_std = float(np.std(recent_velocities)) if len(recent_velocities) > 1 else 0.0
+            # Reduce by variance: exp(-std) gives penalty for volatility
+            consistency_score = consistency_base * float(np.exp(-vel_std))
 
         # ====== Combine factors ======
         # Irreversibility requires ALL three: persistence, acceleration, consistency
-        irreversibility = persistence * acceleration_component * consistency
+        irreversibility = persistence_score * acceleration_score * consistency_score
 
-        return float(np.clip(irreversibility, 0.0, 1.0))
+        return (
+            float(np.clip(irreversibility, 0.0, 1.0)),
+            persistence_score,
+            acceleration_score,
+            consistency_score,
+        )
 
     def compute_instability_score(
         self,

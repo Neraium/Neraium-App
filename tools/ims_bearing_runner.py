@@ -119,6 +119,9 @@ class TimestepResult:
     raw_instability_gate: bool
     raw_irreversibility_gate: bool
     confirmed_alert: bool
+    persistence_component: float = 0.0
+    acceleration_component: float = 0.0
+    consistency_component: float = 0.0
 
     def to_csv_row(self) -> Dict:
         """Convert to CSV row."""
@@ -135,6 +138,9 @@ class TimestepResult:
             "raw_instability_gate": str(self.raw_instability_gate),
             "raw_irreversibility_gate": str(self.raw_irreversibility_gate),
             "confirmed_alert": str(self.confirmed_alert),
+            "persistence_component": f"{self.persistence_component:.6f}",
+            "acceleration_component": f"{self.acceleration_component:.6f}",
+            "consistency_component": f"{self.consistency_component:.6f}",
         }
 
 
@@ -500,6 +506,9 @@ class IMSBearingRunner:
                         raw_instability_gate=instability_gate,
                         raw_irreversibility_gate=irreversibility_gate,
                         confirmed_alert=confirmed_alert,
+                        persistence_component=output.persistence_component,
+                        acceleration_component=output.acceleration_component,
+                        consistency_component=output.consistency_component,
                     )
                 )
 
@@ -598,6 +607,9 @@ class IMSBearingRunner:
                     "raw_instability_gate",
                     "raw_irreversibility_gate",
                     "confirmed_alert",
+                    "persistence_component",
+                    "acceleration_component",
+                    "consistency_component",
                 ]
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
