@@ -344,6 +344,8 @@ class IMSBearingRunner:
         baseline_window: int = 100,
         drift_threshold: float = 0.55,
         irreversibility_threshold: float = 0.5,
+        min_raw_irreversibility: float = 0.005,
+        raw_irreversibility_ratio: float = 0.25,
         confirmation_hits: int = 5,
         confirmation_window: int = 10,
         post_baseline_delay: int = 50,
@@ -356,6 +358,8 @@ class IMSBearingRunner:
         self.baseline_window = baseline_window
         self.drift_threshold = drift_threshold
         self.irreversibility_threshold = irreversibility_threshold
+        self.min_raw_irreversibility = min_raw_irreversibility
+        self.raw_irreversibility_ratio = raw_irreversibility_ratio
         self.confirmation_hits = confirmation_hits
         self.confirmation_window = confirmation_window
         self.post_baseline_delay = post_baseline_delay
@@ -467,9 +471,18 @@ class IMSBearingRunner:
                 else:
                     irreversibility_normalized = 0.0
 
-                # Check gates using NORMALIZED irreversibility
+                # Compute raw irreversibility floor
+                raw_floor = max(
+                    self.min_raw_irreversibility,
+                    self.raw_irreversibility_ratio * max_irreversibility_observed
+                )
+
+                # Check gates: BOTH normalized threshold AND raw floor required
                 instability_gate = output.instability_score >= self.drift_threshold
-                irreversibility_gate = irreversibility_normalized >= self.irreversibility_threshold
+                irreversibility_gate = (
+                    irreversibility_normalized >= self.irreversibility_threshold
+                    and output.irreversibility >= raw_floor
+                )
 
                 if instability_gate:
                     instability_gate_hits.append(timestep)
@@ -776,7 +789,19 @@ def main():
         "--irreversibility-threshold",
         type=float,
         default=0.5,
-        help="Threshold for irreversibility detection",
+        help="Threshold for normalized irreversibility detection",
+    )
+    parser.add_argument(
+        "--min-raw-irreversibility",
+        type=float,
+        default=0.005,
+        help="Minimum raw irreversibility floor (prevents early false positives)",
+    )
+    parser.add_argument(
+        "--raw-irreversibility-ratio",
+        type=float,
+        default=0.25,
+        help="Ratio of max_irreversibility_observed to use as dynamic floor",
     )
     parser.add_argument(
         "--confirmation-hits",
@@ -821,6 +846,8 @@ def main():
         baseline_window=args.baseline_window,
         drift_threshold=args.drift_threshold,
         irreversibility_threshold=args.irreversibility_threshold,
+        min_raw_irreversibility=args.min_raw_irreversibility,
+        raw_irreversibility_ratio=args.raw_irreversibility_ratio,
         confirmation_hits=args.confirmation_hits,
         confirmation_window=args.confirmation_window,
         post_baseline_delay=args.post_baseline_delay,
