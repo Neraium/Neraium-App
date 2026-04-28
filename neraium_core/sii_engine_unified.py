@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 
@@ -46,6 +46,10 @@ STABLE_THRESHOLD = 0.30
 TRANSITION_THRESHOLD = 0.65
 UNSTABLE_THRESHOLD = 0.85
 LOCK_IN_THRESHOLD = 0.95
+
+# Detection thresholds (for irreversibility-gated detection)
+DRIFT_DETECTION_THRESHOLD = 0.40  # Require meaningful drift to trigger
+IRREVERSIBILITY_DETECTION_THRESHOLD = 0.50  # Require sustained, accelerating drift
 
 # Urgency levels
 URGENCY_NOMINAL = "NOMINAL"
@@ -103,10 +107,16 @@ class SIIEngineOutput:
     confidence: float
     mahalanobis_distance: float = 0.0  # D_M(t): distance from baseline state
     curvature: float = 0.0  # κ(t): second derivative of drift
+    acceleration: float = 0.0  # a_t: rate of change of velocity
+    irreversibility: float = 0.0  # R(t): persistence, acceleration, consistency
+    persistence_component: float = 0.0  # Persistence score [0, 1]
+    acceleration_component: float = 0.0  # Acceleration trend score [0, 1]
+    consistency_component: float = 0.0  # Consistency score [0, 1]
     gradient_norm: float = 0.0
     recovery_alignment: float = 0.0
     velocity_history: list[float] = field(default_factory=list)
     instability_history: list[float] = field(default_factory=list)
+    irreversibility_history: list[float] = field(default_factory=list)
     regime_history: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,6 +129,11 @@ class SIIEngineOutput:
             "transition_pressure": float(self.transition_pressure),
             "mahalanobis_distance": float(self.mahalanobis_distance),
             "curvature": float(self.curvature),
+            "acceleration": float(self.acceleration),
+            "irreversibility": float(self.irreversibility),
+            "persistence_component": float(self.persistence_component),
+            "acceleration_component": float(self.acceleration_component),
+            "consistency_component": float(self.consistency_component),
             "regime": self.regime,
             "urgency": self.urgency,
             "confidence": float(self.confidence),
@@ -126,6 +141,7 @@ class SIIEngineOutput:
             "recovery_alignment": float(self.recovery_alignment),
             "velocity_history": [float(v) for v in self.velocity_history[-50:]],
             "instability_history": [float(i) for i in self.instability_history[-50:]],
+            "irreversibility_history": [float(r) for r in self.irreversibility_history[-50:]],
             "regime_history": self.regime_history[-50:],
         }
 
@@ -190,9 +206,16 @@ class SIIEngine:
         self.instability_history: deque[float] = deque(maxlen=120)
         self.regime_history: deque[str] = deque(maxlen=120)
 
+        # Acceleration and irreversibility history
+        self.acceleration_history: deque[float] = deque(maxlen=recent_window)
+        self.irreversibility_history: deque[float] = deque(maxlen=120)
+
         # Previous frame state (for derivatives)
         self._prev_drift: Optional[float] = None
         self._prev_velocity: Optional[float] = None
+
+        # Rolling normalization window
+        self.rolling_drift_window: deque[float] = deque(maxlen=20)  # Last 20 drifts for rolling norm
 
         # Warmup tracking
         self.frame_count: int = 0
@@ -349,6 +372,12 @@ class SIIEngine:
         V_t = self.compute_velocity(S_t, timestamp)
 
         # ======================================================================
+        # PIPELINE STAGE 3.25: Acceleration a_t = dV_t/dt
+        # ======================================================================
+        a_t = self.compute_acceleration(V_t, timestamp)
+        self.acceleration_history.append(a_t)
+
+        # ======================================================================
         # PIPELINE STAGE 3.5: Mahalanobis distance D_M(t)
         # ======================================================================
         D_M = self.compute_mahalanobis_distance(x_t)
@@ -364,21 +393,27 @@ class SIIEngine:
         kappa = self.compute_curvature(V_t, timestamp)
 
         # ======================================================================
+        # PIPELINE STAGE 5.5: Compute irreversibility factor (persistence, acceleration, consistency)
+        # ======================================================================
+        irreversibility, persistence_component, acceleration_component, consistency_component = self.compute_irreversibility(S_t, V_t, a_t)
+        self.irreversibility_history.append(irreversibility)
+
+        # ======================================================================
         # PIPELINE STAGE 5: 5-factor instability score S(t)
         # ======================================================================
         I_t = self.compute_instability_score(D_M, S_t, V_t, P_t, kappa)
         self.instability_history.append(I_t)
 
         # ======================================================================
-        # PIPELINE STAGE 6: Regime classification
+        # PIPELINE STAGE 6: Regime classification with irreversibility gating
         # ======================================================================
-        regime = self.classify_regime(I_t)
+        regime = self.classify_regime_with_gating(I_t, S_t, irreversibility)
         self.regime_history.append(regime)
 
         # ======================================================================
         # PIPELINE STAGE 7: Urgency mapping
         # ======================================================================
-        urgency = self.compute_urgency(regime, V_t)
+        urgency = self.compute_urgency(regime, V_t, irreversibility)
 
         # ======================================================================
         # PIPELINE STAGE 8: Compute confidence and auxiliary metrics
@@ -398,6 +433,11 @@ class SIIEngine:
             transition_pressure=P_t,
             mahalanobis_distance=D_M,
             curvature=kappa,
+            acceleration=a_t,
+            irreversibility=irreversibility,
+            persistence_component=persistence_component,
+            acceleration_component=acceleration_component,
+            consistency_component=consistency_component,
             regime=regime,
             urgency=urgency,
             confidence=confidence,
@@ -405,6 +445,7 @@ class SIIEngine:
             recovery_alignment=recovery_alignment,
             velocity_history=list(self.velocity_history),
             instability_history=list(self.instability_history),
+            irreversibility_history=list(self.irreversibility_history),
             regime_history=list(self.regime_history),
         )
 
@@ -579,6 +620,109 @@ class SIIEngine:
             self._prev_velocity = V_t
             return float(np.clip(abs(kappa), 0.0, 1.0))
 
+    def compute_acceleration(self, V_t: float, timestamp: float) -> float:
+        """
+        Compute acceleration: rate of change of velocity.
+
+        a_t = dV_t/dt
+
+        Measures how velocity is changing (is instability accelerating?).
+
+        Args:
+            V_t: Current drift velocity
+            timestamp: Current timestamp
+
+        Returns:
+            Acceleration (can be negative)
+        """
+        if len(self.velocity_history) < 1:
+            return 0.0
+
+        # Use the previous velocity from history (not the one we just added)
+        if len(self.velocity_history) >= 2:
+            prev_velocity = self.velocity_history[-2]
+        else:
+            # First timestep: no previous velocity to compare
+            return 0.0
+
+        if len(self.timestamp_history) >= 2:
+            dt = self.timestamp_history[-1] - self.timestamp_history[-2]
+            dt = max(dt, EPSILON)
+        else:
+            dt = 1.0
+
+        a_t = (V_t - prev_velocity) / dt
+        return float(a_t)
+
+    def compute_irreversibility(self, S_t: float, V_t: float, a_t: float) -> Tuple[float, float, float, float]:
+        """
+        Compute irreversibility factor: measure of persistent, accelerating drift.
+
+        Combines three independent components:
+        - Persistence: Fraction of recent instability values above 0.2
+        - Acceleration trend: Normalized positive trend in instability over recent window
+        - Consistency: Fraction of recent velocity values with same positive direction
+
+        R(t) = persistence_score * acceleration_score * consistency_score
+
+        Args:
+            S_t: Current structural drift
+            V_t: Current drift velocity
+            a_t: Current acceleration (dV/dt)
+
+        Returns:
+            Tuple of (irreversibility, persistence, acceleration, consistency)
+        """
+        # Store current drift in rolling window
+        self.rolling_drift_window.append(S_t)
+
+        # ====== Persistence: How sustained is the drift? ======
+        # Fraction of recent instability values above 0.2 threshold
+        if len(self.drift_history) < 5:
+            persistence_score = 0.0
+        else:
+            recent_drifts = list(self.drift_history)[-10:]  # Last 10 drifts
+            # Count how many are above threshold
+            sustained_count = sum(1 for d in recent_drifts if d > 0.2)
+            persistence_score = float(sustained_count) / len(recent_drifts)
+
+        # ====== Acceleration: Positive trend in instability ======
+        # Compute normalized slope of instability over recent window
+        if len(self.drift_history) < 5:
+            acceleration_score = 0.0
+        else:
+            recent_drifts = list(self.drift_history)[-10:]
+            # Calculate trend: (current - oldest) / window_size
+            # Positive trend = instability increasing = higher irreversibility
+            drift_trend = (recent_drifts[-1] - recent_drifts[0]) / len(recent_drifts)
+            # Normalize to [0, 1] with tanh
+            acceleration_score = float(np.tanh(max(drift_trend, 0.0)))
+
+        # ====== Consistency: Velocity direction stability ======
+        # Fraction of recent velocity values with same positive direction
+        if len(self.velocity_history) < 5:
+            consistency_score = 0.0
+        else:
+            recent_velocities = list(self.velocity_history)[-10:]
+            # Count how many have positive velocity (increasing drift)
+            positive_count = sum(1 for v in recent_velocities if v > 0.0)
+            consistency_base = float(positive_count) / len(recent_velocities)
+            # Variance penalty: high variance suggests temporary spike
+            vel_std = float(np.std(recent_velocities)) if len(recent_velocities) > 1 else 0.0
+            # Reduce by variance: exp(-std) gives penalty for volatility
+            consistency_score = consistency_base * float(np.exp(-vel_std))
+
+        # ====== Combine factors ======
+        # Irreversibility requires ALL three: persistence, acceleration, consistency
+        irreversibility = persistence_score * acceleration_score * consistency_score
+
+        return (
+            float(np.clip(irreversibility, 0.0, 1.0)),
+            persistence_score,
+            acceleration_score,
+            consistency_score,
+        )
+
     def compute_instability_score(
         self,
         D_M: float,
@@ -647,18 +791,59 @@ class SIIEngine:
         else:
             return "LOCK_IN"
 
-    def compute_urgency(self, regime: str, velocity: float) -> str:
+    def classify_regime_with_gating(
+        self, I_t: float, S_t: float, irreversibility: float
+    ) -> str:
         """
-        Map regime and velocity to urgency level.
+        Classify system regime with irreversibility gating.
 
-        NOMINAL:   STABLE + low velocity
-        WATCH:     TRANSITION or elevated velocity
-        ALERT:     UNSTABLE
+        Detection requires BOTH:
+        - High structural drift (S_t > DRIFT_DETECTION_THRESHOLD)
+        - High irreversibility (R(t) > IRREVERSIBILITY_DETECTION_THRESHOLD)
+
+        This prevents false positives from distribution shift alone.
+
+        Args:
+            I_t: Instability score
+            S_t: Structural drift
+            irreversibility: Irreversibility factor
+
+        Returns:
+            Regime label
+        """
+        # If neither drift nor irreversibility are high, system is stable
+        if S_t <= DRIFT_DETECTION_THRESHOLD or irreversibility <= IRREVERSIBILITY_DETECTION_THRESHOLD:
+            # Low drift + low irreversibility = definitely stable
+            if S_t <= 0.20 and irreversibility <= 0.20:
+                return "STABLE"
+            # Moderate drift but low irreversibility = transition (temporary fluctuation)
+            if I_t <= STABLE_THRESHOLD:
+                return "STABLE"
+            elif I_t <= TRANSITION_THRESHOLD:
+                return "TRANSITION"
+            else:
+                # High I_t but low irreversibility = likely distribution shift, not progressive degradation
+                return "TRANSITION"
+
+        # Both drift and irreversibility are high: system is truly unstable
+        if I_t <= UNSTABLE_THRESHOLD:
+            return "UNSTABLE"
+        else:
+            return "LOCK_IN"
+
+    def compute_urgency(self, regime: str, velocity: float, irreversibility: float = 0.0) -> str:
+        """
+        Map regime, velocity, and irreversibility to urgency level.
+
+        NOMINAL:   STABLE + low irreversibility
+        WATCH:     TRANSITION or elevated velocity (but low irreversibility)
+        ALERT:     UNSTABLE or high irreversibility
         CRITICAL:  LOCK_IN
 
         Args:
             regime: Regime classification
             velocity: Drift velocity
+            irreversibility: Irreversibility factor
 
         Returns:
             Urgency level
@@ -668,11 +853,17 @@ class SIIEngine:
         elif regime == "UNSTABLE":
             return URGENCY_ALERT
         elif regime == "TRANSITION":
-            # Elevated velocity in transition pushes toward ALERT
-            if abs(velocity) > 0.1:
+            # High irreversibility in transition = real degradation
+            if irreversibility > IRREVERSIBILITY_DETECTION_THRESHOLD:
                 return URGENCY_ALERT
+            # Elevated velocity but low irreversibility = temporary fluctuation
+            if abs(velocity) > 0.1:
+                return URGENCY_WATCH
             return URGENCY_WATCH
         else:  # STABLE
+            # High irreversibility even in stable regime = watch carefully
+            if irreversibility > IRREVERSIBILITY_DETECTION_THRESHOLD:
+                return URGENCY_WATCH
             # Even in stable, high velocity warrants WATCH
             if abs(velocity) > 0.05:
                 return URGENCY_WATCH
@@ -693,6 +884,8 @@ class SIIEngine:
             },
             "drift_history": list(self.drift_history),
             "velocity_history": list(self.velocity_history),
+            "acceleration_history": list(self.acceleration_history),
+            "irreversibility_history": list(self.irreversibility_history),
             "instability_history": list(self.instability_history),
             "regime_history": list(self.regime_history),
             "frame_count": self.frame_count,
@@ -719,6 +912,12 @@ class SIIEngine:
         )
         self.velocity_history = deque(
             state.get("velocity_history", []), maxlen=self.recent_window
+        )
+        self.acceleration_history = deque(
+            state.get("acceleration_history", []), maxlen=self.recent_window
+        )
+        self.irreversibility_history = deque(
+            state.get("irreversibility_history", []), maxlen=120
         )
         self.instability_history = deque(
             state.get("instability_history", []), maxlen=120
