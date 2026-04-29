@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Zap, Check } from "lucide-react";
 import PronostiaDemo from "./PronostiaDemo";
+import * as narration from "@/services/narration";
 
 const STATES = ["STABLE", "TRANSITION", "UNSTABLE", "LOCK_IN"];
 const STATE_COLORS = {
@@ -65,6 +66,10 @@ export default function DemoControls() {
         setConfirmation(
           `✓ Set to ${selectedState} at cycle ${result.cycle}`
         );
+
+        // Trigger narration for the new state (user override)
+        narration.playNarration(selectedState);
+
         setTimeout(() => setConfirmation(null), 3000);
         await fetchSystems();
       } else {
