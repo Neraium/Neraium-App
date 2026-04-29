@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import SystemGrid from "@/components/SystemGrid";
 import SystemDetail from "@/components/SystemDetail";
 import AuditView from "@/components/AuditView";
+import PronostiaDecisions from "@/components/PronostiaDecisions";
+import PronostiaAudit from "@/components/PronostiaAudit";
 import SettingsView from "@/components/SettingsView";
 import DemoControls from "@/components/DemoControls";
 import StateFlashBanners from "@/components/StateFlashBanners";
@@ -111,15 +113,9 @@ export default function App() {
       <main className="pt-[88px] pb-12 px-5 space-y-3">
         {error && <div data-testid="error-banner" className="border border-red-500/40 bg-red-500/10 text-red-300 font-mono text-xs p-3">{error}</div>}
 
-        {view === "grid" && (selectedId ? (
-          <SystemDetail systemId={selectedId} onBack={() => setSelectedId(null)} onAcknowledge={handleAcknowledge} />
-        ) : (
-          <SystemGrid systems={systems} loading={loading} selectedId={selectedId} onSelect={setSelectedId} />
-        ))}
+        {view === "grid" && <PronostiaDecisions />}
 
-        {view === "audit" && (
-          <AuditView scopeSystemId="" />
-        )}
+        {view === "audit" && <PronostiaAudit />}
 
         {view === "demo" && <DemoControls />}
 

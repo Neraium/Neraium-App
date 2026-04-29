@@ -164,6 +164,36 @@ async def list_systems():
     return {"systems": systems}
 
 
+@router.post("/pronostia/start")
+async def start_pronostia_demo():
+    """Start PRONOSTIA demo simulation from baseline."""
+    global _demo_state
+    _ensure_demo_system()
+    _demo_state["started_at"] = time.time()
+    return {"status": "started", "system": "__demo_pronostia__"}
+
+
+@router.post("/pronostia/stop")
+async def stop_pronostia_demo():
+    """Stop PRONOSTIA demo simulation."""
+    global _demo_state
+    _demo_state["stop_flag"] = True
+    return {"status": "stopped"}
+
+
+@router.post("/pronostia/reset")
+async def reset_pronostia_demo():
+    """Reset PRONOSTIA demo to baseline state."""
+    global _demo_state
+    demo_id = "__demo_pronostia__"
+    ss.reset_system(demo_id)
+    _demo_state["started_at"] = None
+    _demo_state["simulator"] = None
+    _demo_state["system_id"] = None
+    _ensure_demo_system()
+    return {"status": "reset", "system": demo_id}
+
+
 @router.get("/pronostia")
 async def get_pronostia_demo() -> Dict[str, Any]:
     """Clean operator-facing PRONOSTIA demo data — live advancing simulation."""
@@ -264,4 +294,130 @@ async def get_pronostia_demo() -> Dict[str, Any]:
         "current_state": current_state,
         "cycle": int(latest.get("cycle", 0)),
         "series": [],
+    }
+
+
+@router.get("/pronostia/decisions")
+async def get_pronostia_decisions() -> Dict[str, Any]:
+    """Get PRONOSTIA decision state (for Decisions tab in demo mode)."""
+    demo_id = _ensure_demo_system()
+
+    # Advance simulation to current time-based cycle
+    current_cycle = _get_demo_cycle()
+    _advance_demo_system(current_cycle)
+
+    rec = ss.get_system(demo_id)
+    if not rec or not rec.history:
+        raise HTTPException(500, "Failed to initialize demo system")
+
+    latest = rec.history[-1]
+    current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
+
+    # Map to decision states: STABLE, TRANSITION, UNSTABLE, ACTIONABLE/LOCK_IN
+    decision_state = current_state if current_state != "LOCK_IN" else "ACTIONABLE"
+
+    timeline_baseline = 80
+    timeline_departure = 80
+    timeline_confirmation = 150
+    timeline_actionable = 220
+    timeline_failure = 350
+
+    current_cycle_int = int(latest.get("cycle", 0))
+    time_since_departure = max(0, current_cycle_int - timeline_departure)
+    actionable_lead_cycles = max(0, timeline_failure - current_cycle_int)
+
+    # PRONOSTIA decision messages
+    decision_messages = {
+        "STABLE": "STABLE: System operating within stable bounds.",
+        "TRANSITION": "TRANSITION: Initial structural deviation detected.",
+        "UNSTABLE": "UNSTABLE: Structural instability confirmed.",
+        "ACTIONABLE": "ACTIONABLE/LOCK_IN: Investigate and plan intervention before degradation locks in.",
+    }
+
+    return {
+        "system_id": demo_id,
+        "system_label": "PRONOSTIA Rotating System",
+        "decision_state": decision_state,
+        "decision_message": decision_messages.get(decision_state, "Unknown state"),
+        "cycle": current_cycle_int,
+        "time_since_departure": time_since_departure,
+        "actionable_lead_cycles": actionable_lead_cycles,
+        "velocity": float(abs(latest.get("drift_velocity", 0.0))),
+    }
+
+
+@router.get("/pronostia/audit")
+async def get_pronostia_audit() -> Dict[str, Any]:
+    """Get PRONOSTIA-only audit trail events."""
+    demo_id = _ensure_demo_system()
+
+    # Advance simulation to current time-based cycle
+    current_cycle = _get_demo_cycle()
+    _advance_demo_system(current_cycle)
+
+    rec = ss.get_system(demo_id)
+    if not rec or not rec.history:
+        raise HTTPException(500, "Failed to initialize demo system")
+
+    # Build timeline of PRONOSTIA events
+    events = []
+    timeline_baseline = 80
+    timeline_departure = 80
+    timeline_confirmation = 150
+    timeline_actionable = 220
+    timeline_failure = 350
+
+    current_cycle_int = int(rec.history[-1].get("cycle", 0))
+    now = time.time()
+
+    # Baseline finalized
+    if current_cycle_int >= timeline_baseline:
+        events.append({
+            "event_type": "BASELINE_FINALIZED",
+            "message": "Baseline finalized",
+            "cycle": timeline_baseline,
+            "timestamp": now,
+        })
+
+    # Baseline departure detected
+    if current_cycle_int >= timeline_departure:
+        events.append({
+            "event_type": "BASELINE_DEPARTURE",
+            "message": "Baseline departure detected",
+            "cycle": timeline_departure,
+            "timestamp": now,
+        })
+
+    # Structural confirmation reached
+    if current_cycle_int >= timeline_confirmation:
+        events.append({
+            "event_type": "STRUCTURAL_CONFIRMATION",
+            "message": "Structural confirmation reached",
+            "cycle": timeline_confirmation,
+            "timestamp": now,
+        })
+
+    # Actionable point reached
+    if current_cycle_int >= timeline_actionable:
+        events.append({
+            "event_type": "ACTIONABLE_POINT",
+            "message": "Actionable point reached",
+            "cycle": timeline_actionable,
+            "timestamp": now,
+        })
+
+    # Failure endpoint approached
+    if current_cycle_int >= timeline_failure:
+        events.append({
+            "event_type": "FAILURE_ENDPOINT",
+            "message": "Failure endpoint approached",
+            "cycle": timeline_failure,
+            "timestamp": now,
+        })
+
+    return {
+        "system_id": demo_id,
+        "system_label": "PRONOSTIA Rotating System",
+        "events": events,
+        "current_cycle": current_cycle_int,
     }
