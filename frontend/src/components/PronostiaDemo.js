@@ -41,7 +41,7 @@ export default function PronostiaDemo() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(false);
+        setLoading(true);
         const res = await fetch(
           `${process.env.REACT_APP_BACKEND_URL}/api/demo/pronostia`
         );
@@ -63,6 +63,9 @@ export default function PronostiaDemo() {
         setPrevState(currentState);
       } catch (e) {
         setError(e.message);
+        console.error("PRONOSTIA fetch error:", e);
+      } finally {
+        setLoading(false);
       }
     };
 

@@ -73,14 +73,22 @@ def _ensure_demo_system() -> str:
 
 
 def _advance_demo_system(target_cycle: int) -> None:
-    """Advance demo system simulation to target_cycle."""
+    """Advance demo system simulation to target_cycle.
+
+    target_cycle is elapsed time-based, but system already has 80 baseline frames.
+    So actual target_step = 80 + target_cycle.
+    """
     if not _demo_state["simulator"] or not _demo_state["system_id"]:
         return
 
     sys = _demo_state["simulator"]
     demo_id = _demo_state["system_id"]
 
-    while sys.step < target_cycle:
+    # System starts at step 80 (baseline frames already ingested)
+    # Advance to: 80 + target_cycle
+    actual_target_step = 80 + target_cycle
+
+    while sys.step < actual_target_step:
         vals = tick(sys)
         ss.ingest_frame(demo_id, vals, float(sys.step - 1))
 
@@ -173,11 +181,12 @@ async def get_pronostia_demo() -> Dict[str, Any]:
     current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
 
     # Determine status and messaging based on current cycle and state
+    # These match the drift_schedule in _ensure_demo_system()
     timeline_baseline = 80
-    timeline_departure = 150
-    timeline_confirmation = 160
-    timeline_actionable = 220
-    timeline_failure = 350
+    timeline_departure = 80      # When TRANSITION begins
+    timeline_confirmation = 150  # When UNSTABLE begins
+    timeline_actionable = 220    # When LOCK_IN begins
+    timeline_failure = 350       # End of simulation
 
     current_cycle_int = int(latest.get("cycle", 0))
 
