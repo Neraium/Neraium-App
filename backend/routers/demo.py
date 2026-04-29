@@ -10,6 +10,8 @@ GET /api/demo/pronostia — clean operator-facing PRONOSTIA demo data
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+import time
+import asyncio
 
 from services import sii_state as ss
 from services.synthetic_systems import make_system, tick
@@ -25,20 +27,73 @@ class SetStateRequest(BaseModel):
     display_regime: Optional[str] = None
 
 
+# Demo system state — tracks simulation progress
+_demo_state = {
+    "system_id": None,
+    "simulator": None,
+    "started_at": None,
+    "task": None,
+    "stop_flag": False,
+}
+
+
 def _ensure_demo_system() -> str:
-    """Ensure at least one synthetic demo system exists. Returns system_id."""
+    """Ensure demo system exists and is initialized with a drift schedule."""
+    global _demo_state
     demo_id = "__demo_pronostia__"
+
     if ss.has_system(demo_id):
         return demo_id
 
-    sys = make_system(demo_id, template="industrial", seed=42)
+    # Create system with multi-stage drift schedule (STABLE → TRANSITION → UNSTABLE → LOCK_IN)
+    # Stages:
+    # 0-80: STABLE (baseline)
+    # 80-150: TRANSITION (mild drift 0.3)
+    # 150-220: UNSTABLE (moderate drift 0.7)
+    # 220+: LOCK_IN (severe drift 0.95)
+    drift_schedule = [
+        (80, 70, 0.3),       # Transition: cycles 80-150, mild drift
+        (150, 70, 0.7),      # Unstable: cycles 150-220, moderate drift
+        (220, 100, 0.95),    # Lock-in: cycles 220+, severe drift
+    ]
+
+    sys = make_system(demo_id, template="industrial", seed=42, drift_schedule=drift_schedule)
     ss.register_system(demo_id, "industrial", "PRONOSTIA Rotating System", sys.variables, sys.units)
 
-    for _ in range(80):
+    # Ingest initial frames (baseline)
+    for i in range(80):
         vals = tick(sys)
-        ss.ingest_frame(demo_id, vals, float(_))
+        ss.ingest_frame(demo_id, vals, float(i))
+
+    _demo_state["system_id"] = demo_id
+    _demo_state["simulator"] = sys
+    _demo_state["started_at"] = time.time()
 
     return demo_id
+
+
+def _advance_demo_system(target_cycle: int) -> None:
+    """Advance demo system simulation to target_cycle."""
+    if not _demo_state["simulator"] or not _demo_state["system_id"]:
+        return
+
+    sys = _demo_state["simulator"]
+    demo_id = _demo_state["system_id"]
+
+    while sys.step < target_cycle:
+        vals = tick(sys)
+        ss.ingest_frame(demo_id, vals, float(sys.step - 1))
+
+
+def _get_demo_cycle() -> int:
+    """Get the current cycle for the demo based on elapsed time."""
+    if not _demo_state["started_at"]:
+        _ensure_demo_system()
+
+    elapsed = time.time() - _demo_state["started_at"]
+    # ~1 frame per second (adjust 0.3 speed multiplier)
+    cycle = int(elapsed / 0.3)
+    return min(cycle, 350)  # Cap at end of lock-in stage
 
 
 @router.post("/set-state/{system_id}")
@@ -74,6 +129,7 @@ async def set_state(system_id: str, req: SetStateRequest):
         "cycle": latest.get("cycle"),
         "instability_score": latest.get("instability_score"),
         "drift_velocity": latest.get("drift_velocity"),
+        "timestamp": latest.get("timestamp"),
     }
 
 
@@ -102,40 +158,101 @@ async def list_systems():
 
 @router.get("/pronostia")
 async def get_pronostia_demo() -> Dict[str, Any]:
-    """Clean operator-facing PRONOSTIA demo data."""
+    """Clean operator-facing PRONOSTIA demo data — live advancing simulation."""
     demo_id = _ensure_demo_system()
-    rec = ss.get_system(demo_id)
 
+    # Advance simulation to current time-based cycle
+    current_cycle = _get_demo_cycle()
+    _advance_demo_system(current_cycle)
+
+    rec = ss.get_system(demo_id)
     if not rec or not rec.history:
         raise HTTPException(500, "Failed to initialize demo system")
 
     latest = rec.history[-1]
+    current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
+
+    # Determine status and messaging based on current cycle and state
+    timeline_baseline = 80
+    timeline_departure = 150
+    timeline_confirmation = 160
+    timeline_actionable = 220
+    timeline_failure = 350
+
+    current_cycle_int = int(latest.get("cycle", 0))
+
+    # Dynamic status based on state progression
+    if current_state == "STABLE":
+        status = "MONITORING"
+        risk_band = "nominal"
+        severity = "BASELINE"
+    elif current_state == "TRANSITION":
+        status = "ALERT"
+        risk_band = "elevated"
+        severity = "STRUCTURAL DEPARTURE"
+    elif current_state == "UNSTABLE":
+        status = "ACTIONABLE"
+        risk_band = "critical"
+        severity = "ACCELERATING DEGRADATION"
+    else:  # LOCK_IN
+        status = "CRITICAL"
+        risk_band = "critical"
+        severity = "LOCKED-IN FAILURE"
+
+    # Calculate lead time
+    if current_state == "STABLE":
+        actionable_lead_cycles = timeline_failure - current_cycle_int
+    elif current_state == "TRANSITION":
+        actionable_lead_cycles = timeline_failure - current_cycle_int
+    elif current_state == "UNSTABLE":
+        actionable_lead_cycles = timeline_failure - current_cycle_int
+    else:
+        actionable_lead_cycles = 0
+
+    # Time since departure (if past departure point)
+    time_since_departure = max(0, current_cycle_int - timeline_departure)
+
+    # Velocity and acceleration based on drift stage
+    velocity = abs(latest.get("drift_velocity", 0.0))
+    if current_state == "STABLE":
+        acceleration = 0.0
+    elif current_state == "TRANSITION":
+        acceleration = 0.0001
+    elif current_state == "UNSTABLE":
+        acceleration = 0.00025
+    else:
+        acceleration = -0.0001  # Locked-in, no acceleration possible
 
     return {
         "system": "PRONOSTIA Rotating System",
         "dataset": "PRONOSTIA / FEMTO bearing degradation",
-        "status": "ACTIONABLE",
-        "risk_band": "elevated",
-        "severity": "FAST DEGRADATION",
-        "departure_confidence": "LOW",
+        "status": status,
+        "risk_band": risk_band,
+        "severity": severity,
+        "departure_confidence": "CONFIRMED" if time_since_departure > 0 else "PENDING",
         "timeline": {
-            "baseline_finalized": 51,
-            "baseline_departure": 94,
-            "structural_confirmation": 94,
-            "actionable_point": 114,
-            "failure_endpoint": 2802,
+            "baseline_finalized": timeline_baseline,
+            "baseline_departure": timeline_departure,
+            "structural_confirmation": timeline_confirmation,
+            "actionable_point": timeline_actionable,
+            "failure_endpoint": timeline_failure,
         },
         "decision": {
-            "time_since_departure": 20,
-            "actionable_lead_cycles": 2688,
-            "trend": "linear_or_flat_degradation",
-            "trajectory_mode": "early_stage_monitoring",
-            "velocity": latest.get("drift_velocity", 0.0101),
-            "acceleration": -0.000014,
-            "failure_time_estimate": None,
-            "recommendation": "Investigate and plan intervention before degradation locks in.",
+            "time_since_departure": time_since_departure,
+            "actionable_lead_cycles": max(0, actionable_lead_cycles),
+            "trend": "stable" if velocity < 0.01 else "linear_degradation" if velocity < 0.05 else "accelerating_degradation",
+            "trajectory_mode": "early_stage_monitoring" if current_state == "STABLE" else "late_stage_intervention" if current_state in ["UNSTABLE", "LOCK_IN"] else "transition_phase",
+            "velocity": float(velocity),
+            "acceleration": float(acceleration),
+            "failure_time_estimate": None if current_state in ["STABLE", "TRANSITION"] else f"{max(0, timeline_failure - current_cycle_int)} cycles",
+            "recommendation": {
+                "STABLE": "Continue routine monitoring. System operating normally.",
+                "TRANSITION": "Investigate and plan intervention before degradation locks in.",
+                "UNSTABLE": "Immediate intervention required. Degradation is accelerating.",
+                "LOCK_IN": "Critical failure imminent. Execute contingency procedures.",
+            }.get(current_state, "Unknown state"),
         },
-        "current_state": latest.get("display_regime", "STABLE"),
-        "cycle": latest.get("cycle", 0),
+        "current_state": current_state,
+        "cycle": int(latest.get("cycle", 0)),
         "series": [],
     }
