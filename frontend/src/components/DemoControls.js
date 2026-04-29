@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Play, Pause, Zap } from "lucide-react";
+import { Zap, Check } from "lucide-react";
+import PronostiaDemo from "./PronostiaDemo";
 
 const STATES = ["STABLE", "TRANSITION", "UNSTABLE", "LOCK_IN"];
 const STATE_COLORS = {
@@ -17,27 +18,33 @@ export default function DemoControls() {
   const [instability, setInstability] = useState(0);
   const [drift, setDrift] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
-  // Fetch systems
-  useEffect(() => {
-    const fetchSystems = async () => {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/demo/systems`);
+  const fetchSystems = async () => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/demo/systems`);
+      if (res.ok) {
         const data = await res.json();
         setSystems(data.systems || []);
-        if (data.systems?.length > 0) {
+        if (data.systems?.length > 0 && !selectedSystem) {
           setSelectedSystem(data.systems[0].system_id);
         }
-      } catch (_) {}
-    };
+      }
+    } catch (_) {
+      // Silently ignore fetch errors
+    }
+  };
+
+  useEffect(() => {
     fetchSystems();
-    const id = setInterval(fetchSystems, 2000);
+    const id = setInterval(fetchSystems, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [selectedSystem]);
 
   const handleSetState = async () => {
     if (!selectedSystem) return;
     setLoading(true);
+    setConfirmation(null);
     try {
       const res = await fetch(
         `${process.env.REACT_APP_BACKEND_URL}/api/demo/set-state/${selectedSystem}`,
@@ -49,14 +56,24 @@ export default function DemoControls() {
             cycle: cycle || undefined,
             instability_score: instability || undefined,
             drift_velocity: drift || undefined,
+            display_regime: selectedState,
           }),
         }
       );
       if (res.ok) {
-        alert(`✓ Set ${selectedSystem} to ${selectedState}`);
+        const result = await res.json();
+        setConfirmation(
+          `✓ Set to ${selectedState} at cycle ${result.cycle}`
+        );
+        setTimeout(() => setConfirmation(null), 3000);
+        await fetchSystems();
+      } else {
+        setConfirmation("Error updating state");
+        setTimeout(() => setConfirmation(null), 3000);
       }
     } catch (e) {
-      alert(`Error: ${e.message}`);
+      setConfirmation(`Error: ${e.message}`);
+      setTimeout(() => setConfirmation(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -66,8 +83,12 @@ export default function DemoControls() {
 
   return (
     <div className="space-y-6">
+      {/* PRONOSTIA Demo Panel */}
+      <PronostiaDemo />
+
+      {/* Manual Controls */}
       <div className="border border-zinc-900 bg-[#0A0A0A] p-6">
-        <h2 className="font-mono text-sm font-bold text-zinc-100 mb-4 tracking-wider uppercase">Demo Controls</h2>
+        <h2 className="font-mono text-sm font-bold text-zinc-100 mb-4 tracking-wider uppercase">Manual Controls</h2>
         <p className="font-mono text-xs text-zinc-500 mb-6">Manually drive system state for demonstrations</p>
 
         {/* System selector */}
@@ -78,11 +99,15 @@ export default function DemoControls() {
             onChange={(e) => setSelectedSystem(e.target.value)}
             className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 px-3 py-2 font-mono text-sm"
           >
-            {systems.map((sys) => (
-              <option key={sys.system_id} value={sys.system_id}>
-                {sys.system_id} • {sys.label}
-              </option>
-            ))}
+            {systems.length === 0 ? (
+              <option>Loading systems...</option>
+            ) : (
+              systems.map((sys) => (
+                <option key={sys.system_id} value={sys.system_id}>
+                  {sys.label} • {sys.system_id}
+                </option>
+              ))
+            )}
           </select>
           {currentSystem && (
             <div className="mt-2 font-mono text-[10px] text-zinc-500">
@@ -150,6 +175,14 @@ export default function DemoControls() {
           </div>
         </div>
 
+        {/* Confirmation message */}
+        {confirmation && (
+          <div className="mb-4 p-3 bg-emerald-950 border border-emerald-900 flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-500" />
+            <p className="font-mono text-xs text-emerald-500">{confirmation}</p>
+          </div>
+        )}
+
         {/* Action button */}
         <button
           onClick={handleSetState}
@@ -168,8 +201,7 @@ export default function DemoControls() {
 
       <div className="border border-zinc-900 bg-[#0A0A0A] p-4">
         <p className="font-mono text-[10px] text-zinc-500">
-          💡 Use this to demonstrate each state individually. Pick a system, select a state, adjust metrics, and click SET STATE.
-          The UI will update immediately to show the new decision.
+          💡 Use manual controls to demonstrate each state individually. Pick a system, select a state, adjust metrics, and click SET STATE. Changes reflect immediately.
         </p>
       </div>
     </div>
