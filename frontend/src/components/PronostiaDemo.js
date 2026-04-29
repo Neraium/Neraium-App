@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { AlertTriangle, Volume2, VolumeX } from "lucide-react";
 import * as narration from "@/services/narration";
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+
 const STATUS_COLORS = {
   ACTIONABLE: "#F59E0B",
   ALERT: "#F59E0B",
@@ -42,9 +44,7 @@ export default function PronostiaDemo() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(
-          `${process.env.REACT_APP_BACKEND_URL}/api/demo/pronostia`
-        );
+        const res = await fetch(`${BACKEND_URL}/api/demo/pronostia`);
         if (!res.ok) throw new Error("Failed to load PRONOSTIA demo");
         const json = await res.json();
         setData(json);

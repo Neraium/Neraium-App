@@ -12,11 +12,15 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import time
 import asyncio
+import logging
 
 from services import sii_state as ss
 from services.synthetic_systems import make_system, tick
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/demo")
+
+OVERRIDE_TTL = 60.0  # seconds a manual override suppresses simulation advance
 
 
 class SetStateRequest(BaseModel):
@@ -35,6 +39,23 @@ _demo_state = {
     "task": None,
     "stop_flag": False,
 }
+
+# Manual override — when active, _advance_demo_system is skipped and
+# get_pronostia_demo uses these values directly so set-state is reflected
+# immediately in the UI without being overwritten by the next simulation tick.
+_manual_override: Dict[str, Any] = {
+    "active": False,
+    "state": "STABLE",
+    "cycle": 0,
+    "instability_score": 0.0,
+    "drift_velocity": 0.0,
+    "display_regime": "STABLE",
+    "expires_at": 0.0,
+}
+
+
+def _override_active() -> bool:
+    return _manual_override["active"] and time.time() < _manual_override["expires_at"]
 
 
 def _ensure_demo_system() -> str:
@@ -77,7 +98,10 @@ def _advance_demo_system(target_cycle: int) -> None:
 
     target_cycle is elapsed time-based, but system already has 80 baseline frames.
     So actual target_step = 80 + target_cycle.
+    Skipped while a manual override is active so set-state changes persist.
     """
+    if _override_active():
+        return
     if not _demo_state["simulator"] or not _demo_state["system_id"]:
         return
 
@@ -130,6 +154,22 @@ async def set_state(system_id: str, req: SetStateRequest):
 
     rec.history[-1] = latest
 
+    # Freeze simulation so this override persists across the next /pronostia polls
+    if system_id == "__demo_pronostia__":
+        _manual_override.update({
+            "active": True,
+            "state": req.state,
+            "cycle": latest.get("cycle", 0),
+            "instability_score": latest.get("instability_score", 0.0),
+            "drift_velocity": latest.get("drift_velocity", 0.0),
+            "display_regime": latest["display_regime"],
+            "expires_at": time.time() + OVERRIDE_TTL,
+        })
+        logger.info(
+            "Demo override active: state=%s cycle=%s expires_in=%.0fs",
+            req.state, latest.get("cycle"), OVERRIDE_TTL,
+        )
+
     return {
         "status": "ok",
         "system_id": system_id,
@@ -154,11 +194,18 @@ async def list_systems():
     for rec in all_recs:
         latest = rec.history[-1] if rec.history else None
         if latest:
+            # When a manual override is active for the demo system, surface it
+            if rec.system_id == "__demo_pronostia__" and _override_active():
+                current_state = _manual_override["display_regime"]
+                cycle = _manual_override["cycle"]
+            else:
+                current_state = latest.get("display_regime") or latest.get("regime")
+                cycle = latest.get("cycle")
             systems.append({
                 "system_id": rec.system_id,
                 "label": rec.label,
-                "current_state": latest.get("display_regime") or latest.get("regime"),
-                "cycle": latest.get("cycle"),
+                "current_state": current_state,
+                "cycle": cycle,
             })
 
     return {"systems": systems}
@@ -178,7 +225,23 @@ async def get_pronostia_demo() -> Dict[str, Any]:
         raise HTTPException(500, "Failed to initialize demo system")
 
     latest = rec.history[-1]
-    current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
+
+    # If a manual override is active, use its state so the UI reflects set-state immediately
+    if _override_active():
+        current_state = _manual_override["display_regime"]
+        # Patch latest so downstream metric reads (velocity, cycle) use override values
+        latest = dict(latest)
+        latest["display_regime"] = current_state
+        latest["regime"] = current_state
+        if _manual_override["instability_score"] is not None:
+            latest["instability_score"] = _manual_override["instability_score"]
+        if _manual_override["drift_velocity"] is not None:
+            latest["drift_velocity"] = _manual_override["drift_velocity"]
+        if _manual_override["cycle"] is not None:
+            latest["cycle"] = _manual_override["cycle"]
+    else:
+        _manual_override["active"] = False  # TTL expired — reset flag
+        current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
 
     # Determine status and messaging based on current cycle and state
     # These match the drift_schedule in _ensure_demo_system()
