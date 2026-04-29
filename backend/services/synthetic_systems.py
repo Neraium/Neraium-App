@@ -124,17 +124,17 @@ def make_system(system_id: str, template: str = "industrial",
 # Drift dynamics
 # ------------------------------------------------------------------
 def _active_drift_severity(sys: System) -> float:
-    """Returns severity in [0, 1] for current step based on schedule."""
+    """Returns severity in [0, 1] for current step based on schedule.
+
+    Each stage ramps from 0 to peak over ramp_duration steps, then holds
+    at peak. Later stages with higher peaks override earlier ones.
+    """
     severity = 0.0
-    for start, duration, peak in sys.drift_schedule:
-        if sys.step < start or sys.step >= start + duration:
+    for start, ramp_duration, peak in sys.drift_schedule:
+        if sys.step < start:
             continue
-        # Triangular ramp: 0 -> peak -> 0 across duration (a bit asymmetric)
-        progress = (sys.step - start) / duration
-        if progress < 0.4:
-            local = peak * (progress / 0.4)
-        else:
-            local = peak * (1 - (progress - 0.4) / 0.6)
+        progress = (sys.step - start) / max(ramp_duration, 1)
+        local = peak * min(progress, 1.0)
         severity = max(severity, local)
     return float(np.clip(severity, 0.0, 1.0))
 

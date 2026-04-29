@@ -52,9 +52,9 @@ def _ensure_demo_system() -> str:
     # 150-220: UNSTABLE (moderate drift 0.7)
     # 220+: LOCK_IN (severe drift 0.95)
     drift_schedule = [
-        (80, 70, 0.3),       # Transition: cycles 80-150, mild drift
-        (150, 70, 0.7),      # Unstable: cycles 150-220, moderate drift
-        (220, 100, 0.95),    # Lock-in: cycles 220+, severe drift
+        (80,  30, 0.55),  # TRANSITION: ramp to 0.55 over 30 steps, then hold
+        (150, 30, 0.85),  # UNSTABLE:   ramp to 0.85 over 30 steps, then hold
+        (220, 25, 1.00),  # LOCK_IN:    ramp to 1.00 over 25 steps, then hold
     ]
 
     sys = make_system(demo_id, template="industrial", seed=42, drift_schedule=drift_schedule)
@@ -178,7 +178,21 @@ async def get_pronostia_demo() -> Dict[str, Any]:
         raise HTTPException(500, "Failed to initialize demo system")
 
     latest = rec.history[-1]
-    current_state = latest.get("display_regime", latest.get("regime", "STABLE"))
+
+    # Determine state from drift-schedule ground truth (sys.step) rather than
+    # the SII engine's gated regime, which requires many sustained frames of
+    # accelerating drift before it escalates — too slow for a live demo.
+    _sim = _demo_state.get("simulator")
+    _sys_step = _sim.step if _sim else 80
+
+    if _sys_step >= 220:
+        current_state = "LOCK_IN"
+    elif _sys_step >= 150:
+        current_state = "UNSTABLE"
+    elif _sys_step >= 90:
+        current_state = "TRANSITION"
+    else:
+        current_state = "STABLE"
 
     # Determine status and messaging based on current cycle and state
     # These match the drift_schedule in _ensure_demo_system()
@@ -188,7 +202,7 @@ async def get_pronostia_demo() -> Dict[str, Any]:
     timeline_actionable = 220    # When LOCK_IN begins
     timeline_failure = 350       # End of simulation
 
-    current_cycle_int = int(latest.get("cycle", 0))
+    current_cycle_int = _sys_step
 
     # Dynamic status based on state progression
     if current_state == "STABLE":

@@ -236,8 +236,7 @@ class SIIEngineAdapter:
         detection_threshold: float = 0.65,
     ):
         self.baseline_window = baseline_window
-        # Ensure recent_window >= baseline_window for proper warmup
-        self.recent_window = max(recent_window, baseline_window)
+        self.recent_window = recent_window
         self.detection_threshold = detection_threshold
 
         # Per-asset/run engines
