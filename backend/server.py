@@ -13,21 +13,31 @@ from pathlib import Path
 from fastapi import FastAPI, APIRouter
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
 
-# Make the sibling /app available on sys.path so `neraium_core` resolves
-_REPO_ROOT = ROOT_DIR.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+# Make the repo root available on sys.path so `neraium_core` resolves
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+_log = logging.getLogger(__name__)
 
-mongo_url = os.environ["MONGO_URL"]
-mongo_client = AsyncIOMotorClient(mongo_url)
-db = mongo_client[os.environ["DB_NAME"]]
+# Support both MONGO_URI and MONGO_URL env var names
+_mongo_uri = os.environ.get("MONGO_URI") or os.environ.get("MONGO_URL")
+_db_name = os.environ.get("DB_NAME", "neraium")
+
+mongo_client = None
+db = None
+
+if _mongo_uri:
+    from motor.motor_asyncio import AsyncIOMotorClient
+    mongo_client = AsyncIOMotorClient(_mongo_uri)
+    db = mongo_client[_db_name]
+    _log.info("Mongo connected: %s", _db_name)
+else:
+    _log.warning("Mongo disabled: MONGO_URI not found")
 
 app = FastAPI(title="Neraium SII Platform API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
@@ -87,4 +97,5 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
-    mongo_client.close()
+    if mongo_client is not None:
+        mongo_client.close()

@@ -19,12 +19,15 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 router = APIRouter()
 
-_mongo_url = os.environ.get("MONGO_URL")
-_db_name = os.environ.get("DB_NAME")
+_mongo_url = os.environ.get("MONGO_URI") or os.environ.get("MONGO_URL")
+_db_name = os.environ.get("DB_NAME", "neraium")
 _client: Optional[AsyncIOMotorClient] = None
 
 
 def _coll():
+    if not _mongo_url:
+        from fastapi import HTTPException
+        raise HTTPException(503, "Mongo unavailable")
     global _client
     if _client is None:
         _client = AsyncIOMotorClient(_mongo_url)
@@ -72,10 +75,14 @@ async def delete_(cust_id: str) -> Dict[str, Any]:
 
 # Internal helper for the ingest router
 async def find_by_api_key(api_key: str) -> Optional[Dict[str, Any]]:
+    if not _mongo_url:
+        return None
     return await _coll().find_one({"api_key": api_key}, {"_id": 0})
 
 
 async def bump_counters(cust_id: str, *, systems_delta: int = 0, frames_delta: int = 0) -> None:
+    if not _mongo_url:
+        return
     inc: Dict[str, int] = {}
     if systems_delta:
         inc["systems_registered"] = systems_delta

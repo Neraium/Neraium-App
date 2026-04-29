@@ -13,12 +13,15 @@ from services.decision_synth import audit_headline
 
 router = APIRouter()
 
-_mongo_url = os.environ.get("MONGO_URL")
-_db_name = os.environ.get("DB_NAME")
+_mongo_url = os.environ.get("MONGO_URI") or os.environ.get("MONGO_URL")
+_db_name = os.environ.get("DB_NAME", "neraium")
 _client: Optional[AsyncIOMotorClient] = None
 
 
 def _coll():
+    if not _mongo_url:
+        from fastapi import HTTPException
+        raise HTTPException(503, "Mongo unavailable")
     global _client
     if _client is None:
         _client = AsyncIOMotorClient(_mongo_url)
@@ -112,12 +115,15 @@ async def add(req: AuditEntryRequest):
             "Operator note recorded"
         ),
     }
-    await _coll().insert_one(dict(entry))
+    if _mongo_url:
+        await _coll().insert_one(dict(entry))
     return entry
 
 
 @router.get("/audit")
 async def list_(system_id: str = "", limit: int = 100):
+    if not _mongo_url:
+        return {"count": 0, "items": []}
     q: Dict[str, Any] = {}
     if system_id:
         q["system_id"] = system_id
@@ -128,6 +134,8 @@ async def list_(system_id: str = "", limit: int = 100):
 
 @router.delete("/audit")
 async def clear(system_id: str = ""):
+    if not _mongo_url:
+        return {"deleted": 0}
     q: Dict[str, Any] = {}
     if system_id:
         q["system_id"] = system_id
