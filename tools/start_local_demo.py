@@ -99,6 +99,13 @@ if __name__ == "__main__":
         backend_process.terminate()
         sys.exit(1)
 
+    # Create/update .env file with PORT configuration
+    env_file = FRONTEND_DIR / ".env"
+    env_content = "PORT=3006\nREACT_APP_BACKEND_URL=http://localhost:8000\n"
+    with open(env_file, "w") as f:
+        f.write(env_content)
+    print("✓ Frontend .env configured")
+
     # Install frontend dependencies
     print("📦 Installing Node dependencies...")
     subprocess.run(
@@ -114,17 +121,20 @@ if __name__ == "__main__":
     env = os.environ.copy()
     env["PORT"] = "3006"
     env["REACT_APP_BACKEND_URL"] = "http://localhost:8000"
+    env["NODE_ENV"] = "development"
 
     if sys.platform == "win32":
+        # Windows: use cross-env or direct set
         frontend_process = subprocess.Popen(
-            "npm start",
+            'set "PORT=3006" && npm start',
             cwd=str(FRONTEND_DIR),
             env=env,
             shell=True
         )
     else:
+        # Unix: use env to prepend PORT
         frontend_process = subprocess.Popen(
-            ["npm", "start"],
+            ["env", "PORT=3006", "npm", "start"],
             cwd=str(FRONTEND_DIR),
             env=env
         )
