@@ -8,7 +8,7 @@ If you have Docker installed:
 docker-compose up
 ```
 
-Then open: **http://localhost:3000**
+Then open: **http://localhost:3006**
 
 That's it. Everything runs in containers.
 
@@ -31,7 +31,7 @@ npm install
 npm start
 ```
 
-Then open: **http://localhost:3000**
+Then open: **http://localhost:3006**
 
 ## What You Need
 

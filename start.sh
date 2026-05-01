@@ -33,13 +33,13 @@ sleep 2
 echo "🎨 Starting frontend..."
 cd frontend
 npm install -q
-npm start &
+PORT=3006 npm start &
 FRONTEND_PID=$!
 cd ..
 
 echo "✅ All systems running!"
 echo "   Backend: http://127.0.0.1:8000"
-echo "   Frontend: http://localhost:3000"
+echo "   Frontend: http://localhost:3006"
 echo ""
 echo "Press Ctrl+C to stop both servers"
 echo ""
