@@ -5,19 +5,19 @@
 
 const NARRATION_LINES = {
   STABLE: {
-    text: "System operating normally. Baseline established and stable.",
+    text: "System operating normally. Everything looks good.",
     confidence: 0.95,
   },
   TRANSITION: {
-    text: "Structural departure detected. System exhibiting measurable baseline deviation. Monitoring intensifies.",
+    text: "Bearing degradation detected. First structural change found. Plan inspection and maintenance.",
     confidence: 0.65,
   },
   UNSTABLE: {
-    text: "Instability confirmed. Degradation accelerating. Intervention window opening. Plan now.",
+    text: "Bearing degradation confirmed and accelerating. Inspection window is open. Act now.",
     confidence: 0.85,
   },
   LOCK_IN: {
-    text: "Critical threshold locked in. Degradation irreversible. Execute contingency procedures immediately.",
+    text: "Critical failure is imminent. Execute contingency procedures immediately.",
     confidence: 0.92,
   },
 };

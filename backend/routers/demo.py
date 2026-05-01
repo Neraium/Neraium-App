@@ -183,43 +183,48 @@ async def get_pronostia_demo() -> Dict[str, Any]:
     # Determine status and messaging based on current cycle and state
     # These match the drift_schedule in _ensure_demo_system()
     timeline_baseline = 80
-    timeline_departure = 80      # When TRANSITION begins
-    timeline_confirmation = 150  # When UNSTABLE begins
-    timeline_actionable = 220    # When LOCK_IN begins
-    timeline_failure = 350       # End of simulation
+    timeline_first_change = 94      # When TRANSITION begins (first structural change)
+    timeline_inspection_window = 123  # When UNSTABLE begins (inspection window opened)
+    timeline_actionable = 220       # When LOCK_IN begins
+    timeline_failure = 2802         # Historical failure endpoint
 
     current_cycle_int = int(latest.get("cycle", 0))
 
-    # Dynamic status based on state progression
+    # Operator-focused status labels
     if current_state == "STABLE":
-        status = "MONITORING"
-        risk_band = "nominal"
-        severity = "BASELINE"
+        operator_status = "Normal Operation"
+        what_is_wrong = "System operating normally"
+        subsystem = "All systems"
+        evidence_drivers = []
+        evidence_relationships = []
+        operator_action = "Continue routine monitoring"
     elif current_state == "TRANSITION":
-        status = "ALERT"
-        risk_band = "elevated"
-        severity = "STRUCTURAL DEPARTURE"
+        operator_status = "Bearing Degradation Detected"
+        what_is_wrong = "Bearing assembly is showing early degradation behavior"
+        subsystem = "Bearing assembly / rotating element"
+        evidence_drivers = ["rms", "skewness", "peak"]
+        evidence_relationships = ["rms <-> skewness coupling weakening"]
+        operator_action = "Inspect bearing and rotating element path. Verify rms and skewness behavior."
     elif current_state == "UNSTABLE":
-        status = "ACTIONABLE"
-        risk_band = "critical"
-        severity = "ACCELERATING DEGRADATION"
+        operator_status = "Bearing Degradation Detected"
+        what_is_wrong = "Bearing assembly degradation is accelerating"
+        subsystem = "Bearing assembly / rotating element"
+        evidence_drivers = ["rms", "skewness", "peak"]
+        evidence_relationships = ["rms <-> skewness coupling breakdown"]
+        operator_action = "Immediate inspection of bearing and rotating element required."
     else:  # LOCK_IN
-        status = "CRITICAL"
-        risk_band = "critical"
-        severity = "LOCKED-IN FAILURE"
+        operator_status = "Bearing Degradation Critical"
+        what_is_wrong = "Bearing assembly failure is imminent"
+        subsystem = "Bearing assembly / rotating element"
+        evidence_drivers = ["rms", "skewness", "peak"]
+        evidence_relationships = ["rms <-> skewness coupling fully broken"]
+        operator_action = "Execute contingency procedures. System failure expected soon."
 
-    # Calculate lead time
-    if current_state == "STABLE":
-        actionable_lead_cycles = timeline_failure - current_cycle_int
-    elif current_state == "TRANSITION":
-        actionable_lead_cycles = timeline_failure - current_cycle_int
-    elif current_state == "UNSTABLE":
-        actionable_lead_cycles = timeline_failure - current_cycle_int
-    else:
-        actionable_lead_cycles = 0
+    # Validation lead time (cycles to historical failure endpoint)
+    validation_lead_time = max(0, timeline_failure - current_cycle_int)
 
-    # Time since departure (if past departure point)
-    time_since_departure = max(0, current_cycle_int - timeline_departure)
+    # Time since first structural change (departure)
+    time_since_first_change = max(0, current_cycle_int - timeline_first_change)
 
     # Velocity and acceleration based on drift stage
     velocity = abs(latest.get("drift_velocity", 0.0))
@@ -235,20 +240,55 @@ async def get_pronostia_demo() -> Dict[str, Any]:
     return {
         "system": "PRONOSTIA Rotating System",
         "dataset": "PRONOSTIA / FEMTO bearing degradation",
-        "status": status,
-        "risk_band": risk_band,
-        "severity": severity,
-        "departure_confidence": "CONFIRMED" if time_since_departure > 0 else "PENDING",
+        # Operator-focused fields
+        "operator_status": operator_status,
+        "operator_title": "Bearing Degradation Detected" if current_state != "STABLE" else "Normal Operation",
+        "operator_subtitle": "Neraium identified bearing instability before the historical failure endpoint.",
+        # Main diagnosis cards
+        "diagnosis": {
+            "what_is_wrong": what_is_wrong,
+            "where_is_it": subsystem,
+            "why_evidence": {
+                "drivers": evidence_drivers,
+                "relationships": evidence_relationships,
+            },
+            "validation_lead_time": validation_lead_time,
+            "validation_note": "Validation context only. The known failure endpoint was not used by the engine.",
+            "what_to_inspect": operator_action,
+        },
+        # Timeline with operator-friendly labels
+        "timeline_events": [
+            {
+                "cycle": timeline_first_change,
+                "label": "First structural change detected",
+                "description": f"Cycle {timeline_first_change}",
+            },
+            {
+                "cycle": timeline_inspection_window,
+                "label": "Inspection window opened",
+                "description": f"Cycle {timeline_inspection_window}",
+            },
+            {
+                "cycle": timeline_failure,
+                "label": "Historical failure endpoint",
+                "description": f"Cycle {timeline_failure}",
+            },
+        ],
+        # Keep legacy fields for compatibility
+        "status": "ACTIONABLE" if current_state == "UNSTABLE" else "ALERT" if current_state == "TRANSITION" else "MONITORING",
+        "risk_band": "nominal" if current_state == "STABLE" else "elevated" if current_state == "TRANSITION" else "critical",
+        "severity": "BASELINE" if current_state == "STABLE" else "STRUCTURAL DEPARTURE" if current_state == "TRANSITION" else "ACCELERATING DEGRADATION" if current_state == "UNSTABLE" else "LOCKED-IN FAILURE",
+        "departure_confidence": "CONFIRMED" if time_since_first_change > 0 else "PENDING",
         "timeline": {
             "baseline_finalized": timeline_baseline,
-            "baseline_departure": timeline_departure,
-            "structural_confirmation": timeline_confirmation,
+            "baseline_departure": timeline_first_change,
+            "structural_confirmation": timeline_inspection_window,
             "actionable_point": timeline_actionable,
             "failure_endpoint": timeline_failure,
         },
         "decision": {
-            "time_since_departure": time_since_departure,
-            "actionable_lead_cycles": max(0, actionable_lead_cycles),
+            "time_since_departure": time_since_first_change,
+            "actionable_lead_cycles": max(0, validation_lead_time),
             "trend": "stable" if velocity < 0.01 else "linear_degradation" if velocity < 0.05 else "accelerating_degradation",
             "trajectory_mode": "early_stage_monitoring" if current_state == "STABLE" else "late_stage_intervention" if current_state in ["UNSTABLE", "LOCK_IN"] else "transition_phase",
             "velocity": float(velocity),
