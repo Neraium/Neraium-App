@@ -190,9 +190,11 @@ async def get_pronostia_demo() -> Dict[str, Any]:
 
     current_cycle_int = int(latest.get("cycle", 0))
 
-    # Operator-focused status labels
+    # Operator-focused status labels with compelling, specific language
     if current_state == "STABLE":
         operator_status = "Normal Operation"
+        operator_title = "System Normal"
+        operator_subtitle = "No abnormalities detected. System operating within normal parameters."
         what_is_wrong = "System operating normally"
         subsystem = "All systems"
         evidence_drivers = []
@@ -200,25 +202,31 @@ async def get_pronostia_demo() -> Dict[str, Any]:
         operator_action = "Continue routine monitoring"
     elif current_state == "TRANSITION":
         operator_status = "Bearing Degradation Detected"
-        what_is_wrong = "Bearing assembly is showing early degradation behavior"
+        operator_title = "Bearing Degradation Detected"
+        operator_subtitle = f"Neraium identified bearing instability {timeline_failure - current_cycle_int} cycles before the historical failure endpoint."
+        what_is_wrong = "Bearing assembly is showing early degradation behavior."
         subsystem = "Bearing assembly / rotating element"
         evidence_drivers = ["rms", "skewness", "peak"]
         evidence_relationships = ["rms <-> skewness coupling weakening"]
-        operator_action = "Inspect bearing and rotating element path. Verify rms and skewness behavior."
+        operator_action = "Inspect the bearing and rotating element path."
     elif current_state == "UNSTABLE":
         operator_status = "Bearing Degradation Detected"
-        what_is_wrong = "Bearing assembly degradation is accelerating"
+        operator_title = "Bearing Degradation Detected"
+        operator_subtitle = f"Neraium identified bearing instability {timeline_failure - current_cycle_int} cycles before the historical failure endpoint."
+        what_is_wrong = "Bearing assembly degradation is accelerating. Intervention window is open."
         subsystem = "Bearing assembly / rotating element"
         evidence_drivers = ["rms", "skewness", "peak"]
         evidence_relationships = ["rms <-> skewness coupling breakdown"]
-        operator_action = "Immediate inspection of bearing and rotating element required."
+        operator_action = "Immediate inspection of bearing and rotating element required. Plan maintenance now."
     else:  # LOCK_IN
         operator_status = "Bearing Degradation Critical"
-        what_is_wrong = "Bearing assembly failure is imminent"
+        operator_title = "Bearing Degradation Critical"
+        operator_subtitle = f"Historical failure endpoint reached. Critical failure is imminent."
+        what_is_wrong = "Bearing assembly failure is imminent. Degradation is locked in."
         subsystem = "Bearing assembly / rotating element"
         evidence_drivers = ["rms", "skewness", "peak"]
         evidence_relationships = ["rms <-> skewness coupling fully broken"]
-        operator_action = "Execute contingency procedures. System failure expected soon."
+        operator_action = "Execute contingency procedures. System failure expected immediately."
 
     # Validation lead time (cycles to historical failure endpoint)
     validation_lead_time = max(0, timeline_failure - current_cycle_int)
@@ -242,8 +250,8 @@ async def get_pronostia_demo() -> Dict[str, Any]:
         "dataset": "PRONOSTIA / FEMTO bearing degradation",
         # Operator-focused fields
         "operator_status": operator_status,
-        "operator_title": "Bearing Degradation Detected" if current_state != "STABLE" else "Normal Operation",
-        "operator_subtitle": "Neraium identified bearing instability before the historical failure endpoint.",
+        "operator_title": operator_title,
+        "operator_subtitle": operator_subtitle,
         # Main diagnosis cards
         "diagnosis": {
             "what_is_wrong": what_is_wrong,
