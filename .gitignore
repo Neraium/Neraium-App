@@ -31,3 +31,8 @@ env/
 validation_out/
 .pytest_cache/
 validation_out_advanced/
+
+# Frontend build and dependencies
+frontend/build/
+frontend/node_modules/
+frontend/package-lock.json
