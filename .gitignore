@@ -1,38 +1,69 @@
-# Local/generated artifacts
-neraium.db
-artifacts/neraium-grow.db
-regime_library.json
-reports/
-regime_library_*.json
-ult
-__pycache__/
-*.pyc
-*.egg-info/
-neraium_markets/output/
-apps/__pycache__/
-frontend/node_modules/.cache/default-development/6.pack
-frontend/node_modules/.cache/default-development/0.pack
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
-
-# Virtual environments
+# Build and dependencies
+frontend/node_modules/
+frontend/build/
+frontend/package-lock.json
+frontend/.next/
+backend/.venv/
 .venv/
 venv/
 env/
+*.egg-info/
 
-# Validation and output directories
-validation_out/
+# Database and generated files
+*.db
+*.sqlite
+*.sqlite3
+regime_library.json
+regime_library_*.json
+neraium_events.db
+neraium.db
+
+# Runtime and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 .pytest_cache/
-validation_out_advanced/
+.coverage
+htmlcov/
+test_reports/
 
-# Frontend build and dependencies
-frontend/build/
-frontend/node_modules/
-frontend/package-lock.json
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.env
+.credentials
+*.pem
+*.key
+*.crt
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+
+# Output directories
+validation_out/
+validation_out_advanced/
+reports/
+artifacts/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+dist/
+build/
+*.egg
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
