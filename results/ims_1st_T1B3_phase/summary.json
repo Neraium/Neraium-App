@@ -1,0 +1,61 @@
+{
+  "reference_cycle": 2120,
+  "reference_label": "known_degradation_onset_T1B3",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "1st_test",
+      "frames_written": 2156,
+      "events": [
+        {
+          "cycle": 91,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 419,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 676,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 1342,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 1409,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        }
+      ],
+      "reference_cycle": 2120,
+      "reference_label": "known_degradation_onset_T1B3",
+      "first_watch_cycle": 91,
+      "first_actionable_cycle": null,
+      "first_alert_cycle": null,
+      "alert_lead_to_reference": null,
+      "watch_lead_to_reference": 2029,
+      "actionable_lead_to_reference": null,
+      "alert_error_pct_of_reference": null,
+      "actionable_error_pct_of_reference": null,
+      "actionable_verdict": "NO_ACTIONABLE",
+      "actionable_persisted_to_end": false,
+      "actionable_reversion_count": 0,
+      "actionable_duration_to_end": null,
+      "state_counts": {
+        "STABLE": 567,
+        "WATCH": 1589
+      },
+      "last_state": "WATCH",
+      "final_state": "WATCH",
+      "verdict": "NO_ALERT",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_1st_T1B3_phase\\1st_test_neraium_frames.jsonl"
+    }
+  ]
+}

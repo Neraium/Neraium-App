@@ -1,0 +1,37 @@
+{
+  "reference_cycle": 1508,
+  "reference_label": "known_degradation_onset_T1B4",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "1st_test",
+      "frames_written": 129,
+      "events": [
+        {
+          "cycle": 91,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 129,
+          "event": "HAZARD_ACTIONABLE_CONFIRMED",
+          "state": "ACTIONABLE"
+        }
+      ],
+      "reference_cycle": 1508,
+      "reference_label": "known_degradation_onset_T1B4",
+      "first_watch_cycle": 91,
+      "first_actionable_cycle": 129,
+      "first_alert_cycle": null,
+      "alert_lead_to_reference": null,
+      "watch_lead_to_reference": 1417,
+      "actionable_lead_to_reference": 1379,
+      "alert_error_pct_of_reference": null,
+      "actionable_error_pct_of_reference": 0.9144562334217506,
+      "actionable_verdict": "EARLY_FALSE_POSITIVE_RISK",
+      "verdict": "NO_ALERT",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_actionable_smoke\\1st_test_neraium_frames.jsonl"
+    }
+  ]
+}

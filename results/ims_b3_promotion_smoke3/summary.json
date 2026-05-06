@@ -1,0 +1,41 @@
+{
+  "reference_cycle": 2120,
+  "reference_label": "known_degradation_onset_T1B3",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "bearing_3",
+      "frames_written": 2151,
+      "events": [
+        {
+          "cycle": 2151,
+          "event": "HAZARD_ACTIONABLE_CONFIRMED",
+          "state": "ACTIONABLE"
+        }
+      ],
+      "reference_cycle": 2120,
+      "reference_label": "known_degradation_onset_T1B3",
+      "first_watch_cycle": null,
+      "first_actionable_cycle": 2151,
+      "first_alert_cycle": null,
+      "alert_lead_to_reference": null,
+      "watch_lead_to_reference": null,
+      "actionable_lead_to_reference": -31,
+      "alert_error_pct_of_reference": null,
+      "actionable_error_pct_of_reference": 0.014622641509433962,
+      "actionable_verdict": "NEAR_REFERENCE",
+      "actionable_persisted_to_end": true,
+      "actionable_reversion_count": 0,
+      "actionable_duration_to_end": 0,
+      "state_counts": {
+        "STABLE": 2150,
+        "ACTIONABLE": 1
+      },
+      "last_state": "ACTIONABLE",
+      "final_state": "ACTIONABLE",
+      "verdict": "NO_ALERT",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_b3_promotion_smoke3\\bearing_3_neraium_frames.jsonl"
+    }
+  ]
+}

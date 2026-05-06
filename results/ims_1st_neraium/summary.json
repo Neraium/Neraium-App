@@ -1,0 +1,26 @@
+{
+  "bearings": [
+    {
+      "bearing": "1st_test",
+      "frames_written": 90,
+      "events": [
+        {
+          "cycle": 26,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 83,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 90,
+          "event": "HAZARD_ALERT_CONFIRMED",
+          "state": "ALERT"
+        }
+      ],
+      "output": "results\\ims_1st_neraium\\1st_test_neraium_frames.jsonl"
+    }
+  ]
+}

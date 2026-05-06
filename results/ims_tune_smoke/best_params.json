@@ -1,0 +1,10 @@
+{
+  "watch_threshold": 0.45,
+  "actionable_hazard_threshold": 0.58,
+  "recovery_resistance_threshold": 0.1,
+  "instability_density_threshold": 0.35,
+  "accumulation_slope_threshold": 0.2,
+  "recurrence_count_threshold": 2,
+  "min_actionable_cycle_bearing3": 1800,
+  "min_actionable_cycle_bearing4": 1200
+}

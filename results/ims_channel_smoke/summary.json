@@ -1,0 +1,34 @@
+{
+  "reference_cycle": null,
+  "reference_label": "known_degradation_onset",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "bearing_4",
+      "frames_written": 12,
+      "events": [],
+      "reference_cycle": null,
+      "reference_label": "known_degradation_onset",
+      "first_watch_cycle": null,
+      "first_actionable_cycle": null,
+      "first_alert_cycle": null,
+      "alert_lead_to_reference": null,
+      "watch_lead_to_reference": null,
+      "actionable_lead_to_reference": null,
+      "alert_error_pct_of_reference": null,
+      "actionable_error_pct_of_reference": null,
+      "actionable_verdict": "NO_ACTIONABLE",
+      "actionable_persisted_to_end": false,
+      "actionable_reversion_count": 0,
+      "actionable_duration_to_end": null,
+      "state_counts": {
+        "STABLE": 12
+      },
+      "last_state": "STABLE",
+      "final_state": "STABLE",
+      "verdict": "NO_ALERT",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_channel_smoke\\bearing_4_neraium_frames.jsonl"
+    }
+  ]
+}

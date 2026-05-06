@@ -1,0 +1,48 @@
+{
+  "reference_cycle": 1508,
+  "reference_label": "known_degradation_onset_T1B4",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "1st_test",
+      "frames_written": 2156,
+      "events": [
+        {
+          "cycle": 91,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 419,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 676,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 1342,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 1409,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        }
+      ],
+      "reference_cycle": 1508,
+      "reference_label": "known_degradation_onset_T1B4",
+      "first_watch_cycle": 91,
+      "first_alert_cycle": null,
+      "alert_lead_to_reference": null,
+      "watch_lead_to_reference": 1417,
+      "alert_error_pct_of_reference": null,
+      "verdict": "NO_ALERT",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_1st_eval_irreversibility\\1st_test_neraium_frames.jsonl"
+    }
+  ]
+}

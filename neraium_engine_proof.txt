@@ -1,0 +1,157 @@
+Neraium canonical engine proof: forward-only packet ingestion.
+No future rows, full-dataset normalization, or failure endpoint are available to update().
+
+[INPUT] cycle=1 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] LOW basis=baseline forming
+[AUDIT] future_data_used=false window=cycles 1-1; no rows after 1
+
+[INPUT] cycle=10 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] LOW basis=baseline forming
+[AUDIT] future_data_used=false window=cycles 1-10; no rows after 10
+
+[INPUT] cycle=20 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] LOW basis=baseline forming
+[AUDIT] future_data_used=false window=cycles 9-20; no rows after 20
+
+[INPUT] cycle=30 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] LOW basis=baseline forming
+[AUDIT] future_data_used=false window=cycles 19-30; no rows after 30
+
+[INPUT] cycle=40 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] LOW basis=baseline forming
+[AUDIT] future_data_used=false window=cycles 29-40; no rows after 40
+
+[INPUT] cycle=50 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] MEDIUM basis=baseline holding
+[AUDIT] future_data_used=false window=cycles 39-50; no rows after 50
+
+[INPUT] cycle=60 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] MEDIUM basis=baseline holding
+[AUDIT] future_data_used=false window=cycles 49-60; no rows after 60
+
+[INPUT] cycle=70 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] MEDIUM basis=baseline holding
+[AUDIT] future_data_used=false window=cycles 59-70; no rows after 70
+
+[INPUT] cycle=80 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] MEDIUM basis=baseline holding
+[AUDIT] future_data_used=false window=cycles 69-80; no rows after 80
+
+[INPUT] cycle=90 asset=CNC-MILL-01
+[STRUCTURE] drift=0.000 relational_stability=1.000 covariance_shift=0.000
+[LOCALIZATION] No localized instability detected.
+[TRAJECTORY] path=STABLE recovery=0.72 degradation=0.20 lock_in=0.08
+[DECISION] No intervention signal. Continue monitoring.
+[URGENCY] LOW
+[IF_IGNORED] No current degradation trajectory indicated.
+[CONFIDENCE] MEDIUM basis=baseline holding
+[AUDIT] future_data_used=false window=cycles 79-90; no rows after 90
+
+[INPUT] cycle=91 asset=CNC-MILL-01
+[STRUCTURE] drift=0.644 relational_stability=0.775 covariance_shift=0.774
+[EVENT] STRUCTURAL_DEPARTURE_DETECTED
+[LOCALIZATION] top_relationship=motor_current <-> spindle_vibration shift=1.725
+[TRAJECTORY] path=DEGRADATION recovery=0.20 degradation=0.64 lock_in=0.15
+[DECISION] Monitor for confirmation. No action yet.
+[URGENCY] MEDIUM
+[IF_IGNORED] May progress if departure persists.
+[CONFIDENCE] MEDIUM basis=departure detected, confirmation pending
+[AUDIT] future_data_used=false window=cycles 80-91; no rows after 91
+
+[INPUT] cycle=92 asset=CNC-MILL-01
+[STRUCTURE] drift=0.556 relational_stability=0.618 covariance_shift=0.557
+[EVENT] CONFIRMATION_STARTED
+[LOCALIZATION] top_relationship=motor_current <-> spindle_vibration shift=1.722
+[TRAJECTORY] path=DEGRADATION recovery=0.23 degradation=0.62 lock_in=0.15
+[DECISION] Continue confirmation. Watch area of concern.
+[URGENCY] MEDIUM
+[IF_IGNORED] May become actionable if persistent.
+[CONFIDENCE] MEDIUM basis=persistence test, relationship shift
+[AUDIT] future_data_used=false window=cycles 81-92; no rows after 92
+
+[INPUT] cycle=100 asset=CNC-MILL-01
+[STRUCTURE] drift=0.912 relational_stability=0.271 covariance_shift=1.000
+[LOCALIZATION] top_relationship=motor_current <-> spindle_load shift=1.968
+[TRAJECTORY] path=DEGRADATION recovery=0.21 degradation=0.66 lock_in=0.13
+[DECISION] Continue confirmation. Watch area of concern.
+[URGENCY] MEDIUM
+[IF_IGNORED] May become actionable if persistent.
+[CONFIDENCE] MEDIUM basis=persistence test, relationship shift
+[AUDIT] future_data_used=false window=cycles 89-100; no rows after 100
+
+[INPUT] cycle=110 asset=CNC-MILL-01
+[STRUCTURE] drift=0.912 relational_stability=0.251 covariance_shift=1.000
+[LOCALIZATION] top_relationship=motor_current <-> spindle_load shift=1.968
+[TRAJECTORY] path=DEGRADATION recovery=0.18 degradation=0.68 lock_in=0.14
+[DECISION] Continue confirmation. Watch area of concern.
+[URGENCY] MEDIUM
+[IF_IGNORED] May become actionable if persistent.
+[CONFIDENCE] MEDIUM basis=persistence test, relationship shift
+[AUDIT] future_data_used=false window=cycles 99-110; no rows after 110
+
+[INPUT] cycle=119 asset=CNC-MILL-01
+[STRUCTURE] drift=0.912 relational_stability=0.250 covariance_shift=1.000
+[EVENT] ACTIONABLE_CONFIRMED
+[LOCALIZATION] top_relationship=motor_current <-> spindle_load shift=1.968
+[TRAJECTORY] path=DEGRADATION recovery=0.18 degradation=0.68 lock_in=0.14
+[DECISION] Inspect likely area of concern next window.
+[URGENCY] MEDIUM
+[IF_IGNORED] Risk of continued degradation rises.
+[CONFIDENCE] MEDIUM-HIGH basis=persistent departure, multi-signal shift
+[AUDIT] future_data_used=false window=cycles 108-119; no rows after 119
+
+[STOP] Actionable decision reached after confirmation.

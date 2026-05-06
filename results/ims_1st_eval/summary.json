@@ -1,0 +1,33 @@
+{
+  "reference_cycle": 1508,
+  "reference_label": "known_degradation_onset_T1B4",
+  "reference_used_for_inference": false,
+  "bearings": [
+    {
+      "bearing": "1st_test",
+      "frames_written": 2156,
+      "events": [
+        {
+          "cycle": 91,
+          "event": "HAZARD_WATCH_CONFIRMED",
+          "state": "WATCH"
+        },
+        {
+          "cycle": 104,
+          "event": "HAZARD_ALERT_CONFIRMED",
+          "state": "ALERT"
+        }
+      ],
+      "reference_cycle": 1508,
+      "reference_label": "known_degradation_onset_T1B4",
+      "first_watch_cycle": 91,
+      "first_alert_cycle": 104,
+      "alert_lead_to_reference": 1404,
+      "watch_lead_to_reference": 1417,
+      "alert_error_pct_of_reference": 0.9310344827586207,
+      "verdict": "EARLY_FALSE_POSITIVE_RISK",
+      "reference_used_for_inference": false,
+      "output": "results\\ims_1st_eval\\1st_test_neraium_frames.jsonl"
+    }
+  ]
+}
