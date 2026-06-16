@@ -1,12 +1,47 @@
-# Neraium Grow
+# Neraium
 
-Neraium Grow is the default product in this repository. It is a read-only, vendor-neutral intelligence layer for cultivation operations that scales from single-plant risk to portfolio-wide operational intelligence.
+**See structural instability before systems fail.**
 
-Neraium shows where the grow is drifting, why, and where inefficiencies are spreading before yield is impacted.
+Neraium is a real-time Structural Intelligence Platform that analyzes multivariable telemetry to identify instability, drift, and degradation before conventional alarms or threshold-based monitoring detect a problem.
 
-Markets remains in the repo under `neraium_core.markets` as a legacy, non-default module.
+Rather than monitoring individual sensors independently, Neraium evaluates the relationships between variables to understand how an entire system is behaving. This allows operators to identify emerging problems earlier, understand what is changing, determine why it is happening, and take action before failures occur.
 
-## Supported scopes
+---
+
+## What Neraium Does
+
+Neraium continuously analyzes telemetry to:
+
+- Detect structural instability
+- Identify abnormal system behavior
+- Explain the underlying drivers of change
+- Prioritize operator actions
+- Monitor system health in real time
+- Reduce downtime through earlier detection
+
+Unlike traditional monitoring systems that rely on individual sensor thresholds, Neraium evaluates how an entire system evolves over time.
+
+---
+
+## Current Product
+
+### Neraium Grow
+
+Neraium Grow is a read-only intelligence platform for controlled-environment agriculture.
+
+It analyzes telemetry across:
+
+- Climate
+- HVAC
+- Irrigation
+- Fertigation
+- Lighting
+- CO2
+- Airflow
+- Water systems
+- Power systems
+
+The same intelligence engine scales across multiple operational levels:
 
 - Plant
 - Zone
@@ -15,119 +50,157 @@ Markets remains in the repo under `neraium_core.markets` as a legacy, non-defaul
 - Facility
 - Portfolio
 
-The same structural analytics engine powers every scope, but the product presents the results differently:
+---
 
-- Plant: measured plant state when direct plant telemetry exists, otherwise inferred plant-risk view from local microclimate and zone context
-- Zone: microclimate consistency, irrigation response, airflow balance, and peer-zone divergence
-- Room: hero operational decision view with drift, driver, biological risk, threshold contrast, and time-to-impact
-- Subsystem: root-cause and upstream/downstream effect view for HVAC, dehumidification, irrigation, fertigation, lighting, CO2, water, and power
-- Facility: ranking and intervention prioritization across rooms, zones, plants, and subsystems
-- Portfolio: multi-site comparison, recurring inefficiency patterns, and readiness across facilities
+## Platform Architecture
 
-## What the product answers at every scope
+### Backend
 
-1. What state is it in?
-2. What is drifting?
-3. What is driving it?
-4. What should I do?
+- Python
+- FastAPI
+- MongoDB
+- Motor
+- Pydantic
 
-Primary states:
+### Intelligence Engine
 
-- `STABLE`
-- `DRIFTING`
-- `AT_RISK`
-- `DEGRADING`
+The Structural Intelligence Engine, or SII, provides:
 
-Biological risk states:
+- Structural drift detection
+- Stability analysis
+- Transition detection
+- Instability scoring
+- Lead-time estimation
+- Cross-variable relationship analysis
 
-- `LOW_BIOLOGICAL_RISK`
-- `ELEVATED_BIOLOGICAL_RISK`
-- `YIELD_RISK_EMERGING`
-- `QUALITY_RISK_EMERGING`
+### Frontend
 
-## Inefficiency, not just alarms
+- Real-time operational dashboard
+- Live telemetry visualization
+- Operator decision interface
+- Interactive system diagnostics
+- Demonstration environments
 
-Neraium Grow does more than say risk is elevated. It explicitly reports:
+---
 
-- Energy inefficiency
-- Climate inefficiency
-- Process inefficiency
-- Biological inefficiency
+## API
 
-Threshold alarms look at individual points. Neraium Grow looks at structural behavior, peer comparison, baseline comparison, and cross-system response. It can surface hidden drift before any hard threshold is crossed, including the message:
+### Ingest Telemetry
 
-`No individual sensor exceeded thresholds at this point`
+```http
+POST /api/ingest/{api_key}
+```
 
-## Telemetry
+Registers telemetry, updates the structural model, and returns the current system state.
 
-Grow supports identity/context fields for:
+### Demo
 
-- `timestamp`
-- `facility_id`
-- `site_id`
-- `building_id`
-- `room_id`
-- `zone_id`
-- `plant_id`
-- `asset_id`
-- `asset_type`
-- `subsystem_id`
-- `controller_id`
-- `crop_type`
-- `strain_or_crop_type`
-- `growth_stage`
-- `batch_id`
+```http
+GET /api/demo/pronostia
+```
 
-It also supports telemetry from climate, HVAC/refrigeration/dehumidification, irrigation/fertigation/drainage, lighting, CO2, airflow/pressure, power, biological proxies, and operator workflow events.
+Runs the PRONOSTIA bearing degradation demonstration.
 
-## Run locally
+---
+
+## Getting Started
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Neraium/Neraium-App.git
+cd Neraium-App
+```
+
+Create a virtual environment:
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
-pip install -e .[dev]
-python run_demo.py
 ```
 
-Open [http://localhost:8000](http://localhost:8000).
+Activate it:
+
+### Windows
+
+```bash
+.venv\Scripts\activate
+```
+
+### macOS / Linux
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -e .
+```
+
+Run the API:
+
+```bash
+uvicorn backend.server:app --reload
+```
+
+Open the local API at:
+
+```text
+http://localhost:8000
+```
+
+---
 
 ## Docker
 
-```bash
-docker build -t neraium-grow .
-docker run --rm -p 8000:8000 neraium-grow
-```
-
-## Demo
-
-The built-in demo supports:
-
-- Plant clusters
-- Zones
-- Rooms
-- Subsystems
-- Facility comparison
-- Multi-site portfolio comparison
-
-Run the demo:
+Build the container:
 
 ```bash
-python run_demo.py
+docker build -t neraium .
 ```
 
-Then use the scope selector in the default UI to move between Plant, Zone, Room, Subsystem, Facility, and Portfolio views.
+Run the container:
 
-## Key docs
+```bash
+docker run --rm -p 8000:8000 neraium
+```
 
-- [docs/GROW_OVERVIEW.md](/Users/Owner/Documents/neraium-core/docs/GROW_OVERVIEW.md)
-- [docs/GROW_SCOPES.md](/Users/Owner/Documents/neraium-core/docs/GROW_SCOPES.md)
-- [docs/GROW_COMPARE.md](/Users/Owner/Documents/neraium-core/docs/GROW_COMPARE.md)
-- [docs/GROW_OPERATOR_GUIDE.md](/Users/Owner/Documents/neraium-core/docs/GROW_OPERATOR_GUIDE.md)
-- [docs/GROW_DECISION_MODEL.md](/Users/Owner/Documents/neraium-core/docs/GROW_DECISION_MODEL.md)
-- [docs/GROW_DEMO.md](/Users/Owner/Documents/neraium-core/docs/GROW_DEMO.md)
+---
 
-## Legacy retained
+## Current Capabilities
 
-- `neraium_core.markets`
-- `run_live_stock_market.py`
-- `tests/markets/`
+- Real-time telemetry ingestion
+- Structural instability detection
+- Drift analysis
+- State transition modeling
+- Live API
+- Customer API key management
+- Interactive demonstrations
+- Historical playback
+- Operator diagnostics
+
+---
+
+## Vision
+
+Neraium is building a general-purpose Structural Intelligence Platform capable of monitoring any telemetry-driven system.
+
+The same intelligence engine is designed to support industries including:
+
+- Agriculture
+- Manufacturing
+- Industrial equipment
+- Energy
+- Water infrastructure
+- Building automation
+- Process control
+- Predictive maintenance
+
+Rather than creating separate analytics for every industry, Neraium applies a common structural intelligence model to understand how complex systems behave, detect instability early, and help operators make better decisions.
+
+---
+
+## License
+
+This repository is provided for demonstration and evaluation purposes unless otherwise specified.
