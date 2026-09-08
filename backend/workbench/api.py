@@ -7,6 +7,7 @@ import os
 import secrets
 import threading
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -72,6 +73,7 @@ class Model(BaseModel):
 
 
 class Evaluation(Model):
+    mode: Literal["single", "paired"] = "single"
     customer: str = Field(min_length=1, max_length=200)
     facility: str = Field(min_length=1, max_length=200)
     system: str = Field(min_length=1, max_length=200)
@@ -94,6 +96,7 @@ class Signal(Model):
 
 
 class Mapping(Model):
+    pair_confirmed: bool = False
     context: str = Field(min_length=1, max_length=2000)
     signals: list[Signal] = Field(min_length=1, max_length=63)
     start: str = ""
@@ -136,6 +139,10 @@ def create_evaluation(body: Evaluation):
 def evaluation(evaluation_id: str):
     with closing(store.connect()) as db:
         value = store.get(db, "evaluations", evaluation_id)
+        if value.get("reference_source_id"):
+            source = store.get(db, "sources", value["reference_source_id"])
+            value["reference_source"] = {k: v for k, v in source.items() if k != "table"}
+            value["reference_source"]["columns"] = source["table"]["columns"]
         if value.get("source_id"):
             source = store.get(db, "sources", value["source_id"])
             value["source"] = {k: v for k, v in source.items() if k != "table"}
@@ -147,7 +154,7 @@ def evaluation(evaluation_id: str):
 
 
 @router.post("/evaluations/{evaluation_id}/source", status_code=201)
-async def upload(evaluation_id: str, request: Request, filename: str):
+async def upload(evaluation_id: str, request: Request, filename: str, role: Literal["reference", "comparison"] = "comparison"):
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
@@ -159,10 +166,13 @@ async def upload(evaluation_id: str, request: Request, filename: str):
     with closing(store.connect()) as db, db:
         db.execute("BEGIN IMMEDIATE")
         value = store.get(db, "evaluations", evaluation_id)
+        if role == "reference" and value.get("mode") != "paired":
+            raise ValueError("Reference upload requires a paired evaluation.")
         db.execute("INSERT INTO sources VALUES (?,?,?,?)", (source["id"], evaluation_id, bytes(raw), store.encode(source)))
-        for key in ("validation", "mapping", "preview", "approved_mapping", "latest_run_id"):
+        for key in ("reference_validation" if role == "reference" else "validation", "mapping", "preview", "approved_mapping", "latest_run_id"):
             value.pop(key, None)
-        value.update(source_id=source["id"], stage="VALIDATION", revision=value["revision"] + 1)
+        value["reference_source_id" if role == "reference" else "source_id"] = source["id"]
+        value.update(stage="VALIDATION", revision=value["revision"] + 1)
         store.save_evaluation(db, value)
     return {"source_id": source["id"], "sha256": source["sha256"]}
 
@@ -177,26 +187,41 @@ def original(source_id: str):
 
 
 @router.post("/evaluations/{evaluation_id}/validate")
-def validate(evaluation_id: str, body: Validation):
+def validate(evaluation_id: str, body: Validation, role: Literal["reference", "comparison"] = "comparison"):
     with closing(store.connect()) as db, db:
         db.execute("BEGIN IMMEDIATE")
         value = store.get(db, "evaluations", evaluation_id)
-        source = store.get(db, "sources", value["source_id"])
+        source = store.get(db, "sources", value["reference_source_id" if role == "reference" else "source_id"])
         validation = intake.validate(source["table"], body.timestamp_column, body.timestamp_mode)
         for key in ("mapping", "preview", "approved_mapping", "latest_run_id"):
             value.pop(key, None)
-        value.update(validation=validation, stage="SIGNAL/SYSTEM MAPPING" if validation["eligible_timestamps"] else "VALIDATION", revision=value["revision"] + 1)
+        value["reference_validation" if role == "reference" else "validation"] = validation
+        eligible = validation["eligible_timestamps"] and (value.get("mode") != "paired" or
+                    all(value.get(k, {}).get("eligible_timestamps") for k in ("validation", "reference_validation")))
+        value.update(stage="SIGNAL/SYSTEM MAPPING" if eligible else "VALIDATION", revision=value["revision"] + 1)
         store.save_evaluation(db, value)
     return validation
+
+
+def build_input(value, source, mapping):
+    if value.get("mode") != "paired":
+        return intake.analysis_input(source["table"], value["validation"], mapping)
+    if not value.get("reference_source_id") or not value.get("reference_validation") or not value.get("validation"):
+        raise ValueError("Upload and validate both reference and comparison before mapping.")
+    with closing(store.connect()) as db:
+        reference = store.get(db, "sources", value["reference_source_id"])
+    return intake.paired_input(reference["table"], source["table"], value["reference_validation"], value["validation"], mapping)
 
 
 @router.post("/evaluations/{evaluation_id}/mapping-preview")
 def preview_mapping(evaluation_id: str, body: Mapping):
     with closing(store.connect()) as db:
         value = store.get(db, "evaluations", evaluation_id)
+        if not value.get("source_id"):
+            raise ValueError("Upload and validate the comparison dataset before mapping.")
         source = store.get(db, "sources", value["source_id"])
     mapping = body.model_dump()
-    payload = intake.analysis_input(source["table"], value["validation"], mapping)
+    payload = build_input(value, source, mapping)
     response = authority.call(payload, "preview")
     preview = {"id": identifier(), "catalog": response["catalog"], "identity": response["identity"],
                "input_sha256": digest(payload), "created_at": now()}
@@ -234,7 +259,7 @@ def analyze(evaluation_id: str):
             if not value.get("approved_mapping"):
                 raise HTTPException(409, "Approve signal mapping before analysis.")
             source = store.get(db, "sources", value["source_id"])
-            payload = intake.analysis_input(source["table"], value["validation"], value["mapping"])
+            payload = build_input(value, source, value["mapping"])
             if digest(payload) != value["preview"]["input_sha256"] or authority.identity() != value["preview"]["identity"]:
                 raise HTTPException(409, "Inputs or authority changed; create and approve a new preview.")
             run = {"id": identifier(), "evaluation_id": evaluation_id, "source_id": source["id"],
@@ -242,6 +267,10 @@ def analyze(evaluation_id: str):
                    "source": {k: v for k, v in source.items() if k != "table"},
                    "validation": value["validation"], "mapping": value["mapping"], "input": payload,
                    "input_sha256": digest(payload)}
+            if value.get("mode") == "paired":
+                reference = store.get(db, "sources", value["reference_source_id"])
+                run["reference_source"] = {k: v for k, v in reference.items() if k != "table"}
+                run["reference_validation"] = value["reference_validation"]
             run["request_sha256"] = digest({**payload, "run_id": run["id"]})
             db.execute("INSERT INTO runs VALUES (?,?,?)", (run["id"], evaluation_id, store.encode(run)))
         try:

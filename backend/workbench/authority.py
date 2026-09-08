@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 CONTRACT = "neraium-workbench-authority.v1"
-SUPPORTED_COMMIT = "62d5a2fe260a0a1d714708eaa755cd3ebfb8eb95"
+SUPPORTED_COMMIT = "6e26a83a17babaea443b75c545a756835d37102b"
 
 
 class AuthorityError(RuntimeError):
@@ -61,8 +61,17 @@ def call(payload: dict, operation: str = "analyze") -> dict:
             result = response.get("result", {})
             if not isinstance(result, dict) or result.get("engine") != {"name": "neraium_sii", "version": "v2"} or result.get("status") not in {"complete", "limited", "failed"}:
                 raise AuthorityError("Unsupported authoritative result semantics.")
-            if not isinstance(result.get("findings"), list) or any(not isinstance(result.get(k), dict) for k in ("uncertainty", "processing_trace", "relationship_analysis", "persistence_analysis")):
+            if (not isinstance(result.get("findings"), list) or any(not isinstance(result.get(k), dict) for k in ("uncertainty", "processing_trace", "relationship_analysis", "persistence_analysis"))):
                 raise AuthorityError("Authoritative evidence sections are missing or malformed.")
+            if payload.get("mode") == "paired":
+                supplied = result.get("supplied_reference")
+                governed = result.get("analysis_result")
+                if (not isinstance(supplied, dict) or supplied.get("contract_version") != "supplied-reference-v1"
+                        or any(not isinstance(supplied.get(role), dict) for role in ("reference", "comparison"))
+                        or not isinstance(governed, dict) or not isinstance(governed.get("insights"), list)
+                        or not isinstance(governed.get("sii_evidence"), dict)
+                        or not isinstance(result.get("temporal_analysis"), dict)):
+                    raise AuthorityError("Unsupported paired authoritative evidence contract.")
         if identity() != before:
             raise AuthorityError("Authority changed during execution; result rejected.")
         response["identity"] = before

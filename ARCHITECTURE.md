@@ -70,3 +70,25 @@ provisioned dependencies. Missing authority configuration fails closed.
 A server interruption can preserve a nonterminal run. No report can be produced
 from it; retry creates a separate run. There is no background recovery queue.
 See README for supported formats, limits, setup and focused checks.
+
+## Supplied reference/comparison boundary
+
+Paired evaluations add an independent reference source/validation to the existing
+comparison source. Both are snapshotted in each run, alongside a shared mapping and
+explicit same-system/identity/meaning/unit attestation. Either upload or validation
+invalidates approval. Full projected row arrays stay separate; source bytes are
+immutable. No database schema migration is needed for the JSON documents.
+
+The paired adapter calls `app.engine.sii_engine.evaluate_sii` with separate
+`reference_rows` and `comparison_rows`, approved signal names and shared units.
+The full result is preserved unchanged, including governed analysis, relationships,
+temporal onset, persistence, uncertainty, limitations and content-hash provenance.
+No local scoring, comparison math, result fusion or timing inference is added.
+The authority derives fresh catalogs and operating context; analyst context is
+retained in App snapshots rather than injected as an unsupported configuration.
+No saved baseline is activated or persistent behavioral memory updated.
+
+Intake allows 10,000 rows per source within the authority's 16–12,000 paired-row
+contract. The paired temporal default covers 12,000 rows; the single SII path
+continues to override its 5,000-row default with input length. Byte/signal/time
+budgets remain unchanged; engine-internal limits remain visible evidence.

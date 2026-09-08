@@ -6,7 +6,7 @@ import math
 from datetime import datetime, timezone
 
 MAX_BYTES = 10 * 1024 * 1024
-MAX_ROWS = 5000
+MAX_ROWS = 10000
 MAX_COLUMNS = 64
 
 
@@ -38,13 +38,13 @@ def parse(raw: bytes, filename: str) -> dict:
                     raise ValueError(f"Row {index} has a different number of fields than the header.")
                 rows.append(dict(zip(columns, values)))
                 if len(rows) > MAX_ROWS:
-                    raise ValueError("Maximum 5,000 rows; use explicitly scoped evaluations.")
+                    raise ValueError("Maximum 10,000 rows; use explicitly scoped evaluations.")
         else:
             raise ValueError("Supported formats: UTF-8 CSV, TSV, or JSON row arrays.")
     except (UnicodeError, csv.Error, StopIteration, json.JSONDecodeError) as exc:
         raise ValueError("The file is not valid UTF-8 tabular data.") from exc
     if not rows or len(rows) > MAX_ROWS or not 2 <= len(columns) <= MAX_COLUMNS:
-        raise ValueError("Supply 1–5,000 rows and 2–64 columns.")
+        raise ValueError("Supply 1–10,000 rows and 2–64 columns.")
     if len(set(columns)) != len(columns) or any(not c.strip() or len(c) > 160 for c in columns):
         raise ValueError("Headers must be unique, nonempty, and at most 160 characters.")
     if any(isinstance(v, (dict, list, bool)) for r in rows for v in r.values()):
@@ -147,3 +147,21 @@ def analysis_input(table: dict, validation: dict, mapping: dict) -> dict:
             "transformations": ["Explicit timestamp parsing to UTC", "Numeric parsing; null preserved",
                                 "Operator-confirmed signal names; no unit conversion",
                                 "Inclusive selected time window; source order retained"]}
+
+
+def paired_input(reference, comparison, reference_validation, comparison_validation, mapping):
+    """Explicit shared mapping; compatibility is attested, never inferred from names."""
+    if not mapping.get("pair_confirmed"):
+        raise ValueError("Confirm both datasets describe the same physical system, signal identities, meanings and units; exclude outcome labels.")
+    if mapping.get("start") or mapping.get("end"):
+        raise ValueError("Paired evaluations use both complete supplied periods; interval restrictions are not supported.")
+    if any(not s["unit"].strip() for s in mapping["signals"] if s["include"]):
+        raise ValueError("Paired included signals require explicit matching units (use 'dimensionless' when confirmed).")
+    # Exact source identities only in this first version. Different schemas require
+    # an explicit future per-source mapping, never automatic renaming.
+    if {s["column"] for s in reference_validation["signals"]} != {s["column"] for s in comparison_validation["signals"]}:
+        raise ValueError("Incompatible signal schemas: paired mode requires identical signal columns and a shared mapping.")
+    ref = analysis_input(reference, reference_validation, mapping)
+    comp = analysis_input(comparison, comparison_validation, mapping)
+    return {**comp, "mode": "paired", "reference": ref,
+            "baseline_policy": "supplied_reference_authoritative_behavioral_baseline"}
