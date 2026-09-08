@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 CONTRACT = "neraium-workbench-authority.v1"
-SUPPORTED_COMMIT = "011bda9c728e4c86b61c03ddcce2adf0b7eb1fc5"
+SUPPORTED_COMMIT = "62d5a2fe260a0a1d714708eaa755cd3ebfb8eb95"
 
 
 class AuthorityError(RuntimeError):
