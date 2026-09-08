@@ -45,13 +45,20 @@ def render(run: dict, review: dict) -> str:
         if "Relationship changes" in label:
             continue
         if "Change timing" in label:
-            value = {"method": value.get("method"), "adaptive_persistence": value.get("adaptive_persistence", {})}
+            adaptive = value.get("adaptive_persistence", {})
+            value = {"method": value.get("method"), "adaptive_persistence": {
+                k: adaptive[k] for k in ("status", "reason", "method", "elapsed_time_available",
+                                        "observed_duration_seconds", "recent_window", "persistent_columns",
+                                        "actual_persistence", "limitations") if k in adaptive
+            }}
+        if "Uncertainty" in label:
+            value = {k: value[k] for k in ("status", "limitations", "interpretation", "module_failures") if k in value}
         if not value:
             text = "No evidence entries supplied by the authoritative engine. This is not a claim of stable behavior."
         else:
             text = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False)
         # Never silently omit long evidence from a concise report.
-        if len(text) > 3500:
+        if len(text) > 3500 and "Uncertainty" not in label:
             text = "Detailed evidence is in the attached JSON package at the path in this heading; omitted here for report brevity."
         excerpts.append(f"<h2>{esc(label)}</h2><pre>{esc(text)}</pre>")
     return f"""<!doctype html><html lang="en"><meta charset="utf-8">
