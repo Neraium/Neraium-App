@@ -4,8 +4,9 @@ Neraium-App is the internal analyst tool for evaluating historical telemetry
 supplied by a prospect or customer. It manages intake, review, provenance and
 customer reports. **Neraium-1.0 owns intelligence and evidence semantics.**
 
-Workflow: **Data received → Validation → Signal/system mapping → Analysis →
-Results → Evidence → Customer report.**
+Workflow: **Evaluation details → Upload reference → Upload comparison → Validate
+compatibility → Confirm signal mapping → Run authoritative SII → Review evidence
+→ Export report.**
 
 This is a read-only historical evaluation tool. It does not provide live
 monitoring, equipment control, failure probability, RUL, causal diagnosis, or
@@ -52,8 +53,9 @@ are required. The old Compose configuration has been removed.
 
 ## Running an evaluation
 
-1. Create/select an evaluation with customer, facility, system and scope. Choose
-   single dataset or paired reference/comparison mode.
+1. Choose **New Evaluation** and enter customer, facility, physical system and
+   scope. New evaluations use paired reference/comparison mode. Previously saved
+   single-dataset evaluations remain accessible.
 2. Upload UTF-8 CSV, TSV or a JSON array of flat row objects. Limits: 10 MiB,
    10,000 rows, 64 columns, at most 24 selected analysis signals. Use one system
    per evaluation. Larger inputs require an explicitly scoped upstream extract;
@@ -158,6 +160,7 @@ new run to retry; preserved records are not overwritten.
 ```bash
 .venv/bin/python -m pytest tests/workbench -q
 cd frontend
+CI=true npm test -- --watchAll=false --runInBand --runTestsByPath src/App.test.js
 CI=true npm run build
 ```
 
@@ -172,3 +175,8 @@ See [architecture](ARCHITECTURE.md), [original audit](docs/HISTORICAL_WORKBENCH_
 and [legacy inventory](docs/WORKBENCH_LEGACY_BOUNDARY.md). Older Grow, demo,
 production-deployment, benchmark and research documents do not describe the
 active workbench. Retained legacy sources are historical reference only.
+
+## app.neraium.com deployment boundary
+
+See [deployment handoff](docs/APP_DEPLOYMENT_HANDOFF.md). CI validates changes; it
+does not deploy this application. The public site has not been switched by this PR.
