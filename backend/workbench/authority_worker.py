@@ -33,32 +33,15 @@ def main():
         response = {"contract": "neraium-workbench-authority.v1", "operation": operation,
                     "catalog": {"reference": reference_catalog, "comparison": catalog} if paired else catalog}
         if operation == "analyze" and paired:
-            from app.services.behavioral_baseline import build_behavioral_baseline
-            from app.services.upload_jobs import _comparison_relationship_changes
-            baseline = build_behavioral_baseline(
-                job_id=payload["run_id"] + "-reference", filename="reference",
-                dataset_id=payload["run_id"] + "-reference", columns=reference["columns"],
-                rows=reference["rows"], numeric_columns=columns[1:], timestamp_column="timestamp",
-                row_count_total=len(reference["rows"]), numeric_profiles=reference_profiles,
-                telemetry_signal_catalog=reference_catalog, approval_required=True,
+            from app.engine.sii_engine import evaluate_sii
+            # Paired SII derives its own catalog and operating context. Analyst
+            # context stays in the immutable App request; it is not a prior.
+            response["result"] = evaluate_sii(
+                columns=columns, reference_rows=reference["rows"], comparison_rows=rows,
+                numeric_profiles=profiles, timestamp_column="timestamp",
+                signal_units={s["meaning"].strip(): s["unit"].strip() for s in payload["signals"]},
+                config={"numeric_columns": columns[1:], "engineering_priors": []},
             )
-            if not baseline["baseline_suitability"]["eligible_for_activation"]:
-                raise ValueError("Authority rejected the supplied reference as unsuitable.")
-            counts = {}
-            changes = _comparison_relationship_changes(baseline["candidate_model"], rows, performance_counts=counts)
-            # A separate transport contract: never present this as paired evaluate_sii.
-            response["result"] = {
-                "comparison_contract": "neraium-workbench-paired.v1",
-                "status": "limited", "reference_baseline": baseline,
-                "relationship_analysis": {"top_relationship_changes": changes},
-                "processing_trace": counts,
-                "limitations": [
-                    "Paired scope is the authority's supplied-baseline relationship comparison only; evaluate_sii does not accept a supplied reference.",
-                    "The authoritative helper returns at most one relationship above its threshold; an empty list does not establish unchanged behavior.",
-                    "No paired onset, elapsed-time persistence, full SII findings, or consequence evidence is supplied. Helper persistence/confidence fields are retained verbatim and are not time-resolved evidence.",
-                    "Reference suitability and engine signal/context limits are retained in reference_baseline; reference does not mean healthy.",
-                ],
-            }
         elif operation == "analyze":
             from app.engine.sii_engine import evaluate_sii
             response["result"] = evaluate_sii(

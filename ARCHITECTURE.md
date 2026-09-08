@@ -79,18 +79,16 @@ explicit same-system/identity/meaning/unit attestation. Either upload or validat
 invalidates approval. Full projected row arrays stay separate; source bytes are
 immutable. No database schema migration is needed for the JSON documents.
 
-The pinned SII callable has no supplied-reference argument. The paired adapter uses
-`app.services.behavioral_baseline.build_behavioral_baseline` followed by
-`app.services.upload_jobs._comparison_relationship_changes` in the same isolated
-scratch process. It preserves the exact authority baseline and comparison output.
-This is a distinct, limited relationship-evidence contract, not full paired SII.
-No local scoring, delta calculation, result fusion or timing inference is added.
-The helper is private to the pinned revision: pin upgrades require contract review.
-Reports explicitly retain its one-relationship threshold limit and absence of
-paired onset/elapsed-time persistence. Scratch authority artifacts are returned in
-run evidence before scratch cleanup; no baseline activation is performed.
+The paired adapter calls `app.engine.sii_engine.evaluate_sii` with separate
+`reference_rows` and `comparison_rows`, approved signal names and shared units.
+The full result is preserved unchanged, including governed analysis, relationships,
+temporal onset, persistence, uncertainty, limitations and content-hash provenance.
+No local scoring, comparison math, result fusion or timing inference is added.
+The authority derives fresh catalogs and operating context; analyst context is
+retained in App snapshots rather than injected as an unsupported configuration.
+No saved baseline is activated or persistent behavioral memory updated.
 
-Intake allows 10,000 rows per source. The existing temporal default of 5,000 in the
-single SII path is overridden through its supported configuration with input length.
-The paired authority functions have no 5,000-row bound. Byte/signal/time budgets
-remain unchanged; engine-internal window and signal limits remain visible evidence.
+Intake allows 10,000 rows per source within the authority's 16–12,000 paired-row
+contract. The paired temporal default covers 12,000 rows; the single SII path
+continues to override its 5,000-row default with input length. Byte/signal/time
+budgets remain unchanged; engine-internal limits remain visible evidence.

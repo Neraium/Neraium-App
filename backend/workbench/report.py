@@ -4,16 +4,14 @@ import json
 
 
 def evidence_sections(result):
-    if "reference_baseline" in result:
-        return {
-            "What changed / which relationships · /relationship_analysis": result["relationship_analysis"],
-            "Reference model and suitability · /reference_baseline": result["reference_baseline"],
-            "When, persistence and uncertainty limitations · /limitations": result["limitations"],
-            "Authority comparison accounting · /processing_trace": result["processing_trace"],
-        }
     drift = result.get("signal_drift") or {}
     relationships = result.get("relationship_analysis") or {}
     return {
+        **({"Governed analysis · /analysis_result": result["analysis_result"],
+            "Supplied reference provenance and limitations · /supplied_reference": result["supplied_reference"],
+            "Temporal evidence and onset · /temporal_analysis": result.get("temporal_analysis", {}),
+            "Authority processing trace · /processing_trace": result.get("processing_trace", {})}
+           if "supplied_reference" in result else {}),
         "Material findings · /findings": result.get("findings", []),
         "Engineering observations · /evidence_fusion/observations": (result.get("evidence_fusion") or {}).get("observations", []),
         "Relationship changes · /relationship_analysis/top_relationship_changes": relationships.get("top_relationship_changes", []),
@@ -44,7 +42,7 @@ def render(run: dict, review: dict) -> str:
     if paired:
         ref = payload["reference"]
         reference_scope = f"<h2>Reference period/data</h2><p>{esc(run['reference_source']['filename'])} · {len(ref['rows'])} analyzed rows<br>{esc(ref['rows'][0]['timestamp'])} through {esc(ref['rows'][-1]['timestamp'])}<br>SHA-256 {esc(run['reference_source']['sha256'])}</p><h2>Comparison period/data</h2>"
-    window_policy = ("The supplied reference builds the authoritative behavioral baseline; the comparison is passed separately to the authority's relationship comparison helper. Full paired SII, onset and elapsed-time persistence are unavailable. Neither role establishes equipment health."
+    window_policy = ("The full supplied reference and comparison are passed separately to authoritative SII. Governed findings, timing, persistence and limitations are retained as supplied. Neither role establishes equipment health."
                      if paired else "Baseline/comparison windows are selected by the authoritative engine within the approved historical interval.")
     sections = evidence_sections(result)
     relationship_table = "".join(
@@ -83,7 +81,7 @@ Completion is not a finding. Stable and insufficient-evidence outcomes remain va
 <p>{'No relationship-change entries were supplied.' if not relationship_table else 'These are measured associations, not causal diagnoses.'}
 An exact onset time is not inferred from the comparison window. Detailed elapsed-time support, when available, is retained in /persistence_analysis.</p>
 {''.join(excerpts)}
-<h2>Measurable consequence</h2><p>No separately verified consequence evidence is attached in this workbench version.
+<h2>Measurable consequence</h2><p>Any authority-supplied consequence evidence is retained in the governed analysis and full evidence package.
 No cost, energy, failure, or causal consequence is inferred from relationship change.</p>
 <h2>Review and provenance</h2><p>Reviewed by {esc(review['reviewer'])} at {esc(review['created_at'])}.
 Review confirms scope and evidence inspection; it does not certify a diagnosis.</p>

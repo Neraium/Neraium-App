@@ -34,7 +34,7 @@ def test_paired_workflow(client, monkeypatch):
         seen.append(deepcopy(payload))
         response = dict(identity=IDENTITY, catalog={'reference': {}, 'comparison': {}})
         if operation == 'analyze':
-            response['result'] = dict(status='limited', reference_baseline={'test': 'stub'}, relationship_analysis={'top_relationship_changes': []}, limitations=['No paired onset supplied'], processing_trace={})
+            response['result'] = full_result()
         return response
     monkeypatch.setattr(authority, 'call', call)
     eid, originals = pair(client)
@@ -55,7 +55,10 @@ def test_paired_workflow(client, monkeypatch):
     assert 'filename' not in seen[-1] and 'customer' not in seen[-1]
     review = client.post(f'/api/runs/{rid}/reviews', json=dict(reviewer='Test', evidence_reviewed=True)).json()
     html = client.get(f"/api/reviews/{review['id']}/report").text
-    assert 'Reference period/data' in html and 'Comparison period/data' in html and 'No paired onset supplied' in html
+    assert 'Reference period/data' in html and 'Comparison period/data' in html and 'supplied-reference-v1' in html
+    assert 'authority-only-onset' in html
+    assert run['response']['result'] == full_result()
+    assert client.get(f'/api/runs/{rid}/evidence').json()['response']['result'] == full_result()
     evidence = client.get(f'/api/runs/{rid}/evidence').content
     client.post(url + '/source?filename=replacement.csv&role=reference', content=RAW)
     assert client.post(url + '/runs').status_code == 409
@@ -91,15 +94,47 @@ def test_intake_limit(count):
 @pytest.mark.skipif(not os.getenv('NERAIUM_TEST_AUTHORITY_ROOT'), reason='Opt-in pinned authority')
 def test_real_paired_authority(monkeypatch):
     monkeypatch.setenv('NERAIUM_AUTHORITY_ROOT', os.environ['NERAIUM_TEST_AUTHORITY_ROOT'])
-    raw = ('time,flow,pressure\n' + ''.join(f'{i*900},{10+i%7},{20+2*(i%7)}\n' for i in range(48))).encode()
-    table = intake.parse(raw, 'neutral.csv'); quality = intake.validate(table, 'time', 'epoch_seconds')
-    payload = intake.paired_input(table, table, quality, quality, paired_mapping())
+    payload = generated_pair(64)
     result = authority.call({**payload, 'run_id': 'paired-contract-test'})
     assert result['identity']['commit'] == authority.SUPPORTED_COMMIT
-    assert result['result']['status'] == 'limited'
-    assert result['result']['reference_baseline']['dataset_id'] == 'paired-contract-test-reference'
-    assert result['result']['processing_trace']['baseline_artifacts_reused'] == 1
-    assert len(payload['reference']['rows']) == len(payload['rows']) == 48
+    evidence = result['result']
+    assert evidence['processing_trace']['modules_failed'] == []
+    assert evidence['findings'] == evidence['analysis_result']['insights']
+    assert evidence['findings']
+    assert evidence['analysis_result']['evidence_index']
+    assert evidence['analysis_result']['sii_evidence']['relationship_changes']
+    assert evidence['temporal_analysis']['active_rows'] == 64
+    assert evidence['temporal_analysis']['lead_time_estimate']['timestamp'] in [r['timestamp'] for r in payload['rows']]
+    assert evidence['persistence_analysis']['adaptive_persistence']['rows_used'] == 64
+    assert evidence['persistence_analysis']['adaptive_persistence']['elapsed_time_available']
+    assert evidence['supplied_reference']['reference']['row_count'] == 64
+    assert evidence['supplied_reference']['comparison']['row_count'] == 64
+
+
+def generated_pair(count):
+    import math
+    tables = []
+    for role in ('reference', 'comparison'):
+        raw = ('time,flow,pressure,power\n' + ''.join(
+            f'{(i + (129600 if role == "comparison" else 0))*60},'
+            f'{80+4*math.sin(i/4)},'
+            f'{40+2*math.sin(i/4) if role == "reference" else 55+2*math.cos(i*2)},'
+            f'{20+math.sin(i/4) if role == "reference" else 28+math.sin(i/4)}\n'
+            for i in range(count))).encode()
+        tables.append(intake.parse(raw, role + '.csv'))
+    m = paired_mapping()
+    m['signals'].append(dict(column='power', meaning='power', unit='dimensionless', include=True, reason=''))
+    return intake.paired_input(*tables, *(intake.validate(t, 'time', 'epoch_seconds') for t in tables), m)
+
+
+def full_result():
+    # Explicit transport fixture, not analytical evidence.
+    return dict(engine={'name': 'neraium_sii', 'version': 'v2'}, status='limited',
+                findings=[], analysis_result={'insights': [], 'sii_evidence': {'consequence': 'authority-only-fixture'}},
+                supplied_reference={'contract_version': 'supplied-reference-v1', 'reference': {}, 'comparison': {}},
+                temporal_analysis={'onset': 'authority-only-onset'}, persistence_analysis={'rows_used': 3},
+                uncertainty={'limitations': ['authority-only-limitation']},
+                relationship_analysis={'top_relationship_changes': []}, processing_trace={})
 
 
 @pytest.mark.parametrize('paired', [False, True])
@@ -118,15 +153,7 @@ def test_worker_request_boundary(monkeypatch, paired):
     def module(name, **functions): monkeypatch.setitem(sys.modules, name, types.SimpleNamespace(**functions))
     module('app.services.data_quality', profile_numeric_columns=lambda *a: [])
     module('app.services.telemetry_classification', build_telemetry_signal_catalog=lambda *a, **kw: {'flow': {}, 'pressure': {}})
-    def baseline(**kw):
-        calls['baseline'] = kw
-        return {'candidate_model': {'exact': 'model'}, 'baseline_suitability': {'eligible_for_activation': True}}
-    def compare(model, rows, **kw):
-        calls['compare'] = (model, rows)
-        return [{'evidence': 'authority-only'}]
-    def evaluate(**kw): calls['single'] = kw; return {'authority': True}
-    module('app.services.behavioral_baseline', build_behavioral_baseline=baseline)
-    module('app.services.upload_jobs', _comparison_relationship_changes=compare)
+    def evaluate(**kw): calls['evaluate'] = kw; return full_result()
     module('app.engine.sii_engine', evaluate_sii=evaluate)
     monkeypatch.setattr(sys, 'argv', ['worker', '/unused', 'analyze'])
     monkeypatch.setattr(sys, 'stdin', io.StringIO(json.dumps(payload)))
@@ -134,16 +161,17 @@ def test_worker_request_boundary(monkeypatch, paired):
     monkeypatch.setattr(authority_worker.importlib.metadata, 'distributions', lambda: [])
     authority_worker.main()
     response = json.loads(output.getvalue())
+    assert response['result'] == full_result()
+    request = calls['evaluate']
     if paired:
-        assert 'single' not in calls
-        assert calls['baseline']['rows'] == payload['reference']['rows']
-        assert calls['baseline']['filename'] == 'reference'
-        assert calls['baseline']['approval_required'] is True
-        assert calls['compare'] == ({'exact': 'model'}, payload['rows'])
-        assert response['result']['relationship_analysis']['top_relationship_changes'] == [{'evidence': 'authority-only'}]
+        assert request['reference_rows'] == payload['reference']['rows']
+        assert request['comparison_rows'] == payload['rows']
+        assert request['signal_units'] == {'flow': 'dimensionless', 'pressure': 'dimensionless'}
+        assert set(request['config']) == {'numeric_columns', 'engineering_priors'}
+        assert 'rows' not in request and 'telemetry_signal_catalog' not in request
     else:
-        assert calls['single']['rows'] == payload['rows']
-        assert calls['single']['config']['temporal_config']['max_rows'] == len(payload['rows'])
+        assert request['rows'] == payload['rows']
+        assert request['config']['temporal_config']['max_rows'] == len(payload['rows'])
 
 
 def test_paired_malformed_contract(monkeypatch):
@@ -151,19 +179,69 @@ def test_paired_malformed_contract(monkeypatch):
     import subprocess
     monkeypatch.setattr(authority, 'identity', lambda: IDENTITY)
     monkeypatch.setenv('NERAIUM_AUTHORITY_ROOT', '/unused')
-    response = dict(contract=authority.CONTRACT, operation='analyze', catalog={}, runtime={}, result={
-        'comparison_contract': 'neraium-workbench-paired.v1', 'status': 'limited',
-        'reference_baseline': {}, 'relationship_analysis': None})
+    response = dict(contract=authority.CONTRACT, operation='analyze', catalog={}, runtime={}, result={**full_result(), 'supplied_reference': None})
     monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, json.dumps(response), ''))
     with pytest.raises(authority.AuthorityError, match='paired'):
         authority.call({'mode': 'paired'})
 
 
-def test_unsuitable_reference_error(monkeypatch):
+def test_authority_rejection_error(monkeypatch):
     import subprocess
     monkeypatch.setattr(authority, 'identity', lambda: IDENTITY)
     monkeypatch.setenv('NERAIUM_AUTHORITY_ROOT', '/unused')
     monkeypatch.setattr(subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess(
-        [], 1, '', 'ValueError: Authority rejected the supplied reference as unsuitable.'))
-    with pytest.raises(authority.AuthorityError, match='no comparison was run'):
+        [], 1, '', 'ValueError: paired_reference_numeric_value_required:flow'))
+    with pytest.raises(authority.AuthorityError, match='no result was substituted'):
         authority.call({'mode': 'paired'})
+
+
+@pytest.mark.skipif(not os.getenv('NERAIUM_TEST_AUTHORITY_ROOT'), reason='Opt-in pinned authority')
+def test_8640_real_contract_envelope(monkeypatch):
+    """Run the actual authority input boundary, without a large analytical replay."""
+    import io
+    import json
+    import subprocess
+    import sys
+    import types
+    from pathlib import Path
+    from backend.workbench import authority_worker
+    root = os.environ['NERAIUM_TEST_AUTHORITY_ROOT']
+    monkeypatch.setenv('NERAIUM_AUTHORITY_ROOT', root)
+    assert authority.identity()['commit'] == authority.SUPPORTED_COMMIT
+    payload = generated_pair(8640)
+    payload['run_id'] = 'envelope-test'
+    captured = {}
+    def evaluate(**kwargs):
+        captured.update(kwargs)
+        return full_result()
+    monkeypatch.setitem(sys.modules, 'app.engine.sii_engine', types.SimpleNamespace(evaluate_sii=evaluate))
+    monkeypatch.setitem(sys.modules, 'app.services.data_quality', types.SimpleNamespace(
+        profile_numeric_columns=lambda columns, matrix: [{'column': c} for c in columns[1:]]))
+    monkeypatch.setitem(sys.modules, 'app.services.telemetry_classification', types.SimpleNamespace(
+        build_telemetry_signal_catalog=lambda columns, **kw: {c: {} for c in columns[1:]}))
+    monkeypatch.setattr(sys, 'argv', ['worker', root, 'analyze'])
+    monkeypatch.setattr(sys, 'stdin', io.StringIO(json.dumps(payload)))
+    monkeypatch.setattr(sys, 'stdout', io.StringIO())
+    monkeypatch.setattr(authority_worker.importlib.metadata, 'distributions', lambda: [])
+    authority_worker.main()
+    assert captured['reference_rows'] == payload['reference']['rows']
+    assert captured['comparison_rows'] == payload['rows']
+    script = """
+import json, sys
+from app.engine.supplied_reference import prepare_supplied_reference
+args = json.load(sys.stdin)
+reference, comparison, cfg, provenance = prepare_supplied_reference(**args)
+assert len(reference[0]) == len(comparison[0]) == 8640
+assert cfg['temporal_config'].max_rows == 12000
+for role in ('reference', 'comparison'):
+    assert provenance[role]['row_count'] == provenance[role]['row_end'] == 8640
+    assert provenance[role]['time_start'] == args[role + '_rows'][0]['timestamp']
+    assert provenance[role]['time_end'] == args[role + '_rows'][-1]['timestamp']
+print('two intact 8640-row periods accepted')
+"""
+    env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1',
+           'PYTHONPATH': str(Path(root) / 'backend') + ':' + str(Path(root) / 'shared/neraium-intelligence/src')}
+    result = subprocess.run([os.getenv('NERAIUM_AUTHORITY_PYTHON', sys.executable), '-B', '-c', script],
+                            input=json.dumps(captured), capture_output=True, text=True, env=env, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert 'two intact 8640-row periods accepted' in result.stdout

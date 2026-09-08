@@ -25,7 +25,7 @@ cd ..
 ```
 
 Configure a **separate, clean** Neraium-1.0 checkout at the supported revision:
-`62d5a2fe260a0a1d714708eaa755cd3ebfb8eb95` (merged PR #135, September 8, 2026).
+`6e26a83a17babaea443b75c545a756835d37102b` (merged PR #136, September 8, 2026).
 Do not point the workbench at a developer checkout with unfinished changes.
 Install that revision's backend dependencies in a separate virtual environment.
 The workbench interpreter and authority interpreter can be different.
@@ -89,22 +89,20 @@ unconfirmed compatibility and invalid timestamps block paired analysis. Use expl
 `dimensionless` units when applicable. Paired mode uses both full periods; it does
 not merge files, restrict intervals, fill, resample or normalize input rows.
 
-**Available scope: authoritative supplied-baseline relationship comparison.** The
-pinned `evaluate_sii` API cannot accept a separate supplied reference. Paired mode
-instead calls the pin's `build_behavioral_baseline` on reference rows and
-`_comparison_relationship_changes` on that exact candidate model and comparison
-rows, inside the isolated authority subprocess. Unsuitable reference models fail.
-No candidate is activated, and scratch persistence is private to that invocation;
-the complete returned baseline artifact is preserved in App run evidence.
+Paired mode calls the pinned `evaluate_sii` with separate `reference_rows` and
+`comparison_rows`, approved signal names and shared `signal_units`. It preserves
+the complete authoritative result, including governed `analysis_result`/findings,
+relationship changes, temporal onset evidence, persistence, uncertainty, limitations
+and supplied-reference provenance. Consequence is retained only when supplied by
+authority. Stable, no-material-change and insufficient-evidence outcomes are valid.
+No saved baseline is activated or persistent memory updated.
 
-The authority helper returns at most one relationship above its threshold. Paired
-runs are explicitly `limited`: no full paired SII findings, change onset,
-elapsed-time persistence, or consequence evidence is available through this path.
-Helper confidence/persistence fields are retained verbatim, not interpreted as
-probabilities or time-resolved persistence. An empty result is not proof of unchanged
-behavior. Reports distinguish both periods, source hashes, relationships and these
-limitations. Filenames and customer metadata are not supplied to these analytical
-calls; roles do not encode expected outcomes. Analysts must exclude outcome labels.
+The authority derives fresh classification and operating context; it rejects
+injected catalogs and free-text context configuration. Approved analyst context
+remains in the immutable App input/report, not an engineering prior. Filenames and
+customer metadata are not sent to analytical calls. Analysts must exclude outcome
+labels. The authority requires at least 16 rows per period, finite numeric values
+and no cumulative counters; unsupported input fails without imputation or fallback.
 
 ### Intake limit audit
 
@@ -114,8 +112,9 @@ in the direct authority subprocess. The single-dataset temporal module *does* de
 to the last 5,000 rows; the adapter now sets its supported `temporal_config.max_rows`
 to the complete input length. Other authority-selected analysis windows remain
 engine semantics and are retained in evidence; intact intake does not imply every
-engine module uses every row. The paired baseline builder/comparison helper have no
-5,000-row input cap. Their signal/context limits remain in baseline evidence.
+engine module uses every row. Paired SII supports 16–12,000 rows per period with a 12,000-row temporal default;
+the App retains its stricter 10,000-row intake bound. Authority module limits remain
+visible in evidence.
 The 120-second analysis, 30-second preview and 150-second client timeouts remain;
 timeouts fail explicitly with no sampling or substituted result. Capacity at maximum
 rows/signals has not been benchmarked. Focused intake tests cover 8,640 and 10,000
@@ -134,8 +133,8 @@ versions, missing dependencies, malformed output, timeouts and engine failures
 produce explicit errors; there is no synthetic or legacy fallback. Revision
 updates require a focused adapter contract check and an explicit pin change.
 
-The workbench is pinned to the merged Neraium-1.0 PR #135 authority commit
-`62d5a2fe260a0a1d714708eaa755cd3ebfb8eb95`. The optional
+The workbench is pinned to the merged Neraium-1.0 PR #136 authority commit
+`6e26a83a17babaea443b75c545a756835d37102b`. The optional
 `NERAIUM_AUTHORITY_COMMIT` environment variable is only an assertion of this pin;
 leave it unset or set it to the same SHA. Existing run/report identities remain
 unchanged when the supported authority revision changes.
@@ -165,7 +164,7 @@ CI=true npm run build
 To include the tiny real-authority integration test, set
 `NERAIUM_TEST_AUTHORITY_ROOT` to the clean supported checkout and
 `NERAIUM_AUTHORITY_PYTHON` to its dependency-equipped interpreter. That test uses
-24 generated single-dataset rows or 48 generated paired contract-test rows, never customer or benchmark datasets. Without
+24 generated single-dataset rows or 64 generated paired contract-test rows, never customer or benchmark datasets. Without
 this configuration, CI skips the external integration and checks transport,
 validation, failure behavior, report safety and provenance using explicit stubs.
 
