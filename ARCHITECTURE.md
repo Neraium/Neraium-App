@@ -70,3 +70,27 @@ provisioned dependencies. Missing authority configuration fails closed.
 A server interruption can preserve a nonterminal run. No report can be produced
 from it; retry creates a separate run. There is no background recovery queue.
 See README for supported formats, limits, setup and focused checks.
+
+## Supplied reference/comparison boundary
+
+Paired evaluations add an independent reference source/validation to the existing
+comparison source. Both are snapshotted in each run, alongside a shared mapping and
+explicit same-system/identity/meaning/unit attestation. Either upload or validation
+invalidates approval. Full projected row arrays stay separate; source bytes are
+immutable. No database schema migration is needed for the JSON documents.
+
+The pinned SII callable has no supplied-reference argument. The paired adapter uses
+`app.services.behavioral_baseline.build_behavioral_baseline` followed by
+`app.services.upload_jobs._comparison_relationship_changes` in the same isolated
+scratch process. It preserves the exact authority baseline and comparison output.
+This is a distinct, limited relationship-evidence contract, not full paired SII.
+No local scoring, delta calculation, result fusion or timing inference is added.
+The helper is private to the pinned revision: pin upgrades require contract review.
+Reports explicitly retain its one-relationship threshold limit and absence of
+paired onset/elapsed-time persistence. Scratch authority artifacts are returned in
+run evidence before scratch cleanup; no baseline activation is performed.
+
+Intake allows 10,000 rows per source. The existing temporal default of 5,000 in the
+single SII path is overridden through its supported configuration with input length.
+The paired authority functions have no 5,000-row bound. Byte/signal/time budgets
+remain unchanged; engine-internal window and signal limits remain visible evidence.

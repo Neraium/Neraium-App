@@ -4,6 +4,13 @@ import json
 
 
 def evidence_sections(result):
+    if "reference_baseline" in result:
+        return {
+            "What changed / which relationships · /relationship_analysis": result["relationship_analysis"],
+            "Reference model and suitability · /reference_baseline": result["reference_baseline"],
+            "When, persistence and uncertainty limitations · /limitations": result["limitations"],
+            "Authority comparison accounting · /processing_trace": result["processing_trace"],
+        }
     drift = result.get("signal_drift") or {}
     relationships = result.get("relationship_analysis") or {}
     return {
@@ -32,6 +39,13 @@ def render(run: dict, review: dict) -> str:
     esc = lambda value: escape(str(value), quote=True)
     pretty = lambda value: esc(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False))
     signals = "".join(f"<tr><td>{esc(s['column'])}</td><td>{esc(s['meaning'])}</td><td>{esc(s['unit'] or 'Unknown / not supplied')}</td></tr>" for s in payload["signals"])
+    paired = payload.get("mode") == "paired"
+    reference_scope = ""
+    if paired:
+        ref = payload["reference"]
+        reference_scope = f"<h2>Reference period/data</h2><p>{esc(run['reference_source']['filename'])} · {len(ref['rows'])} analyzed rows<br>{esc(ref['rows'][0]['timestamp'])} through {esc(ref['rows'][-1]['timestamp'])}<br>SHA-256 {esc(run['reference_source']['sha256'])}</p><h2>Comparison period/data</h2>"
+    window_policy = ("The supplied reference builds the authoritative behavioral baseline; the comparison is passed separately to the authority's relationship comparison helper. Full paired SII, onset and elapsed-time persistence are unavailable. Neither role establishes equipment health."
+                     if paired else "Baseline/comparison windows are selected by the authoritative engine within the approved historical interval.")
     sections = evidence_sections(result)
     relationship_table = "".join(
         "<tr>" + "".join(f"<td>{esc(item.get(key) if item.get(key) is not None else 'Not supplied')}</td>"
@@ -53,14 +67,14 @@ def render(run: dict, review: dict) -> str:
 <p>{esc(evaluation['scope'])}</p>
 <p>This evaluation is read-only and based on supplied historical data. Correlation does not establish causation.
 No failure probability, remaining useful life, equipment control, or autonomous recommendation is provided.</p>
-<h2>Dataset and scope</h2><p>{esc(run['source']['filename'])} · {len(payload['rows'])} analyzed rows<br>
+<h2>Dataset and scope</h2>{reference_scope}<p>{esc(run['source']['filename'])} · {len(payload['rows'])} analyzed rows<br>
 {esc(payload['rows'][0]['timestamp'])} through {esc(payload['rows'][-1]['timestamp'])}</p>
 <p>System context supplied by analyst: {esc(payload['context'])}</p>
-<p>Baseline/comparison windows are selected by the authoritative engine within the approved historical interval.
+<p>{esc(window_policy)}
 No externally established healthy baseline is assumed. Cross-run behavioral memory and engineering priors are not configured.</p>
 <table><tr><th>Source signal</th><th>Confirmed meaning</th><th>Supplied unit</th></tr>{signals}</table>
 <h2>Quality, exclusions and transformations</h2><pre>{pretty({'warnings': run['validation']['warnings'], 'signals': [s for s in run['validation']['signals'] if s['missing_count'] or s['invalid_count'] or s['constant']]})}</pre>
-<pre>{pretty({'excluded_signals': [s for s in run['mapping']['signals'] if not s['include']], 'transformations': payload['transformations']})}</pre>
+<pre>{pretty({'excluded_signals': [s for s in run['mapping']['signals'] if not s['include']], 'transformations': payload['transformations'], 'reference_validation': run.get('reference_validation'), 'pair_confirmation': run['mapping'].get('pair_confirmed')})}</pre>
 <h2>Analysis outcome</h2><p>Authoritative execution status: <b>{esc(result['status'])}</b>.
 Completion is not a finding. Stable and insufficient-evidence outcomes remain valid.</p>
 <h2>Observed relationship changes</h2>
@@ -73,5 +87,5 @@ An exact onset time is not inferred from the comparison window. Detailed elapsed
 No cost, energy, failure, or causal consequence is inferred from relationship change.</p>
 <h2>Review and provenance</h2><p>Reviewed by {esc(review['reviewer'])} at {esc(review['created_at'])}.
 Review confirms scope and evidence inspection; it does not certify a diagnosis.</p>
-<pre>{pretty({'run_id': run['id'], 'source_sha256': run['source']['sha256'], 'input_sha256': run['input_sha256'], 'result_sha256': run['result_sha256'], 'authority': run['response']['identity']})}</pre>
+<pre>{pretty({'run_id': run['id'], 'source_sha256': run['source']['sha256'], 'reference_source': run.get('reference_source'), 'input_sha256': run['input_sha256'], 'result_sha256': run['result_sha256'], 'authority': run['response']['identity']})}</pre>
 <p>Deliver with the run's JSON evidence package for complete evidence, module limitations, input rows and runtime versions.</p></html>"""

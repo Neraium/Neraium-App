@@ -52,9 +52,10 @@ are required. The old Compose configuration has been removed.
 
 ## Running an evaluation
 
-1. Create/select an evaluation with customer, facility, system and scope.
+1. Create/select an evaluation with customer, facility, system and scope. Choose
+   single dataset or paired reference/comparison mode.
 2. Upload UTF-8 CSV, TSV or a JSON array of flat row objects. Limits: 10 MiB,
-   5,000 rows, 64 columns, at most 24 selected analysis signals. Use one system
+   10,000 rows, 64 columns, at most 24 selected analysis signals. Use one system
    per evaluation. Larger inputs require an explicitly scoped upstream extract;
    the workbench never silently samples or truncates a source.
 3. Select the timestamp column and format: timezone-aware ISO, Unix seconds or
@@ -68,13 +69,57 @@ are required. The old Compose configuration has been removed.
 5. Preview the **authority's** analysis classifications and approve them. Correct
    a mistaken meaning or exclude an unsuitable signal. A changed source,
    validation or mapping requires renewed approval.
-6. Run analysis. The engine owns baseline/comparison selection within the selected
+6. Run analysis. In single-dataset mode, the engine owns baseline/comparison selection within the selected
    interval; the workbench does not declare the baseline healthy. Inspect its
    windows, relationship changes, persistence, uncertainty and module limitations.
 7. Download the full run evidence JSON. Record an analyst review to generate a
    printable HTML customer report (browser Print → Save as PDF). Deliver the
    report with its evidence JSON. Prior runs/reports remain accessible after
    subsequent uploads, and report content is frozen when reviewed.
+
+## Paired reference/comparison
+
+Upload reference and comparison independently into one evaluation, then validate
+both timestamp columns/formats. Both original files and hashes remain independent.
+Confirm one shared inclusion/exclusion mapping, identical physical signal identities,
+meanings and supplied units, and the same physical system. This is an analyst
+attestation against source documentation; the App cannot establish physical identity
+or units from telemetry values. Different signal schemas, unknown included units,
+unconfirmed compatibility and invalid timestamps block paired analysis. Use explicit
+`dimensionless` units when applicable. Paired mode uses both full periods; it does
+not merge files, restrict intervals, fill, resample or normalize input rows.
+
+**Available scope: authoritative supplied-baseline relationship comparison.** The
+pinned `evaluate_sii` API cannot accept a separate supplied reference. Paired mode
+instead calls the pin's `build_behavioral_baseline` on reference rows and
+`_comparison_relationship_changes` on that exact candidate model and comparison
+rows, inside the isolated authority subprocess. Unsuitable reference models fail.
+No candidate is activated, and scratch persistence is private to that invocation;
+the complete returned baseline artifact is preserved in App run evidence.
+
+The authority helper returns at most one relationship above its threshold. Paired
+runs are explicitly `limited`: no full paired SII findings, change onset,
+elapsed-time persistence, or consequence evidence is available through this path.
+Helper confidence/persistence fields are retained verbatim, not interpreted as
+probabilities or time-resolved persistence. An empty result is not proof of unchanged
+behavior. Reports distinguish both periods, source hashes, relationships and these
+limitations. Filenames and customer metadata are not supplied to these analytical
+calls; roles do not encode expected outcomes. Analysts must exclude outcome labels.
+
+### Intake limit audit
+
+The intake bound is now 10,000 rows **per file**, with unchanged 10 MiB/file,
+64-column and 24-selected-signal bounds. There is no transport-level 5,000-row bound
+in the direct authority subprocess. The single-dataset temporal module *does* default
+to the last 5,000 rows; the adapter now sets its supported `temporal_config.max_rows`
+to the complete input length. Other authority-selected analysis windows remain
+engine semantics and are retained in evidence; intact intake does not imply every
+engine module uses every row. The paired baseline builder/comparison helper have no
+5,000-row input cap. Their signal/context limits remain in baseline evidence.
+The 120-second analysis, 30-second preview and 150-second client timeouts remain;
+timeouts fail explicitly with no sampling or substituted result. Capacity at maximum
+rows/signals has not been benchmarked. Focused intake tests cover 8,640 and 10,000
+rows without running a large authority workload.
 
 ## Authority and traceability
 
@@ -120,7 +165,7 @@ CI=true npm run build
 To include the tiny real-authority integration test, set
 `NERAIUM_TEST_AUTHORITY_ROOT` to the clean supported checkout and
 `NERAIUM_AUTHORITY_PYTHON` to its dependency-equipped interpreter. That test uses
-24 generated contract-test rows, never customer or benchmark datasets. Without
+24 generated single-dataset rows or 48 generated paired contract-test rows, never customer or benchmark datasets. Without
 this configuration, CI skips the external integration and checks transport,
 validation, failure behavior, report safety and provenance using explicit stubs.
 

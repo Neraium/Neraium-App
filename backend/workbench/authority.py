@@ -32,6 +32,8 @@ def identity():
         raise AuthorityError("Authority must match the pinned commit with no modified or untracked files.")
     return {"repository": "Neraium/Neraium-1.0", "commit": commit,
             "callable": "app.engine.sii_engine.evaluate_sii", "adapter_contract": CONTRACT,
+            "paired_callables": ["app.services.behavioral_baseline.build_behavioral_baseline",
+                                 "app.services.upload_jobs._comparison_relationship_changes"],
             "adapter_sha256": hashlib.sha256(Path(__file__).with_name("authority_worker.py").read_bytes()).hexdigest()}
 
 
@@ -51,6 +53,8 @@ def call(payload: dict, operation: str = "analyze") -> dict:
                 cwd=scratch, env=env, timeout=120 if operation == "analyze" else 30,
             )
         if process.returncode:
+            if "ValueError: Authority rejected the supplied reference as unsuitable." in process.stderr:
+                raise AuthorityError("Authority rejected the supplied reference as unsuitable; no comparison was run.")
             raise AuthorityError("Authoritative process failed. Check the pinned interpreter's dependencies; no result was substituted.")
         response = json.loads(process.stdout)
         if not isinstance(response, dict) or response.get("contract") != CONTRACT or response.get("operation") != operation:
@@ -59,9 +63,18 @@ def call(payload: dict, operation: str = "analyze") -> dict:
             raise AuthorityError("Authority provenance or signal catalog is missing.")
         if operation == "analyze":
             result = response.get("result", {})
-            if not isinstance(result, dict) or result.get("engine") != {"name": "neraium_sii", "version": "v2"} or result.get("status") not in {"complete", "limited", "failed"}:
+            if payload.get("mode") == "paired":
+                if (not isinstance(result, dict) or result.get("comparison_contract") != "neraium-workbench-paired.v1"
+                        or result.get("status") != "limited"
+                        or not isinstance(result.get("reference_baseline"), dict)
+                        or not isinstance(result.get("relationship_analysis"), dict)
+                        or not isinstance(result["relationship_analysis"].get("top_relationship_changes"), list)
+                        or not isinstance(result.get("processing_trace"), dict)
+                        or not isinstance(result.get("limitations"), list)):
+                    raise AuthorityError("Unsupported paired authoritative evidence contract.")
+            elif not isinstance(result, dict) or result.get("engine") != {"name": "neraium_sii", "version": "v2"} or result.get("status") not in {"complete", "limited", "failed"}:
                 raise AuthorityError("Unsupported authoritative result semantics.")
-            if not isinstance(result.get("findings"), list) or any(not isinstance(result.get(k), dict) for k in ("uncertainty", "processing_trace", "relationship_analysis", "persistence_analysis")):
+            if payload.get("mode") != "paired" and (not isinstance(result.get("findings"), list) or any(not isinstance(result.get(k), dict) for k in ("uncertainty", "processing_trace", "relationship_analysis", "persistence_analysis"))):
                 raise AuthorityError("Authoritative evidence sections are missing or malformed.")
         if identity() != before:
             raise AuthorityError("Authority changed during execution; result rejected.")
