@@ -79,7 +79,7 @@ Completion is not a finding. Stable and insufficient-evidence outcomes remain va
 <p>Evidence: /relationship_analysis/top_relationship_changes in the accompanying JSON package.</p>
 <table><tr><th>Relationship</th><th>Change</th><th>Baseline correlation</th><th>Recent correlation</th><th>Evidence confidence</th><th>Window</th></tr>{relationship_table}</table>
 <p>{'No relationship-change entries were supplied.' if not relationship_table else 'These are measured associations, not causal diagnoses.'}
-An exact onset time is not inferred from the comparison window. Detailed elapsed-time support, when available, is retained in /persistence_analysis.</p>
+Authority-supplied onset and timing evidence is retained in /temporal_analysis; persistence and elapsed-time evidence is retained in /persistence_analysis, with the authority's limitations.</p>
 {''.join(excerpts)}
 <h2>Measurable consequence</h2><p>Any authority-supplied consequence evidence is retained in the governed analysis and full evidence package.
 No cost, energy, failure, or causal consequence is inferred from relationship change.</p>
