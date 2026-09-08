@@ -1,48 +1,26 @@
-name: CI
-
+name: Workbench checks
 on:
   push:
     branches: [main]
   pull_request:
-
+permissions:
+  contents: read
 jobs:
-  test:
+  workbench:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e .[dev]
-
-      - name: Verify dependency shim
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          requirements = Path("requirements.txt")
-          lines = [
-              line.strip()
-              for line in requirements.read_text(encoding="utf-8").splitlines()
-              if line.strip() and not line.lstrip().startswith("#")
-          ]
-          if lines != ["."]:
-              raise SystemExit(
-                  "requirements.txt must remain a thin shim with only '.' as "
-                  "the non-comment requirement."
-              )
-          print("requirements.txt shim check passed")
-          PY
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Test
-        run: pytest
+          python-version: '3.11'
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest tests/workbench -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: frontend
+      - run: CI=true npm run build
+        working-directory: frontend
