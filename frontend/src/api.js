@@ -1,36 +1,12 @@
-import axios from "axios";
-
-export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-export const api = axios.create({ baseURL: API, timeout: 12000 });
-
-export const Playback = {
-  templates: () => api.get("/playback/templates").then(r => r.data),
-  status: () => api.get("/playback/status").then(r => r.data),
-  start: (body) => api.post("/playback/start", body).then(r => r.data),
-  stop: () => api.post("/playback/stop").then(r => r.data),
-  setSpeed: (speed) => api.post("/playback/speed", { speed }).then(r => r.data),
-};
-
-export const Systems = {
-  list: () => api.get("/systems").then(r => r.data),
-  get: (id) => api.get(`/systems/${id}`).then(r => r.data),
-  state: (id) => api.get(`/systems/${id}/state`).then(r => r.data),
-  history: (id, limit = 200) => api.get(`/systems/${id}/history`, { params: { limit } }).then(r => r.data),
-  decision: (id) => api.get(`/systems/${id}/decision`).then(r => r.data),
-};
-
-export const Audit = {
-  list: (system_id = "", limit = 100) => api.get("/audit", { params: { system_id, limit } }).then(r => r.data),
-  add: (body) => api.post("/audit", body).then(r => r.data),
-  clear: (system_id = "") => api.delete("/audit", { params: { system_id } }).then(r => r.data),
-};
-
-export const Customers = {
-  list: () => api.get("/customers").then(r => r.data),
-  create: (body) => api.post("/customers", body).then(r => r.data),
-  remove: (id) => api.delete(`/customers/${id}`).then(r => r.data),
-};
-
-// Helper for the cURL snippet shown in Settings
-export const ingestUrlFor = (apiKey) => `${API}/ingest/${apiKey}`;
+import axios from 'axios';
+const api = axios.create({ baseURL: `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`, timeout: 150000 });
+export function setToken(token) { api.defaults.headers.common['X-Workbench-Token'] = token; }
+export const get = path => api.get(path).then(r => r.data);
+export const post = (path, body = {}) => api.post(path, body).then(r => r.data);
+export const upload = (id, file) => api.post(`/evaluations/${id}/source`, file, { params: { filename: file.name }, headers: { 'Content-Type': 'application/octet-stream' } }).then(r => r.data);
+export async function download(path, filename) {
+  const response = await api.get(path, { responseType: 'blob' });
+  const url = URL.createObjectURL(response.data);
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

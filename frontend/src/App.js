@@ -1,130 +1,71 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import "@/index.css";
-import Header from "@/components/Header";
-import SystemGrid from "@/components/SystemGrid";
-import SystemDetail from "@/components/SystemDetail";
-import AuditView from "@/components/AuditView";
-import SettingsView from "@/components/SettingsView";
-import DemoControls from "@/components/DemoControls";
-import StateFlashBanners from "@/components/StateFlashBanners";
-import { Playback, Systems, Audit } from "@/api";
-
+import { useState } from 'react';
+import { get, post, upload, download, setToken } from './api';
+import './workbench.css';
+const STAGES = ['DATA RECEIVED', 'VALIDATION', 'SIGNAL/SYSTEM MAPPING', 'ANALYSIS', 'RESULTS', 'EVIDENCE', 'CUSTOMER REPORT'];
+const EMPTY = { context: '', start: '', end: '', signals: [] };
+const Json = ({ value }) => <pre>{JSON.stringify(value, null, 2)}</pre>;
 export default function App() {
-  const [view, setView] = useState("grid");                  // grid | audit | settings | demo
-  const [selectedId, setSelectedId] = useState(null);        // when set on grid view, show SystemDetail
-  const [systems, setSystems] = useState([]);
-  const [pb, setPb] = useState({ running: false, system_count: 0, cycle: 0, speed: "normal" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const wsRef = useRef(null);
-
-  // Initial fetch
-  const refresh = useCallback(async () => {
-    try {
-      const [list, status] = await Promise.all([Systems.list(), Playback.status()]);
-      setSystems(list.systems || []);
-      setPb(status);
-    } catch (e) { console.error(e); }
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // WebSocket live snapshot — pushes systems[] every 500ms while connected
-  useEffect(() => {
-    const url = process.env.REACT_APP_BACKEND_URL.replace(/^http/, "ws") + "/api/ws/stream";
-    let ws;
-    try {
-      ws = new WebSocket(url);
-      wsRef.current = ws;
-      ws.onopen = () => ws.send(JSON.stringify({ action: "subscribe", interval_ms: 500 }));
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg.type === "snapshot") {
-            // Map WS payload to /api/systems shape
-            setSystems(msg.systems.map(s => ({
-              system_id: s.system_id, label: s.label, template: s.template,
-              variables: [], units: {}, frame_count: s.frame_count, latest: s.latest, created_at: null,
-            })));
-          }
-        } catch (_) {}
-      };
-      ws.onerror = () => { /* fall back to polling below */ };
-    } catch (_) {}
-
-    // Poll status every second regardless (for cycle counter)
-    const id = setInterval(async () => {
-      try { setPb(await Playback.status()); } catch (_) {}
-    }, 1000);
-
-    return () => { clearInterval(id); try { ws?.close(); } catch (_) {} };
-  }, []);
-
-  // Browser tab title — operator at-a-glance status using the canonical
-  // four-state vocabulary (STABLE / TRANSITION / UNSTABLE / LOCK_IN).
-  // e.g. "(1) sys-A1 TRANSITION · 3 stable — Neraium"
-  useEffect(() => {
-    const order = { LOCK_IN: 4, UNSTABLE: 3, TRANSITION: 2, STABLE: 1 };
-    const items = systems || [];
-    if (!items.length) {
-      document.title = "Neraium \u2014 idle";
-      return;
-    }
-    const norm = (s) => {
-      const r = s.latest?.display_regime || s.latest?.regime;
-      return r === "WARMUP" || !r ? "STABLE" : r;
-    };
-    const worst = [...items].sort((a, b) => (order[norm(b)] || 0) - (order[norm(a)] || 0))[0];
-    const ws = norm(worst);
-    const stable = items.filter(s => norm(s) === "STABLE").length;
-    const atRisk = items.length - stable;
-    if (ws === "STABLE") {
-      document.title = `\u25CB ${items.length} stable \u2014 Neraium`;
-    } else {
-      document.title = `(${atRisk}) ${worst.system_id} ${ws} \u00B7 ${stable} stable \u2014 Neraium`;
-    }
-  }, [systems]);
-
-  // Playback controls
-  const handleStart = async () => {
-    setError(null); setLoading(true);
-    try { await Playback.start({ speed: pb.speed }); await refresh(); }
-    catch (e) { setError(e.response?.data?.detail || e.message); }
-    finally { setLoading(false); }
-  };
-  const handleStop = async () => { try { await Playback.stop(); await refresh(); } catch (_) {} };
-  const handleSpeed = async (s) => { try { await Playback.setSpeed(s); setPb({ ...pb, speed: s }); } catch (_) {} };
-
-  const handleAcknowledge = async (system_id, action_type) => {
-    try { await Audit.add({ system_id, action_type, note: "" }); }
-    catch (_) {}
-  };
-
-  return (
-    <div data-testid="app-root" className="min-h-screen bg-[#050505] text-zinc-300">
-      <Header view={view} setView={(v) => { setView(v); if (v !== "grid") setSelectedId(null); }}
-        playback={pb} onStart={handleStart} onStop={handleStop} onSpeedChange={handleSpeed} />
-
-      {/* One-shot STATE CHANGED flash banners — fixed top-right, auto-dismiss */}
-      <StateFlashBanners systems={systems} onSelect={(id) => { setView("grid"); setSelectedId(id); }} />
-
-      <main className="pt-[88px] pb-12 px-5 space-y-3">
-        {error && <div data-testid="error-banner" className="border border-red-500/40 bg-red-500/10 text-red-300 font-mono text-xs p-3">{error}</div>}
-
-        {view === "grid" && (selectedId ? (
-          <SystemDetail systemId={selectedId} onBack={() => setSelectedId(null)} onAcknowledge={handleAcknowledge} />
-        ) : (
-          <SystemGrid systems={systems} loading={loading} selectedId={selectedId} onSelect={setSelectedId} />
-        ))}
-
-        {view === "audit" && (
-          <AuditView scopeSystemId="" />
-        )}
-
-        {view === "demo" && <DemoControls />}
-
-        {view === "settings" && <SettingsView />}
-      </main>
-    </div>
-  );
+  const [token, editToken] = useState(''), [connected, setConnected] = useState(false);
+  const [items, setItems] = useState([]), [evaluation, setEvaluation] = useState(null), [authority, setAuthority] = useState(null);
+  const [busy, setBusy] = useState(''), [error, setError] = useState('');
+  const [time, setTime] = useState({ timestamp_column: '', timestamp_mode: 'iso' });
+  const [mapping, setMapping] = useState(EMPTY), [preview, setPreview] = useState(null), [approved, setApproved] = useState(false);
+  const [run, setRun] = useState(null), [review, setReview] = useState(null), [reviewer, setReviewer] = useState(''), [reviewed, setReviewed] = useState(false);
+  const [create, setCreate] = useState({ customer: '', facility: '', system: '', scope: '' });
+  async function act(label, fn) {
+    setBusy(label); setError('');
+    try { await fn(); } catch(e) { setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message); }
+    finally { setBusy(''); }
+  }
+  async function refresh(id) {
+    const [list, item] = await Promise.all([get('/evaluations'), get(`/evaluations/${id}`)]);
+    setItems(list); setEvaluation(item); return item;
+  }
+  async function select(id) {
+    setRun(null); setReview(null); setReviewed(false);
+    const item = await refresh(id);
+    setTime({ timestamp_column: item.validation?.timestamp_column || '', timestamp_mode: item.validation?.timestamp_mode || 'iso' });
+    setMapping(item.mapping || { ...EMPTY, signals: (item.validation?.signals || []).map(s => ({ column: s.column, include: false, meaning: '', unit: '', reason: '' })) }); setPreview(item.preview || null); setApproved(!!item.approved_mapping);
+  }
+  function edit(next) { setMapping(next); setPreview(null); setApproved(false); }
+  function editSignal(i, field, value) { edit({ ...mapping, signals: mapping.signals.map((s, j) => i === j ? { ...s, [field]: value } : s) }); }
+  const root = `/evaluations/${evaluation?.id}`;
+  const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
+  return <div className="workbench">
+    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical evaluation workbench</h1><p>Supplied telemetry → defensible evidence</p></header>
+    <p>Read-only historical evaluation for Neraium staff. No live monitoring or equipment control.</p>
+    {error && <div className="error" role="alert">{error}</div>}{busy && <p role="status" className="notice">{busy}…</p>}
+    {!connected ? <form className="panel narrow" onSubmit={e => { e.preventDefault(); act('Opening workbench', async () => {
+      setToken(token); const [list, state] = await Promise.all([get('/evaluations'), get('/authority')]);
+      setItems(list); setAuthority(state); setConnected(true); editToken('');
+    }); }}><h2>Analyst access</h2><label>Internal workbench token<input type="password" autoComplete="off" required value={token} onChange={e => editToken(e.target.value)} /></label><button disabled={!!busy}>Open workbench</button><p>Token held only in this tab's memory.</p></form> : <>
+    <fieldset disabled={!!busy}><p className={authority?.available ? 'notice' : 'error'}>Authority: {authority?.available ? `Neraium-1.0 ${authority.identity.commit.slice(0, 12)}` : authority?.reason}</p>
+    <div className="layout"><aside><section className="panel"><h2>Evaluations</h2><label>Select evaluation<select disabled={!!busy} value={evaluation?.id || ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{items.map(e => <option key={e.id} value={e.id}>{e.customer} · {e.system}</option>)}</select></label>
+    <details><summary>Create evaluation</summary><form onSubmit={e => { e.preventDefault(); act('Creating evaluation', async () => { const item = await post('/evaluations', create); await select(item.id); }); }}>
+      {Object.keys(create).map(f => <label key={f}>{f === 'scope' ? 'Evaluation scope / question' : f}<input required maxLength={f === 'scope' ? 2000 : 200} value={create[f]} onChange={e => setCreate({ ...create, [f]: e.target.value })} /></label>)}<button disabled={!!busy}>Create</button>
+    </form></details></section>
+    {evaluation && <section className="panel"><h2>{evaluation.customer}</h2><p>{evaluation.facility} · {evaluation.system}</p><p>{evaluation.scope}</p><ol className="stages">{STAGES.map(s => <li key={s} aria-current={s === (review ? 'CUSTOMER REPORT' : run ? 'EVIDENCE' : evaluation.stage) ? 'step' : undefined}>{s}</li>)}</ol><h3>Preserved runs</h3>{evaluation.runs.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); })}</div>)}</section>}
+    </aside><main>{!evaluation ? <section className="panel"><h2>Start with an evaluation</h2><p>Create or select a customer evaluation, then upload historical telemetry.</p></section> : <>
+    <section className="panel"><h2>1. Receive historical data</h2><p>UTF-8 CSV, TSV or JSON row arrays · 10 MiB, 5,000 rows, 64 columns maximum. One system per evaluation. Original bytes are preserved.</p><label>Upload dataset<input type="file" accept=".csv,.tsv,.json" disabled={!!busy} onChange={e => { const file = e.target.files[0]; if (file) act('Preserving source', async () => { await upload(evaluation.id, file); await select(evaluation.id); }); e.target.value = ''; }} /></label>
+    {evaluation.source && <><p>{evaluation.source.filename} · SHA-256 <code>{evaluation.source.sha256}</code></p>{action('Download original', () => download(`/sources/${evaluation.source.id}/original`, evaluation.source.filename))}<details><summary>First 8 source rows</summary><Json value={evaluation.source.preview} /></details></>}
+    </section>
+    {evaluation.source && <section className="panel"><h2>2. Validate timestamps and data quality</h2><div className="fields"><label>Timestamp column<select value={time.timestamp_column} onChange={e => { setTime({ ...time, timestamp_column: e.target.value }); setApproved(false); setPreview(null); }}><option value="">Choose explicitly…</option>{evaluation.source.columns.map(c => <option key={c}>{c}</option>)}</select></label><label>Timestamp format<select value={time.timestamp_mode} onChange={e => { setTime({ ...time, timestamp_mode: e.target.value }); setApproved(false); setPreview(null); }}><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label></div>
+    {action('Validate', async () => { const v = await post(`${root}/validate`, time); await refresh(evaluation.id); setMapping({ ...EMPTY, signals: v.signals.map(s => ({ column: s.column, include: false, meaning: '', unit: '', reason: '' })) }); setPreview(null); setApproved(false); setRun(null); setReview(null); }, !time.timestamp_column)}
+    {evaluation.validation && <><p>{evaluation.validation.row_count} rows · {evaluation.validation.start} → {evaluation.validation.end}</p><p>{evaluation.validation.eligible_timestamps ? 'Timestamps eligible for mapping.' : 'Timestamp corrections required before analysis.'}</p><ul>{evaluation.validation.warnings.map(w => <li key={w}>{w}</li>)}</ul><details><summary>Per-signal quality</summary><Json value={evaluation.validation.signals} /></details></>}
+    </section>}
+    {evaluation.validation?.eligible_timestamps && <section className="panel"><h2>3. Confirm signals and system context</h2><p>Include source telemetry with confirmed meaning. Leave unsupplied units blank. Exclude identifiers, failure labels and unrelated signals with a reason.</p><div className="table-scroll"><table><thead><tr><th>Include</th><th>Source signal</th><th>Confirmed meaning</th><th>Unit</th><th>Exclusion reason</th></tr></thead><tbody>{mapping.signals.map((s, i) => <tr key={s.column}><td><input type="checkbox" aria-label={`Include ${s.column}`} checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} /></td><td>{s.column}</td>{['meaning', 'unit', 'reason'].map(f => <td key={f}><input aria-label={`${s.column} ${f}`} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></td>)}</tr>)}</tbody></table></div>
+    <label>Supplied system context and known limitations<textarea rows="3" value={mapping.context} onChange={e => edit({ ...mapping, context: e.target.value })} placeholder="System boundary, operating context, known interventions, and what is unknown. Recorded context is not a causal prior." /></label><div className="fields">{['start', 'end'].map(f => <label key={f}>Optional {f} (ISO with timezone)<input value={mapping[f]} onChange={e => edit({ ...mapping, [f]: e.target.value })} placeholder="Full source period if blank" /></label>)}</div>
+    <p>Neraium-1.0 selects baseline/comparison windows within this interval. History is not presumed healthy. No cross-run memory or engineering priors are enabled.</p>
+    {action('Preview mappings', async () => { setPreview(await post(`${root}/mapping-preview`, mapping)); setApproved(false); await refresh(evaluation.id); }, !mapping.signals.length)}
+    {preview && <><h3>Authority classification preview</h3><p>Confirm inferred analysis categories. If incorrect, revise the meaning or exclude the signal. Units are supplied by you.</p><div className="table-scroll"><table><thead><tr><th>Signal</th><th>Analysis category</th><th>Unit</th><th>Reason</th></tr></thead><tbody>{Object.entries(preview.catalog).filter(([k]) => k !== 'timestamp').map(([k, v]) => <tr key={k}><td>{k}</td><td>{v.telemetry_category}</td><td>{v.engineering_units || 'Unknown'}</td><td>{v.telemetry_classification?.reason}</td></tr>)}</tbody></table></div>{action(approved ? 'Mapping approved' : 'Confirm classifications, units, context and window policy', async () => { await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true }); setApproved(true); await refresh(evaluation.id); }, approved)}</>}
+    </section>}
+    {approved && <section className="panel"><h2>4. Authoritative analysis</h2><p>Up to 120 seconds. A completed run may have no findings or limited evidence. Failures are preserved without substituted results.</p>{action('Run historical analysis', async () => { const r = await post(`${root}/runs`); const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); await refresh(evaluation.id); })}</section>}
+    {run && <section className="panel"><h2>5. Results and evidence</h2><p>Run <code>{run.id}</code> · <strong>{run.status}</strong> · source {run.source.filename}</p>{run.error && <p className="error">{run.error}</p>}{run.status === 'running' && <p>No terminal result stored. If the server was interrupted, start a new run; this record is not usable evidence.</p>}
+    {run.response && <><p>Execution status is not equipment health. No finding does not mean stable.</p><p>Window: {run.input.rows[0].timestamp} → {run.input.rows[run.input.rows.length - 1].timestamp}</p>{Object.entries(run.evidence_sections).map(([label, v]) => <details key={label}><summary>{label}</summary>{Array.isArray(v) && !v.length ? <p>No entries supplied by the authoritative engine.</p> : <Json value={v} />}</details>)}<details><summary>Full authoritative result and module limitations</summary><Json value={run.response.result} /></details></>}
+    {action('Download evidence JSON', () => download(`/runs/${run.id}/evidence`, `neraium-evidence-${run.id}.json`))}
+    {['complete', 'limited'].includes(run.status) && <><h2>6. Review and customer report</h2><label>Reviewer name<input value={reviewer} onChange={e => setReviewer(e.target.value)} /></label><label><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed this run's scope, source, mapping, results and evidence limitations.</label>{action('Record review', async () => { setReview(await post(`/runs/${run.id}/reviews`, { reviewer, evidence_reviewed: true })); await refresh(evaluation.id); }, !reviewed || !reviewer.trim())}
+    {review && <>{action('Download printable customer report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
+    </section>}
+    </>}</main></div></fieldset></>}
+  </div>;
 }

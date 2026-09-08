@@ -1,113 +1,35 @@
 #!/usr/bin/env python3
-"""
-Neraium Unified Launcher
-Starts backend (uvicorn :8000) + frontend (React :3006) with one command
-"""
-
+"""Local analyst launcher. Install dependencies once using README instructions."""
 import os
-import sys
-import subprocess
-import signal
-import time
 from pathlib import Path
+import subprocess
+import sys
+import time
 
-PROJECT_ROOT = Path(__file__).parent.parent
-BACKEND = PROJECT_ROOT / "backend"
-FRONTEND = PROJECT_ROOT / "frontend"
+ROOT = Path(__file__).resolve().parent
 
-def cleanup(sig=None, frame=None):
-    """Kill both processes on Ctrl+C"""
-    print("\n\n🛑 Shutting down...\n")
-    if backend_proc:
-        backend_proc.terminate()
-    if frontend_proc:
-        frontend_proc.terminate()
-    sys.exit(0)
+def main():
+    if len(os.environ.get('NERAIUM_WORKBENCH_TOKEN', '')) < 24:
+        raise SystemExit('Set NERAIUM_WORKBENCH_TOKEN (at least 24 characters) before starting.')
+    children = []
+    try:
+        children.append(subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1', '--port', '8000', '--no-access-log'], cwd=ROOT))
+        env = {**os.environ, 'PORT': '3006', 'HOST': '127.0.0.1', 'BROWSER': 'none', 'REACT_APP_BACKEND_URL': 'http://127.0.0.1:8000'}
+        children.append(subprocess.Popen(['npm.cmd' if os.name == 'nt' else 'npm', 'start'], cwd=ROOT / 'frontend', env=env))
+        print('Internal workbench: http://127.0.0.1:3006', flush=True)
+        while all(child.poll() is None for child in children):
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        for child in children:
+            if child.poll() is None:
+                child.terminate()
+        for child in children:
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                child.kill()
 
-signal.signal(signal.SIGINT, cleanup)
-backend_proc = None
-frontend_proc = None
-
-def run():
-    global backend_proc, frontend_proc
-
-    print("\n" + "="*60)
-    print("🚀 NERAIUM LAUNCHER")
-    print("="*60 + "\n")
-
-    # Setup Python venv if needed
-    venv_path = BACKEND / ".venv"
-    if not venv_path.exists():
-        print("📦 Creating Python virtual environment...")
-        subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True)
-
-    # Install Python deps
-    print("📦 Installing backend dependencies...")
-    if sys.platform == "win32":
-        pip_cmd = str(venv_path / "Scripts" / "pip")
-    else:
-        pip_cmd = str(venv_path / "bin" / "pip")
-    subprocess.run([pip_cmd, "install", "-q", "-e", ".."], cwd=str(BACKEND), check=True)
-
-    # Setup frontend .env
-    env_file = FRONTEND / ".env"
-    env_file.write_text("PORT=3006\nREACT_APP_BACKEND_URL=http://localhost:8000\n")
-
-    # Install Node deps
-    print("📦 Installing frontend dependencies...")
-    subprocess.run(["npm", "install", "-q"], cwd=str(FRONTEND), check=True)
-
-    # Start backend
-    print("📡 Starting backend (port 8000)...")
-    if sys.platform == "win32":
-        uvicorn = str(venv_path / "Scripts" / "uvicorn")
-        backend_proc = subprocess.Popen(
-            f'"{uvicorn}" server:app --reload --host 127.0.0.1 --port 8000',
-            cwd=str(BACKEND),
-            shell=True
-        )
-    else:
-        uvicorn = str(venv_path / "bin" / "uvicorn")
-        backend_proc = subprocess.Popen(
-            [uvicorn, "server:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
-            cwd=str(BACKEND)
-        )
-
-    # Wait for backend
-    time.sleep(2)
-
-    # Start frontend
-    print("🎨 Starting frontend (port 3006)...")
-    env = os.environ.copy()
-    env["PORT"] = "3006"
-    env["REACT_APP_BACKEND_URL"] = "http://localhost:8000"
-
-    if sys.platform == "win32":
-        frontend_proc = subprocess.Popen(
-            'set "PORT=3006" && npm start',
-            cwd=str(FRONTEND),
-            env=env,
-            shell=True
-        )
-    else:
-        frontend_proc = subprocess.Popen(
-            ["env", "PORT=3006", "npm", "start"],
-            cwd=str(FRONTEND),
-            env=env
-        )
-
-    # Print startup info
-    print("\n" + "="*60)
-    print("✅ SYSTEMS RUNNING")
-    print("="*60)
-    print("\n📡 Backend:  http://127.0.0.1:8000")
-    print("🎨 Frontend: http://localhost:3006\n")
-    print("Press Ctrl+C to stop\n")
-    print("="*60 + "\n")
-
-    # Keep running
-    backend_proc.wait()
-    frontend_proc.wait()
-
-if __name__ == "__main__":
-    run()
+if __name__ == '__main__':
+    main()

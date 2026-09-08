@@ -1,7 +1,6 @@
 # Build and dependencies
 frontend/node_modules/
 frontend/build/
-frontend/package-lock.json
 frontend/.next/
 backend/.venv/
 .venv/
@@ -52,6 +51,7 @@ validation_out/
 validation_out_advanced/
 reports/
 artifacts/
+workbench-data/
 
 # Node
 node_modules/
