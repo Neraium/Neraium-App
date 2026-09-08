@@ -207,3 +207,39 @@ def test_pinned_authority_full_workflow(client, monkeypatch):
     reviewed = client.post(f"/api/runs/{run['id']}/reviews", json={'reviewer': 'Integration test', 'evidence_reviewed': True})
     assert reviewed.status_code == 201, reviewed.text
     assert client.get(f"/api/reviews/{reviewed.json()['id']}/report").status_code == 200
+
+
+def test_report_keeps_long_evidence_and_timing(client, monkeypatch):
+    from backend.workbench import report
+    stub(monkeypatch); eid, _ = create(client); approve(client, eid)
+    rid = client.post(f'/api/evaluations/{eid}/runs').json()['id']
+    run = client.get(f'/api/runs/{rid}').json()
+    # Transport fixtures only: no assertions about analytical correctness.
+    result = run['response']['result']
+    result['findings'] = [{'classification': 'test classification', 'evidence': 'x' * 3600,
+                           'consequence_provenance': 'test-source-reference'}]
+    result['relationship_analysis'] = {'top_relationship_changes': [
+        {'evidence_refs': ['test-relationship-reference'], 'time_window': 'test-window'}]}
+    result['persistence_analysis'] = {'timing_evidence': 'test-timing-reference'}
+    result['uncertainty']['additional_evidence_limit'] = 'test-uncertainty-reference'
+    html = report.render(run, {'reviewer': 'Analyst', 'created_at': 'test-review-time'})
+    for value in ('x' * 3600, 'test classification', 'test-source-reference',
+                  'test-relationship-reference', 'test-window', 'test-timing-reference',
+                  'test-uncertainty-reference'):
+        assert value in html
+    assert 'omitted here for report brevity' not in html
+
+
+def test_authority_default_pin_and_explicit_mismatch(monkeypatch):
+    monkeypatch.setenv('NERAIUM_AUTHORITY_ROOT', '/unused')
+    monkeypatch.delenv('NERAIUM_AUTHORITY_COMMIT', raising=False)
+    monkeypatch.setattr(subprocess, 'check_output', lambda args, **kw:
+                        authority.SUPPORTED_COMMIT if 'rev-parse' in args else '')
+    assert authority.identity()['commit'] == authority.SUPPORTED_COMMIT
+    monkeypatch.setenv('NERAIUM_AUTHORITY_COMMIT', '0' * 40)
+    with pytest.raises(authority.AuthorityError, match='not been contract-validated'):
+        authority.identity()
+    monkeypatch.setenv('NERAIUM_AUTHORITY_COMMIT', '')
+    monkeypatch.setattr(subprocess, 'check_output', lambda args, **kw: '0' * 40 if 'rev-parse' in args else '')
+    with pytest.raises(authority.AuthorityError, match='must match the pinned commit'):
+        authority.identity()

@@ -38,28 +38,12 @@ def render(run: dict, review: dict) -> str:
                          for key in ("display_relationship", "change_type", "baseline_correlation", "recent_correlation", "confidence_level", "time_window")) + "</tr>"
         for item in relationship_rows(result)
     )
-    # The customer report contains compact authoritative excerpts. Full sections
-    # remain available in the run's downloadable evidence package.
+    # Preserve supplied evidence and classifications even when sections are long.
+    # In particular, timing and uncertainty fields must not disappear in print.
     excerpts = []
     for label, value in sections.items():
-        if "Relationship changes" in label:
-            continue
-        if "Change timing" in label:
-            adaptive = value.get("adaptive_persistence", {})
-            value = {"method": value.get("method"), "adaptive_persistence": {
-                k: adaptive[k] for k in ("status", "reason", "method", "elapsed_time_available",
-                                        "observed_duration_seconds", "recent_window", "persistent_columns",
-                                        "actual_persistence", "limitations") if k in adaptive
-            }}
-        if "Uncertainty" in label:
-            value = {k: value[k] for k in ("status", "limitations", "interpretation", "module_failures") if k in value}
-        if not value:
-            text = "No evidence entries supplied by the authoritative engine. This is not a claim of stable behavior."
-        else:
-            text = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False)
-        # Never silently omit long evidence from a concise report.
-        if len(text) > 3500 and "Uncertainty" not in label:
-            text = "Detailed evidence is in the attached JSON package at the path in this heading; omitted here for report brevity."
+        text = (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) if value else
+                "No evidence entries supplied by the authoritative engine. This is not a claim of stable behavior.")
         excerpts.append(f"<h2>{esc(label)}</h2><pre>{esc(text)}</pre>")
     return f"""<!doctype html><html lang="en"><meta charset="utf-8">
 <title>Neraium historical evaluation — {esc(evaluation['customer'])}</title>

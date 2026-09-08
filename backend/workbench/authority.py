@@ -18,7 +18,7 @@ class AuthorityError(RuntimeError):
 
 def identity():
     root = os.environ.get("NERAIUM_AUTHORITY_ROOT", "")
-    commit = os.environ.get("NERAIUM_AUTHORITY_COMMIT", "")
+    commit = os.environ.get("NERAIUM_AUTHORITY_COMMIT") or SUPPORTED_COMMIT
     if not root or not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise AuthorityError("Configure a clean Neraium-1.0 checkout and its full commit SHA.")
     if commit != SUPPORTED_COMMIT:

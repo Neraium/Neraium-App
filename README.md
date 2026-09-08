@@ -32,7 +32,7 @@ The workbench interpreter and authority interpreter can be different.
 
 ```bash
 export NERAIUM_AUTHORITY_ROOT=/absolute/path/to/clean/Neraium-1.0
-export NERAIUM_AUTHORITY_COMMIT=011bda9c728e4c86b61c03ddcce2adf0b7eb1fc5
+unset NERAIUM_AUTHORITY_COMMIT # use the workbench's validated pin
 export NERAIUM_AUTHORITY_PYTHON=/absolute/path/to/authority-venv/bin/python
 export NERAIUM_WORKBENCH_DATA="$HOME/.local/share/neraium-workbench"
 export NERAIUM_WORKBENCH_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -88,6 +88,25 @@ Both pre- and post-execution checks verify the clean pinned commit. Incompatible
 versions, missing dependencies, malformed output, timeouts and engine failures
 produce explicit errors; there is no synthetic or legacy fallback. Revision
 updates require a focused adapter contract check and an explicit pin change.
+
+**Pending dependency (September 8, 2026):** Neraium-1.0
+[PR #135](https://github.com/Neraium/Neraium-1.0/pull/135) is open; its final
+merge commit is not available. The single remaining follow-up is a validated
+repin after it merges: obtain its actual `mergeCommit.oid` with
+`gh pr view 135 --repo Neraium/Neraium-1.0 --json state,mergeCommit`, update
+`SUPPORTED_COMMIT` in `backend/workbench/authority.py` to that verified full SHA,
+provision a separate clean checkout/interpreter at that revision, and run with
+the workbench interpreter:
+
+```bash
+NERAIUM_TEST_AUTHORITY_ROOT="$NERAIUM_AUTHORITY_ROOT" python3 -m pytest tests/workbench/test_workflow.py::test_pinned_authority_full_workflow -q
+```
+
+Commit/push the
+validated App pin change and update the setup revision above. Do not use the PR
+head SHA as a substitute for the merge commit. The optional
+`NERAIUM_AUTHORITY_COMMIT` environment variable asserts the pin; leave it unset
+or update it to the same SHA. Existing run/report identities remain unchanged.
 
 Source bytes, hashes, validation, mapping approval, selected interval, transformed
 input rows, request hash, engine output/hash, authority commit, adapter hash,
