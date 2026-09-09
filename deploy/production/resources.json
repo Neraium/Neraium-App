@@ -1,0 +1,39 @@
+{
+  "account": "680779862188",
+  "region": "us-east-1",
+  "application_commit": "ae7dadc35aee45f48a42b1bf60f62f98186669c4",
+  "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+  "vpc": "vpc-088c8a4178706c17f",
+  "subnets": [
+    "subnet-0adad5be74ea5f430",
+    "subnet-02b49ba5c7ed64682"
+  ],
+  "alb_security_group": "sg-0ac8bcdfb6d9b1143",
+  "task_security_group": "sg-0b1b38429f5b9080f",
+  "efs_security_group": "sg-06618e62eee054970",
+  "filesystem": "fs-07f6ecd766c9d1032",
+  "access_point": "fsap-0a0bb9f36f7f831a4",
+  "mount_targets": [
+    "fsmt-04677f32996568c53",
+    "fsmt-0b1186aad1f6db25d"
+  ],
+  "alb": "arn:aws:elasticloadbalancing:us-east-1:680779862188:loadbalancer/app/neraium-app-prod/8601a0a2bb8405f7",
+  "alb_hostname": "internal-neraium-app-prod-2113570645.us-east-1.elb.amazonaws.com",
+  "listener": "arn:aws:elasticloadbalancing:us-east-1:680779862188:listener/app/neraium-app-prod/8601a0a2bb8405f7/ebac2126f81bf8bb",
+  "target_group": "arn:aws:elasticloadbalancing:us-east-1:680779862188:targetgroup/neraium-app-prod/73b152504c8dda7c",
+  "vpc_origin": "vo_7Kc35IXw0SBGCajLVyXs2q",
+  "execution_role": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-execution",
+  "task_role": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-task",
+  "token_secret": "arn:aws:secretsmanager:us-east-1:680779862188:secret:neraium-app-prod/workbench-token-DdRETd",
+  "ecr_repository": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod",
+  "certificate": "arn:aws:acm:us-east-1:680779862188:certificate/76ff9aaa-33c6-4a6a-ae40-28c79bd08098",
+  "frontend_bucket": "neraium-app-prod-frontend-680779862188",
+  "origin_access_control": "E6LOKYFR6PAO9",
+  "cluster": "neraium-app-prod",
+  "log_group": "/ecs/neraium-app-prod",
+  "image_digest": "sha256:b9d61b1db6f94355b5bca7f99f20d0c68598dc010439dce0500ddf5f4ebf2b15",
+  "task_definition": "arn:aws:ecs:us-east-1:680779862188:task-definition/neraium-app-prod:3",
+  "distribution": "E27KJ5Y66YQQBO",
+  "cloudfront_hostname": "d1gouhm82x409l.cloudfront.net",
+  "cloudfront_service_security_group": "sg-0b6e484828ea74d9f"
+}

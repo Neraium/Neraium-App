@@ -178,5 +178,10 @@ active workbench. Retained legacy sources are historical reference only.
 
 ## app.neraium.com deployment boundary
 
-See [deployment handoff](docs/APP_DEPLOYMENT_HANDOFF.md). CI validates changes; it
-does not deploy this application. The public site has not been switched by this PR.
+The dedicated production stack and reproducible deployment configuration are in
+[deploy/production](deploy/production/README.md). It serves the pinned App through
+a new CloudFront distribution, with a private single-worker backend. Cloudflare
+DNS remains unchanged; the custom-domain certificate validation and alias steps
+are documented there. CI validates changes; it does not deploy the application.
+The [original deployment handoff](docs/APP_DEPLOYMENT_HANDOFF.md) records the
+pre-deployment findings.

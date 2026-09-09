@@ -1,0 +1,170 @@
+{
+  "DistributionConfigWithTags": {
+    "DistributionConfig": {
+      "CallerReference": "neraium-app-prod-20260909",
+      "Aliases": {
+        "Quantity": 0
+      },
+      "DefaultRootObject": "index.html",
+      "Origins": {
+        "Quantity": 2,
+        "Items": [
+          {
+            "Id": "app-frontend",
+            "DomainName": "neraium-app-prod-frontend-680779862188.s3.us-east-1.amazonaws.com",
+            "S3OriginConfig": {
+              "OriginAccessIdentity": ""
+            },
+            "OriginAccessControlId": "E6LOKYFR6PAO9"
+          },
+          {
+            "Id": "app-api",
+            "DomainName": "internal-neraium-app-prod-2113570645.us-east-1.elb.amazonaws.com",
+            "VpcOriginConfig": {
+              "VpcOriginId": "vo_7Kc35IXw0SBGCajLVyXs2q",
+              "OriginReadTimeout": 120,
+              "OriginKeepaliveTimeout": 5
+            },
+            "ConnectionAttempts": 1,
+            "ConnectionTimeout": 10
+          }
+        ]
+      },
+      "DefaultCacheBehavior": {
+        "TargetOriginId": "app-frontend",
+        "ViewerProtocolPolicy": "redirect-to-https",
+        "AllowedMethods": {
+          "Quantity": 2,
+          "Items": [
+            "GET",
+            "HEAD"
+          ],
+          "CachedMethods": {
+            "Quantity": 2,
+            "Items": [
+              "GET",
+              "HEAD"
+            ]
+          }
+        },
+        "Compress": true,
+        "ForwardedValues": {
+          "QueryString": false,
+          "Cookies": {
+            "Forward": "none"
+          },
+          "Headers": {
+            "Quantity": 0
+          }
+        },
+        "MinTTL": 0,
+        "DefaultTTL": 0,
+        "MaxTTL": 0
+      },
+      "CacheBehaviors": {
+        "Quantity": 2,
+        "Items": [
+          {
+            "TargetOriginId": "app-api",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": {
+              "Quantity": 7,
+              "Items": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PUT",
+                "PATCH",
+                "POST",
+                "DELETE"
+              ],
+              "CachedMethods": {
+                "Quantity": 2,
+                "Items": [
+                  "GET",
+                  "HEAD"
+                ]
+              }
+            },
+            "Compress": true,
+            "ForwardedValues": {
+              "QueryString": true,
+              "Cookies": {
+                "Forward": "none"
+              },
+              "Headers": {
+                "Quantity": 2,
+                "Items": [
+                  "X-Workbench-Token",
+                  "Content-Type"
+                ]
+              }
+            },
+            "MinTTL": 0,
+            "DefaultTTL": 0,
+            "MaxTTL": 0,
+            "PathPattern": "/api/*"
+          },
+          {
+            "TargetOriginId": "app-api",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": {
+              "Quantity": 2,
+              "Items": [
+                "GET",
+                "HEAD"
+              ],
+              "CachedMethods": {
+                "Quantity": 2,
+                "Items": [
+                  "GET",
+                  "HEAD"
+                ]
+              }
+            },
+            "Compress": true,
+            "ForwardedValues": {
+              "QueryString": false,
+              "Cookies": {
+                "Forward": "none"
+              },
+              "Headers": {
+                "Quantity": 0
+              }
+            },
+            "MinTTL": 0,
+            "DefaultTTL": 0,
+            "MaxTTL": 0,
+            "PathPattern": "/healthz"
+          }
+        ]
+      },
+      "Comment": "Neraium-App dedicated production; ae7dadc35aee45f48a42b1bf60f62f98186669c4",
+      "Enabled": true,
+      "PriceClass": "PriceClass_100",
+      "ViewerCertificate": {
+        "CloudFrontDefaultCertificate": true
+      },
+      "Restrictions": {
+        "GeoRestriction": {
+          "RestrictionType": "none",
+          "Quantity": 0
+        }
+      },
+      "HttpVersion": "http2and3",
+      "IsIPV6Enabled": true
+    },
+    "Tags": {
+      "Items": [
+        {
+          "Key": "Application",
+          "Value": "Neraium-App"
+        },
+        {
+          "Key": "Environment",
+          "Value": "production"
+        }
+      ]
+    }
+  }
+}

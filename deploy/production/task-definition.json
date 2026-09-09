@@ -1,0 +1,88 @@
+{
+  "family": "neraium-app-prod",
+  "taskRoleArn": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-task",
+  "executionRoleArn": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-execution",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "2048",
+  "memory": "4096",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "workbench",
+      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:b9d61b1db6f94355b5bca7f99f20d0c68598dc010439dce0500ddf5f4ebf2b15",
+      "essential": true,
+      "user": "10001:10001",
+      "readonlyRootFilesystem": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NERAIUM_WORKBENCH_DATA",
+          "value": "/data"
+        },
+        {
+          "name": "TMPDIR",
+          "value": "/data"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "NERAIUM_WORKBENCH_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:680779862188:secret:neraium-app-prod/workbench-token-DdRETd"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "data",
+          "containerPath": "/data",
+          "readOnly": false
+        }
+      ],
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "stopTimeout": 120,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/neraium-app-prod",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "workbench"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-07f6ecd766c9d1032",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-0a0bb9f36f7f831a4",
+          "iam": "ENABLED"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "key": "Application",
+      "value": "Neraium-App"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}

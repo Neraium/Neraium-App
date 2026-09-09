@@ -1,0 +1,45 @@
+{
+  "verified_at": "2026-09-09T06:50:30.268833+00:00",
+  "backend_tests": {
+    "passed": 38,
+    "deselected": 1,
+    "real_authority": true
+  },
+  "frontend_tests": {
+    "passed": 3
+  },
+  "deployed_assets_verified": 6,
+  "api": {
+    "status": "passed",
+    "origin": "https://d1gouhm82x409l.cloudfront.net",
+    "commit": "ae7dadc35aee45f48a42b1bf60f62f98186669c4",
+    "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+    "evaluation_id": "434ac2e609f942bca7f3f5bbebf53366",
+    "run_id": "c6df490d8734487f874dbfa9af1c296b",
+    "report_id": "d2fa9a62734942bea47b33e574e02799",
+    "source_hashes": {
+      "reference": "a273fb02d533114781b8afe2f140c8e3dc4d60e8f7d7dc71bee4a66e565a339b",
+      "comparison": "856fff8f46b3a74e6d04dbad9e99c125b39d03eda7ba33b999dacb5f4422cd60"
+    }
+  },
+  "browser": {
+    "status": "passed",
+    "origin": "https://d1gouhm82x409l.cloudfront.net",
+    "commit": "ae7dadc35aee45f48a42b1bf60f62f98186669c4",
+    "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+    "evaluation_id": "111fa954fb204cfaa612962e705998ab",
+    "run_id": "15424ee5eff74a248c74ca150635622a",
+    "desktop": true,
+    "mobile": true,
+    "report_export": true
+  },
+  "original_uploads_survived_task_replacement": true,
+  "cloudfront_status": "Deployed",
+  "ecs_running": 1,
+  "ecs_pending": 0,
+  "ecs_deployment": "COMPLETED",
+  "alb_target": "healthy",
+  "unsigned_s3_get_status": 403,
+  "certificate_status": "PENDING_VALIDATION",
+  "cloudflare_dns_changed": false
+}
