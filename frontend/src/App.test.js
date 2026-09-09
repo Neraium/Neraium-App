@@ -2,7 +2,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { get, post, upload, download } from './api';
-jest.mock('./api', () => ({ get: jest.fn(), post: jest.fn(), upload: jest.fn(), download: jest.fn(), setToken: jest.fn() }));
+jest.mock('./api', () => ({ get: jest.fn(), post: jest.fn(), upload: jest.fn(), download: jest.fn() }));
 global.IS_REACT_ACT_ENVIRONMENT = true;
 let container, root, item;
 const source = { id: 's', filename: 'period.csv', sha256: 'a'.repeat(64), columns: ['time', 'temperature'], preview: [] };
@@ -27,13 +27,14 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 test('landing and navigation expose historical evaluation without connector entry points', async () => {
   expect(container.querySelector('h1').textContent).toBe('Historical Evaluation');
-  await open();
+  expect(container.querySelector('input[type=password]')).toBeNull();
+  expect(container.textContent).not.toMatch(/access token|workbench access|Open workbench/i);
   expect(button('New Evaluation')).toBeDefined();
   expect(container.textContent).not.toMatch(/Production Telemetry|Connect a physical system|Add live data source|HTTPS origin|bearer|telemetry discovery|learns your system|fleet/i);
   expect(get.mock.calls.map(([path]) => path)).toEqual(['/evaluations', '/authority']);
 });
 test('New Evaluation creates paired intake and preserves distinct upload roles', async () => {
-  await open(); await click('New Evaluation');
+  await click('New Evaluation');
   expect(container.querySelector('main h2').textContent).toBe('1. Evaluation details');
   post.mockResolvedValue(item);
   await open();
@@ -53,7 +54,7 @@ test('New Evaluation creates paired intake and preserves distinct upload roles',
 });
 test('approved paired mapping runs existing SII API and requires review before report export', async () => {
   item = { ...item, source, reference_source: source, validation, reference_validation: validation, approved_mapping: true };
-  await open(); await change(container.querySelector('aside select'), 'e');
+  await change(container.querySelector('aside select'), 'e');
   expect(container.textContent).toContain('5. Confirm signal mapping');
   expect(container.textContent).toContain('full authoritative supplied-reference SII');
   const run = { id: 'r', status: 'limited', source, reviews: [] };

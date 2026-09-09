@@ -1,0 +1,48 @@
+{
+  "cluster": "neraium-app-prod",
+  "serviceName": "neraium-app-prod",
+  "taskDefinition": "arn:aws:ecs:us-east-1:680779862188:task-definition/neraium-app-prod:3",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "1.4.0",
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:680779862188:targetgroup/neraium-app-prod/73b152504c8dda7c",
+      "containerName": "workbench",
+      "containerPort": 8000
+    }
+  ],
+  "deploymentConfiguration": {
+    "maximumPercent": 100,
+    "minimumHealthyPercent": 0,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-0adad5be74ea5f430",
+        "subnet-02b49ba5c7ed64682"
+      ],
+      "securityGroups": [
+        "sg-0b1b38429f5b9080f"
+      ],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+  "healthCheckGracePeriodSeconds": 120,
+  "enableECSManagedTags": true,
+  "propagateTags": "SERVICE",
+  "tags": [
+    {
+      "key": "Application",
+      "value": "Neraium-App"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}

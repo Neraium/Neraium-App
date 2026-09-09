@@ -9,8 +9,6 @@ import time
 ROOT = Path(__file__).resolve().parent
 
 def main():
-    if len(os.environ.get('NERAIUM_WORKBENCH_TOKEN', '')) < 24:
-        raise SystemExit('Set NERAIUM_WORKBENCH_TOKEN (at least 24 characters) before starting.')
     children = []
     try:
         children.append(subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1', '--port', '8000', '--no-access-log'], cwd=ROOT))

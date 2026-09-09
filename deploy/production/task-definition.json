@@ -1,0 +1,82 @@
+{
+  "family": "neraium-app-prod",
+  "taskRoleArn": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-task",
+  "executionRoleArn": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-execution",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "2048",
+  "memory": "4096",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "workbench",
+      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:a9e87be7ba92bb4b5d439432cdacfdb19e6c7edf6a078cc7a5702d70e4da2116",
+      "essential": true,
+      "user": "10001:10001",
+      "readonlyRootFilesystem": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NERAIUM_WORKBENCH_DATA",
+          "value": "/data"
+        },
+        {
+          "name": "TMPDIR",
+          "value": "/data"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "data",
+          "containerPath": "/data",
+          "readOnly": false
+        }
+      ],
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "stopTimeout": 120,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/neraium-app-prod",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "workbench"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-07f6ecd766c9d1032",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-0a0bb9f36f7f831a4",
+          "iam": "ENABLED"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "key": "Application",
+      "value": "Neraium-App"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}

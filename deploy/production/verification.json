@@ -1,0 +1,58 @@
+{
+  "verified_at": "2026-09-09T17:30:50.343148+00:00",
+  "frontend_http_status": 200,
+  "backend_health": "ok",
+  "token_required": false,
+  "backend_tests": {
+    "passed": 38,
+    "deselected": 1,
+    "real_authority": true
+  },
+  "frontend_tests": {
+    "passed": 3
+  },
+  "deployed_assets_verified": 6,
+  "api": {
+    "status": "passed",
+    "origin": "https://eval.neraium.com",
+    "commit": "c9acadad1c48bba9f5d955253b0c5fdcb68fbb8b",
+    "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+    "evaluation_id": "0bfc8a034d894abca5ddb65ce7f56fb3",
+    "run_id": "7bb662744a824beaa76285550b6efe37",
+    "report_id": "321f040b9e194bae9506d11cd69797fc",
+    "source_hashes": {
+      "reference": "a273fb02d533114781b8afe2f140c8e3dc4d60e8f7d7dc71bee4a66e565a339b",
+      "comparison": "856fff8f46b3a74e6d04dbad9e99c125b39d03eda7ba33b999dacb5f4422cd60"
+    }
+  },
+  "browser": {
+    "status": "passed",
+    "origin": "https://eval.neraium.com",
+    "commit": "c9acadad1c48bba9f5d955253b0c5fdcb68fbb8b",
+    "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+    "evaluation_id": "2f26b08e08c34b8dafea0356f75752e4",
+    "run_id": "5bef6e0e0c054a4ba561978d3ae80b56",
+    "desktop": true,
+    "mobile": true,
+    "report_export": true
+  },
+  "original_uploads_survived_task_replacement": true,
+  "cloudfront_status": "Deployed",
+  "cloudfront_change": "Removed only X-Workbench-Token forwarding",
+  "ecs_running": 1,
+  "ecs_pending": 0,
+  "ecs_deployment": "COMPLETED",
+  "alb_target": "healthy",
+  "retired_routes_status": 404,
+  "demo_distribution_unchanged": true,
+  "ppc_touched": false,
+  "cloudflare_dns_changed": false,
+  "recovery": {
+    "application_source_matches_deployed_snapshot": true,
+    "fresh_frontend_build_matches_deployed_hashes": true,
+    "demo_configuration_and_etag_match_pre_removal_snapshot": true,
+    "task_secret_injection_absent": true,
+    "task_root_filesystem_readonly": true,
+    "deployment_already_completed_before_recovery": true
+  }
+}
