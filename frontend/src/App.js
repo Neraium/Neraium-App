@@ -4,6 +4,9 @@ import './workbench.css';
 const STAGES = ['Evaluation details', 'Upload reference dataset', 'Upload comparison dataset', 'Validate compatibility', 'Confirm signal mapping', 'Run analysis', 'Review evidence', 'Export report'];
 const EMPTY = { context: '', start: '', end: '', signals: [], pair_confirmed: false };
 const Json = ({ value }) => <pre>{JSON.stringify(value, null, 2)}</pre>;
+// Existing verification writers reserve these customer names; the Evaluation
+// model has no artifact metadata. Match whole names, never generic test keywords.
+const isVerification = item => /^(?:browser )?deployment check \(synthetic\)$/i.test((item.customer || '').trim().replace(/\s+/g, ' '));
 export default function App() {
   const [items, setItems] = useState([]), [evaluation, setEvaluation] = useState(null), [authority, setAuthority] = useState(null);
   const [busy, setBusy] = useState(''), [error, setError] = useState('');
@@ -42,13 +45,15 @@ export default function App() {
   function editSignal(i, field, value) { edit({ ...mapping, signals: mapping.signals.map((s, j) => i === j ? { ...s, [field]: value } : s) }); }
   const step = review ? 7 : run ? 6 : approved ? 5 : evaluation?.validation?.eligible_timestamps && (evaluation.mode !== 'paired' || evaluation.reference_validation?.eligible_timestamps) ? 4 : evaluation?.source ? 3 : evaluation?.reference_source ? 2 : 1;
   const root = `/evaluations/${evaluation?.id}`;
+  const operatorItems = items.filter(item => !isVerification(item));
   const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
   return <div className="workbench">
     <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p className="landing-summary">Compare two historical operating periods from the same physical system.</p><p className="landing-detail">See whether signal relationships show persistent changes supported by the evidence.</p></header>
     <p className="landing-scope">Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
     {error && <div className="error" role="alert">{error}</div>}{busy && <p role="status" className="notice">{busy}…</p>}
-    <fieldset disabled={!!busy}><p className={authority?.available ? 'notice' : 'error'}>Authority: {authority?.available ? `Neraium-1.0 ${authority.identity.commit.slice(0, 12)}` : authority?.reason}</p>
-    <div className="layout"><aside><section className="panel"><h2>Evaluations</h2><label>Select evaluation<select disabled={!!busy} value={evaluation?.id || ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{items.map(e => <option key={e.id} value={e.id}>{e.customer} · {e.system}</option>)}</select></label>
+    <fieldset disabled={!!busy}>
+    {authority?.available === false && <p className="error" role="alert">Authority: {authority.reason}</p>}
+    <div className="layout"><aside><section className="panel"><h2>Evaluations</h2><label>Select evaluation<select disabled={!!busy} value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(e => <option key={e.id} value={e.id}>{e.customer} · {e.system}</option>)}</select></label>
     <button onClick={() => setCreating(true)}>New Evaluation</button></section>
     {evaluation && !creating && <section className="panel"><h2>1. Evaluation details</h2><h3>{evaluation.customer}</h3><p>{evaluation.facility} · {evaluation.system}</p><p>{evaluation.scope}</p><ol className="stages">{STAGES.map((s, i) => <li key={s} aria-current={i === step ? 'step' : undefined}>{s}</li>)}</ol><h3>Preserved runs</h3>{evaluation.runs.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); })}</div>)}</section>}
     </aside><main>{creating ? <section className="panel"><h2>1. Evaluation details</h2><p>Create a paired historical evaluation of the same physical system.</p><form onSubmit={e => { e.preventDefault(); act('Creating evaluation', async () => { const item = await post('/evaluations', create); await select(item.id); }); }}>
@@ -77,5 +82,6 @@ export default function App() {
     {review && <><h2>8. Export report</h2>{action('Export report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
     </section>}
     </>}</main></div></fieldset>
+    {authority?.available && <details className="provenance"><summary>Provenance · Neraium-1.0</summary><Json value={authority.identity} /></details>}
   </div>;
 }

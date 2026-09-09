@@ -30,7 +30,14 @@ const origin = process.argv[2] || 'https://eval.neraium.com';
   assert.equal((await page.goto(origin + '/')).status(), 200);
   await assertLanding();
   await page.getByRole('button', {name: 'New Evaluation', exact: true}).waitFor();
-  await page.getByText('Authority: Neraium-1.0 ' + config.authority_commit.slice(0, 12), {exact:true}).waitFor();
+  const provenance = page.locator('details.provenance');
+  await provenance.getByText('Provenance · Neraium-1.0', {exact:true}).waitFor();
+  assert.equal(await provenance.getAttribute('open'), null);
+  await provenance.locator('summary').click();
+  assert.equal(JSON.parse(await provenance.locator('pre').innerText()).commit, config.authority_commit);
+  await provenance.locator('summary').click();
+  const options = await page.getByRole('combobox', {name:/^Select evaluation/}).locator('option').allTextContents();
+  assert(!options.some(text => /^(?:browser )?deployment check \(synthetic\) · /i.test(text.trim().replace(/\s+/g, ' '))));
   await page.getByRole('button', {name: 'New Evaluation', exact: true}).click();
   for (const [label, value] of [['Customer','BROWSER DEPLOYMENT CHECK (synthetic)'],['Facility','App production verification'],['Physical system','Generated paired loop'],['Evaluation scope / question','64 generated rows per period; verify actual browser paired workflow.']]) {
     await page.getByLabel(label, {exact:true}).fill(value);
