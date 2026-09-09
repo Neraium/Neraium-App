@@ -4,8 +4,7 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const crypto = require('crypto');
 const config = require('./resources.json');
-const token = fs.readFileSync(process.argv[2], 'utf8').trim();
-const origin = 'https://' + config.cloudfront_hostname;
+const origin = process.argv[2] || 'https://eval.neraium.com';
 (async () => {
   const browser = await chromium.launch({headless: true});
   const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
@@ -14,6 +13,8 @@ const origin = 'https://' + config.cloudfront_hostname;
   page.on('pageerror', error => errors.push(error.message));
   const assertLanding = async () => {
     await page.getByRole('heading', {name: 'Historical Evaluation', exact: true}).waitFor();
+    assert.equal(await page.locator('input[type=password]').count(), 0);
+    assert(!/access token|Workbench access|Open workbench/i.test(await page.locator('body').innerText()));
     assert(!/Production Telemetry|Add data source|Add live data source|Connect a physical system/.test(await page.locator('body').innerText()));
   };
   async function click(name, path) {
@@ -25,12 +26,11 @@ const origin = 'https://' + config.cloudfront_hostname;
     assert.equal(await page.getByRole('alert').count(), 0);
     return result.json();
   }
-  await page.goto(origin + '/');
+  page.on('request', request => { assert(!('x-workbench-token' in request.headers())); });
+  assert.equal((await page.goto(origin + '/')).status(), 200);
   await assertLanding();
-  await page.getByLabel('Internal workbench token').fill(token);
-  await page.getByRole('button', {name: 'Open workbench', exact: true}).click();
   await page.getByRole('button', {name: 'New Evaluation', exact: true}).waitFor();
-  assert((await page.locator('body').innerText()).includes(config.authority_commit.slice(0, 12)));
+  await page.getByText('Authority: Neraium-1.0 ' + config.authority_commit.slice(0, 12), {exact:true}).waitFor();
   await page.getByRole('button', {name: 'New Evaluation', exact: true}).click();
   for (const [label, value] of [['Customer','BROWSER DEPLOYMENT CHECK (synthetic)'],['Facility','App production verification'],['Physical system','Generated paired loop'],['Evaluation scope / question','64 generated rows per period; verify actual browser paired workflow.']]) {
     await page.getByLabel(label, {exact:true}).fill(value);
@@ -89,7 +89,7 @@ const origin = 'https://' + config.cloudfront_hostname;
   await assertLanding();
   await page.reload();
   await assertLanding();
-  await page.getByLabel('Internal workbench token').waitFor();
+  await page.getByRole('button', {name:'New Evaluation', exact:true}).waitFor();
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({status:'passed',origin,commit:config.application_commit,authority_commit:config.authority_commit,evaluation_id:evaluation.id,run_id:run.id,desktop:true,mobile:true,report_export:true},null,2));
   await browser.close();

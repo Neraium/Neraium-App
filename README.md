@@ -36,12 +36,11 @@ export NERAIUM_AUTHORITY_ROOT=/absolute/path/to/clean/Neraium-1.0
 unset NERAIUM_AUTHORITY_COMMIT # use the workbench's validated pin
 export NERAIUM_AUTHORITY_PYTHON=/absolute/path/to/authority-venv/bin/python
 export NERAIUM_WORKBENCH_DATA="$HOME/.local/share/neraium-workbench"
-export NERAIUM_WORKBENCH_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 .venv/bin/python launch.py
 ```
 
-Open `http://127.0.0.1:3006` and enter the token from your launch shell. The token
-is held in tab memory, not local storage. Environment variables must be exported;
+Open `http://127.0.0.1:3006` directly in Historical Evaluation. No access token is required.
+Environment variables must be exported;
 `.env.example` is reference documentation, not an automatically loaded file.
 Empty optional environment variables should be omitted.
 
@@ -176,7 +175,7 @@ and [legacy inventory](docs/WORKBENCH_LEGACY_BOUNDARY.md). Older Grow, demo,
 production-deployment, benchmark and research documents do not describe the
 active workbench. Retained legacy sources are historical reference only.
 
-## app.neraium.com deployment boundary
+## eval.neraium.com deployment boundary
 
 The dedicated production stack and reproducible deployment configuration are in
 [deploy/production](deploy/production/README.md). It serves the pinned App through

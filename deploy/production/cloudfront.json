@@ -93,9 +93,8 @@
                 "Forward": "none"
               },
               "Headers": {
-                "Quantity": 2,
+                "Quantity": 1,
                 "Items": [
-                  "X-Workbench-Token",
                   "Content-Type"
                 ]
               }

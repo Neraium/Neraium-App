@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { get, post, upload, download, setToken } from './api';
+import { useEffect, useState } from 'react';
+import { get, post, upload, download } from './api';
 import './workbench.css';
 const STAGES = ['Evaluation details', 'Upload reference dataset', 'Upload comparison dataset', 'Validate compatibility', 'Confirm signal mapping', 'Run analysis', 'Review evidence', 'Export report'];
 const EMPTY = { context: '', start: '', end: '', signals: [], pair_confirmed: false };
 const Json = ({ value }) => <pre>{JSON.stringify(value, null, 2)}</pre>;
 export default function App() {
-  const [token, editToken] = useState(''), [connected, setConnected] = useState(false);
   const [items, setItems] = useState([]), [evaluation, setEvaluation] = useState(null), [authority, setAuthority] = useState(null);
   const [busy, setBusy] = useState(''), [error, setError] = useState('');
   const [time, setTime] = useState({ timestamp_column: '', timestamp_mode: 'iso' });
@@ -14,6 +13,15 @@ export default function App() {
   const [referenceTime, setReferenceTime] = useState({ timestamp_column: '', timestamp_mode: 'iso' });
   const [create, setCreate] = useState({ mode: 'paired', customer: '', facility: '', system: '', scope: '' });
   const [creating, setCreating] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setBusy('Loading evaluations');
+    Promise.all([get('/evaluations'), get('/authority')])
+      .then(([list, state]) => { if (active) { setItems(list); setAuthority(state); } })
+      .catch(e => { if (active) setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message); })
+      .finally(() => { if (active) setBusy(''); });
+    return () => { active = false; };
+  }, []);
   async function act(label, fn) {
     setBusy(label); setError('');
     try { await fn(); } catch(e) { setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message); }
@@ -36,13 +44,9 @@ export default function App() {
   const root = `/evaluations/${evaluation?.id}`;
   const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
   return <div className="workbench">
-    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p>Compare historical operating periods from the same physical system using authoritative Neraium analysis.</p></header>
-    <p>Internal, read-only historical analysis. Supplied reference vs comparison, system-level relationship evidence, and uncertainty preserved. Authoritative Neraium-1.0. No control actions.</p>
+    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p className="landing-summary">Compare two historical operating periods from the same physical system.</p><p className="landing-detail">See whether signal relationships show persistent changes supported by the evidence.</p></header>
+    <p className="landing-scope">Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
     {error && <div className="error" role="alert">{error}</div>}{busy && <p role="status" className="notice">{busy}…</p>}
-    {!connected ? <form className="panel narrow" onSubmit={e => { e.preventDefault(); act('Opening workbench', async () => {
-      setToken(token); const [list, state] = await Promise.all([get('/evaluations'), get('/authority')]);
-      setItems(list); setAuthority(state); setConnected(true); editToken('');
-    }); }}><h2>Analyst access</h2><label>Internal workbench token<input type="password" autoComplete="off" required value={token} onChange={e => editToken(e.target.value)} /></label><button disabled={!!busy}>Open workbench</button><p>Token held only in this tab's memory.</p></form> : <>
     <fieldset disabled={!!busy}><p className={authority?.available ? 'notice' : 'error'}>Authority: {authority?.available ? `Neraium-1.0 ${authority.identity.commit.slice(0, 12)}` : authority?.reason}</p>
     <div className="layout"><aside><section className="panel"><h2>Evaluations</h2><label>Select evaluation<select disabled={!!busy} value={evaluation?.id || ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{items.map(e => <option key={e.id} value={e.id}>{e.customer} · {e.system}</option>)}</select></label>
     <button onClick={() => setCreating(true)}>New Evaluation</button></section>
@@ -72,6 +76,6 @@ export default function App() {
     {['complete', 'limited'].includes(run.status) && <><h3>Record evidence review</h3><label>Reviewer name<input value={reviewer} onChange={e => setReviewer(e.target.value)} /></label><label><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed this run's scope, source, mapping, results and evidence limitations.</label>{action('Record review', async () => { setReview(await post(`/runs/${run.id}/reviews`, { reviewer, evidence_reviewed: true })); await refresh(evaluation.id); }, !reviewed || !reviewer.trim())}
     {review && <><h2>8. Export report</h2>{action('Export report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
     </section>}
-    </>}</main></div></fieldset></>}
+    </>}</main></div></fieldset>
   </div>;
 }

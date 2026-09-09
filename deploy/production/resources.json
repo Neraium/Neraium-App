@@ -1,7 +1,7 @@
 {
   "account": "680779862188",
   "region": "us-east-1",
-  "application_commit": "ae7dadc35aee45f48a42b1bf60f62f98186669c4",
+  "application_commit": "c9acadad1c48bba9f5d955253b0c5fdcb68fbb8b",
   "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
   "vpc": "vpc-088c8a4178706c17f",
   "subnets": [
@@ -24,15 +24,14 @@
   "vpc_origin": "vo_7Kc35IXw0SBGCajLVyXs2q",
   "execution_role": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-execution",
   "task_role": "arn:aws:iam::680779862188:role/neraium-app-prod-ecs-task",
-  "token_secret": "arn:aws:secretsmanager:us-east-1:680779862188:secret:neraium-app-prod/workbench-token-DdRETd",
   "ecr_repository": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod",
-  "certificate": "arn:aws:acm:us-east-1:680779862188:certificate/76ff9aaa-33c6-4a6a-ae40-28c79bd08098",
+  "certificate": "arn:aws:acm:us-east-1:680779862188:certificate/755daa1a-d92c-4282-a8e4-bac7dccfab48",
   "frontend_bucket": "neraium-app-prod-frontend-680779862188",
   "origin_access_control": "E6LOKYFR6PAO9",
   "cluster": "neraium-app-prod",
   "log_group": "/ecs/neraium-app-prod",
-  "image_digest": "sha256:b9d61b1db6f94355b5bca7f99f20d0c68598dc010439dce0500ddf5f4ebf2b15",
-  "task_definition": "arn:aws:ecs:us-east-1:680779862188:task-definition/neraium-app-prod:3",
+  "image_digest": "sha256:a9e87be7ba92bb4b5d439432cdacfdb19e6c7edf6a078cc7a5702d70e4da2116",
+  "task_definition": "arn:aws:ecs:us-east-1:680779862188:task-definition/neraium-app-prod:4",
   "distribution": "E27KJ5Y66YQQBO",
   "cloudfront_hostname": "d1gouhm82x409l.cloudfront.net",
   "cloudfront_service_security_group": "sg-0b6e484828ea74d9f"

@@ -21,7 +21,7 @@ def aws(*args, document=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('operation', choices=['frontend', 'backend', 'attach-domain'])
+    parser.add_argument('operation', choices=['frontend', 'backend', 'remove-token-forwarding', 'attach-domain'])
     parser.add_argument('--build', type=Path)
     args = parser.parse_args()
     assert aws('sts', 'get-caller-identity')['Account'] == STATE['account']
@@ -45,11 +45,21 @@ def main():
         aws('ecs', 'update-service', '--cluster', STATE['cluster'], '--service', 'neraium-app-prod', '--task-definition', registered)
         STATE['task_definition'] = registered
         (HERE / 'resources.json').write_text(json.dumps(STATE, indent=2) + '\n')
+    elif args.operation == 'remove-token-forwarding':
+        for behavior in config['CacheBehaviors']['Items']:
+            headers = behavior.get('ForwardedValues', {}).get('Headers', {})
+            if 'X-Workbench-Token' in headers.get('Items', []):
+                assert behavior['TargetOriginId'] == 'app-api'
+                headers['Items'].remove('X-Workbench-Token')
+                headers['Quantity'] = len(headers['Items'])
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as output:
+            json.dump(config, output); output.flush()
+            aws('cloudfront', 'update-distribution', '--id', STATE['distribution'], '--if-match', distribution['ETag'], '--distribution-config', 'file://' + output.name)
     else:
         certificate = aws('acm', 'describe-certificate', '--certificate-arn', STATE['certificate'])['Certificate']
         assert certificate['Status'] == 'ISSUED', 'Certificate DNS validation must complete first. No DNS changes were made.'
-        assert 'app.neraium.com' in certificate['SubjectAlternativeNames']
-        config['Aliases'] = dict(Quantity=1, Items=['app.neraium.com'])
+        assert 'eval.neraium.com' in certificate['SubjectAlternativeNames']
+        config['Aliases'] = dict(Quantity=1, Items=['eval.neraium.com'])
         config['ViewerCertificate'] = dict(ACMCertificateArn=STATE['certificate'], SSLSupportMethod='sni-only', MinimumProtocolVersion='TLSv1.2_2021')
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as output:
             json.dump(config, output); output.flush()

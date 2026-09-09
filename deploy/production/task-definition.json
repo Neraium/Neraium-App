@@ -15,7 +15,7 @@
   "containerDefinitions": [
     {
       "name": "workbench",
-      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:b9d61b1db6f94355b5bca7f99f20d0c68598dc010439dce0500ddf5f4ebf2b15",
+      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:a9e87be7ba92bb4b5d439432cdacfdb19e6c7edf6a078cc7a5702d70e4da2116",
       "essential": true,
       "user": "10001:10001",
       "readonlyRootFilesystem": true,
@@ -33,12 +33,6 @@
         {
           "name": "TMPDIR",
           "value": "/data"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "NERAIUM_WORKBENCH_TOKEN",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:680779862188:secret:neraium-app-prod/workbench-token-DdRETd"
         }
       ],
       "mountPoints": [

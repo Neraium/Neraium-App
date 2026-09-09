@@ -5,9 +5,8 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import Depends
 from fastapi.responses import JSONResponse
-from backend.workbench.api import app as workbench, authorize
+from backend.workbench.api import app as workbench
 from backend.workbench import authority
 
 VERSION = json.loads(Path(__file__).with_name("version.json").read_text())
@@ -30,7 +29,7 @@ def health():
         return JSONResponse({"status": "unavailable"}, status_code=503)
 
 
-@workbench.get("/api/version", dependencies=[Depends(authorize)])
+@workbench.get("/api/version")
 def version():
     return VERSION
 

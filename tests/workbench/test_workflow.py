@@ -11,15 +11,14 @@ import pytest
 
 from backend.workbench import api, authority, intake, store
 
-TOKEN = 'test-only-internal-token-1234567890'
 RAW = b'time,flow,pressure\n2026-01-01T00:00:00Z,1,2\n2026-01-01T00:01:00Z,,3\n2026-01-01T00:02:00Z,3,4\n'
 IDENTITY = {'commit': authority.SUPPORTED_COMMIT, 'adapter_contract': authority.CONTRACT}
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('NERAIUM_WORKBENCH_DATA', str(tmp_path / 'data'))
-    monkeypatch.setenv('NERAIUM_WORKBENCH_TOKEN', TOKEN)
-    return TestClient(api.app, headers={'X-Workbench-Token': TOKEN})
+    monkeypatch.delenv('NERAIUM_WORKBENCH_TOKEN', raising=False)
+    return TestClient(api.app)
 
 
 def create(client, raw=RAW):
@@ -57,8 +56,8 @@ def approve(client, eid):
     assert r.status_code == 200, r.text
 
 
-def test_auth_and_retired_routes(client):
-    assert client.get('/api/evaluations', headers={'X-Workbench-Token': ''}).status_code == 401
+def test_token_free_workbench_and_retired_routes(client):
+    assert client.get('/api/evaluations').status_code == 200
     for path in ['/api/demo/pronostia', '/api/playback/status', '/api/customers', '/api/systems', '/api/neraium/state/test']:
         assert client.get(path).status_code == 404
     assert client.get('/api/evaluations').headers['cache-control'] == 'no-store'

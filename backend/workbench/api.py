@@ -1,15 +1,13 @@
-"""Single-operator internal workbench API. All customer endpoints require a token."""
+"""Single-operator Historical Evaluation workbench API."""
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
-import os
-import secrets
 import threading
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,7 +16,7 @@ from . import authority, intake, report, store
 
 app = FastAPI(title="Neraium Internal Historical Evaluation Workbench", docs_url=None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3006", "http://127.0.0.1:3006"],
-                   allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-Workbench-Token"])
+                   allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 execution_lock = threading.Lock()
 
 
@@ -34,16 +32,7 @@ def digest(value):
     return hashlib.sha256(store.encode(value).encode()).hexdigest()
 
 
-def authorize(x_workbench_token: str = Header(default="")):
-    token = os.environ.get("NERAIUM_WORKBENCH_TOKEN", "")
-    if len(token) < 24:
-        raise HTTPException(503, "Configure NERAIUM_WORKBENCH_TOKEN with at least 24 characters.")
-    if not secrets.compare_digest(x_workbench_token, token):
-        raise HTTPException(401, "Internal workbench token required.")
-
-
-router = APIRouter(prefix="/api", dependencies=[Depends(authorize)])
-
+router = APIRouter(prefix="/api")
 
 @app.middleware("http")
 async def private_responses(request: Request, call_next):
