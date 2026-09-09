@@ -32,6 +32,7 @@ def relationship_rows(result):
 
 def render(run: dict, review: dict) -> str:
     evaluation = run["evaluation"]
+    name = evaluation.get("label") or evaluation.get("customer") or evaluation["id"]
     payload = run["input"]
     result = run["response"]["result"]
     esc = lambda value: escape(str(value), quote=True)
@@ -58,9 +59,10 @@ def render(run: dict, review: dict) -> str:
                 "No evidence entries supplied by the authoritative engine. This is not a claim of stable behavior.")
         excerpts.append(f"<h2>{esc(label)}</h2><pre>{esc(text)}</pre>")
     return f"""<!doctype html><html lang="en"><meta charset="utf-8">
-<title>Neraium historical evaluation — {esc(evaluation['customer'])}</title>
+<title>Neraium historical evaluation — {esc(name)}</title>
 <style>body{{font:15px/1.5 system-ui;max-width:900px;margin:40px auto;padding:20px;color:#17242b}}h1{{font-size:28px}}h2{{font-size:18px;margin-top:28px}}table{{border-collapse:collapse;width:100%}}td,th{{padding:8px;border-bottom:1px solid #ddd;text-align:left}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 monospace}}@media print{{body{{margin:0}}h2{{break-after:avoid}}}}</style>
 <h1>Neraium historical evaluation</h1>
+<p>{esc(name)}</p>
 <p><b>{esc(evaluation['customer'])} · {esc(evaluation['facility'])} · {esc(evaluation['system'])}</b></p>
 <p>{esc(evaluation['scope'])}</p>
 <p>This evaluation is read-only and based on supplied historical data. Correlation does not establish causation.

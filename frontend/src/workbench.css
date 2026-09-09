@@ -4,3 +4,5 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
 .provenance{font-size:12px}.provenance summary{color:#aebdc7}
 
 .layout>*{min-width:0}.panel{overflow-wrap:anywhere}button{max-width:100%;white-space:normal}input,select,textarea{min-width:0;max-width:100%}.stages{font-size:13px} @media(max-width:850px){h1{font-size:24px}.fields>label{min-width:0}input,select,textarea{font-size:16px}.stages{line-height:1.7}.table-scroll{max-width:100%}}
+
+.layout{grid-template-columns:minmax(0,1fr) 250px}.uploads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.uploads .panel{margin-bottom:0}.upload-help{font-size:13px}.evaluation-label{max-width:420px}.history{margin-top:0}.signal-editor{border-top:1px solid #2a3a46;padding:12px 0}.signal-editor label{display:inline-block;vertical-align:top;margin-right:14px}.run-action{margin-top:20px}@media(max-width:850px){.layout,.uploads{grid-template-columns:1fr}.uploads{gap:12px}.signal-editor label{display:block;margin-right:0}.workbench{padding:14px}.panel{padding:14px;margin-bottom:12px}}

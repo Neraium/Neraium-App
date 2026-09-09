@@ -63,16 +63,17 @@ class Model(BaseModel):
 
 class Evaluation(Model):
     mode: Literal["single", "paired"] = "single"
-    customer: str = Field(min_length=1, max_length=200)
-    facility: str = Field(min_length=1, max_length=200)
-    system: str = Field(min_length=1, max_length=200)
-    scope: str = Field(min_length=1, max_length=2000)
+    label: str = Field(default="", max_length=200)
+    customer: str = Field(default="", max_length=200)
+    facility: str = Field(default="", max_length=200)
+    system: str = Field(default="", max_length=200)
+    scope: str = Field(default="", max_length=2000)
 
 
 class Validation(Model):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
-    timestamp_column: str
-    timestamp_mode: str
+    timestamp_column: str = ""
+    timestamp_mode: str = ""
 
 
 class Signal(Model):
@@ -86,7 +87,7 @@ class Signal(Model):
 
 class Mapping(Model):
     pair_confirmed: bool = False
-    context: str = Field(min_length=1, max_length=2000)
+    context: str = Field(default="", max_length=2000)
     signals: list[Signal] = Field(min_length=1, max_length=63)
     start: str = ""
     end: str = ""
@@ -181,7 +182,8 @@ def validate(evaluation_id: str, body: Validation, role: Literal["reference", "c
         db.execute("BEGIN IMMEDIATE")
         value = store.get(db, "evaluations", evaluation_id)
         source = store.get(db, "sources", value["reference_source_id" if role == "reference" else "source_id"])
-        validation = intake.validate(source["table"], body.timestamp_column, body.timestamp_mode)
+        validation = (intake.validate(source["table"], body.timestamp_column, body.timestamp_mode)
+                      if body.timestamp_column else intake.auto_validate(source["table"]))
         for key in ("mapping", "preview", "approved_mapping", "latest_run_id"):
             value.pop(key, None)
         value["reference_validation" if role == "reference" else "validation"] = validation

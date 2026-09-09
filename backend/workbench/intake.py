@@ -110,6 +110,36 @@ def validate(table: dict, column: str, mode: str) -> dict:
             "start": times[0] if times else None, "end": times[-1] if times else None, "signals": signals}
 
 
+def auto_validate(table: dict) -> dict:
+    """Detect explicit timezone ISO dates or epoch units named in a header.
+
+    Never guess numeric timestamp units or choose between multiple time columns.
+    Full validation still checks every row.
+    """
+    candidates = []
+    for column in table["columns"]:
+        name = column.strip().lower()
+        mode = {"epoch_seconds": "epoch_seconds", "timestamp_seconds": "epoch_seconds",
+                "epoch_milliseconds": "epoch_milliseconds",
+                "timestamp_milliseconds": "epoch_milliseconds"}.get(name)
+        if mode:
+            candidates.append((column, mode))
+            continue
+        for row in table["rows"]:
+            value = row.get(column)
+            if not isinstance(value, str) or "T" not in value:
+                continue
+            try:
+                timestamp(value, "iso")
+                candidates.append((column, "iso"))
+                break
+            except ValueError:
+                pass
+    if len(candidates) != 1:
+        raise ValueError("Timestamp needs review: select the timestamp column and format; numeric epoch units are never guessed.")
+    return validate(table, *candidates[0])
+
+
 def analysis_input(table: dict, validation: dict, mapping: dict) -> dict:
     if not validation["eligible_timestamps"]:
         raise ValueError("Resolve invalid, duplicate, or unordered timestamps in a new source upload.")

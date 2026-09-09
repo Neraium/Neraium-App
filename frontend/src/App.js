@@ -1,87 +1,123 @@
 import { useEffect, useState } from 'react';
 import { get, post, upload, download } from './api';
+import { suggestedMapping, mappingIssues, classificationIssues } from './intake';
 import './workbench.css';
-const STAGES = ['Evaluation details', 'Upload reference dataset', 'Upload comparison dataset', 'Validate compatibility', 'Confirm signal mapping', 'Run analysis', 'Review evidence', 'Export report'];
-const EMPTY = { context: '', start: '', end: '', signals: [], pair_confirmed: false };
 const Json = ({ value }) => <pre>{JSON.stringify(value, null, 2)}</pre>;
-// Existing verification writers reserve these customer names; the Evaluation
-// model has no artifact metadata. Match whole names, never generic test keywords.
 const isVerification = item => /^(?:browser )?deployment check \(synthetic\)$/i.test((item.customer || '').trim().replace(/\s+/g, ' '));
+const title = item => item.label || [item.customer, item.system].filter(Boolean).join(' · ') || `Evaluation · ${item.created_at?.slice(0, 19) || item.id}`;
+const message = e => typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message;
 export default function App() {
   const [items, setItems] = useState([]), [evaluation, setEvaluation] = useState(null), [authority, setAuthority] = useState(null);
-  const [busy, setBusy] = useState(''), [error, setError] = useState('');
-  const [time, setTime] = useState({ timestamp_column: '', timestamp_mode: 'iso' });
-  const [mapping, setMapping] = useState(EMPTY), [preview, setPreview] = useState(null), [approved, setApproved] = useState(false);
+  const [busy, setBusy] = useState(''), [error, setError] = useState(''), [label, setLabel] = useState('');
+  const [mapping, setMapping] = useState({ signals: [], context: '' });
+  const [timeIssues, setTimeIssues] = useState({}), [times, setTimes] = useState({});
+  const [classifications, setClassifications] = useState([]), [classesConfirmed, setClassesConfirmed] = useState(false);
   const [run, setRun] = useState(null), [review, setReview] = useState(null), [reviewer, setReviewer] = useState(''), [reviewed, setReviewed] = useState(false);
-  const [referenceTime, setReferenceTime] = useState({ timestamp_column: '', timestamp_mode: 'iso' });
-  const [create, setCreate] = useState({ mode: 'paired', customer: '', facility: '', system: '', scope: '' });
-  const [creating, setCreating] = useState(false);
   useEffect(() => {
     let active = true;
     setBusy('Loading evaluations');
     Promise.all([get('/evaluations'), get('/authority')])
       .then(([list, state]) => { if (active) { setItems(list); setAuthority(state); } })
-      .catch(e => { if (active) setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message); })
+      .catch(e => { if (active) setError(message(e)); })
       .finally(() => { if (active) setBusy(''); });
     return () => { active = false; };
   }, []);
   async function act(label, fn) {
     setBusy(label); setError('');
-    try { await fn(); } catch(e) { setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message); }
+    try { await fn(); } catch(e) { setError(message(e)); }
     finally { setBusy(''); }
   }
   async function refresh(id) {
     const [list, item] = await Promise.all([get('/evaluations'), get(`/evaluations/${id}`)]);
     setItems(list); setEvaluation(item); return item;
   }
-  async function select(id) {
-    setCreating(false); setRun(null); setReview(null); setReviewed(false);
-    const item = await refresh(id);
-    setReferenceTime(item.reference_validation ? { timestamp_column: item.reference_validation.timestamp_column, timestamp_mode: item.reference_validation.timestamp_mode } : { timestamp_column: '', timestamp_mode: 'iso' });
-    setTime({ timestamp_column: item.validation?.timestamp_column || '', timestamp_mode: item.validation?.timestamp_mode || 'iso' });
-    setMapping(item.mapping || { ...EMPTY, signals: (item.validation?.signals || []).map(s => ({ column: s.column, include: false, meaning: '', unit: '', reason: '' })) }); setPreview(item.preview || null); setApproved(!!item.approved_mapping);
+  function clearResult() { setRun(null); setReview(null); setReviewed(false); setClassifications([]); setClassesConfirmed(false); }
+  async function prepare(id) {
+    let item = await refresh(id);
+    const issues = {};
+    for (const role of item.mode === 'paired' ? ['reference', 'comparison'] : ['comparison']) {
+      const source = role === 'reference' ? item.reference_source : item.source;
+      const quality = role === 'reference' ? item.reference_validation : item.validation;
+      if (source && !quality) {
+        setBusy(`Validating ${role === 'reference' ? 'baseline' : 'comparison'} dataset`);
+        try { await post(`/evaluations/${id}/validate?role=${role}`, {}); }
+        catch (e) { issues[role] = message(e); }
+      }
+    }
+    item = await refresh(id);
+    setMapping(suggestedMapping(item)); setTimeIssues(issues);
   }
-  function edit(next) { setMapping(next); setPreview(null); setApproved(false); }
-  function editSignal(i, field, value) { edit({ ...mapping, signals: mapping.signals.map((s, j) => i === j ? { ...s, [field]: value } : s) }); }
-  const step = review ? 7 : run ? 6 : approved ? 5 : evaluation?.validation?.eligible_timestamps && (evaluation.mode !== 'paired' || evaluation.reference_validation?.eligible_timestamps) ? 4 : evaluation?.source ? 3 : evaluation?.reference_source ? 2 : 1;
-  const root = `/evaluations/${evaluation?.id}`;
-  const operatorItems = items.filter(item => !isVerification(item));
+  async function select(id) { clearResult(); setTimes({}); await prepare(id); }
+  async function receive(file, role) {
+    clearResult();
+    let id = evaluation?.id;
+    if (!id) { const item = await post('/evaluations', { mode: 'paired', label }); id = item.id; await refresh(id); }
+    await upload(id, file, role);
+    await prepare(id);
+  }
+  function editSignal(index, field, value) {
+    setMapping({ ...mapping, signals: mapping.signals.map((s, i) => i === index ? { ...s, [field]: value } : s) });
+    setClassifications([]); setClassesConfirmed(false);
+  }
+  const paired = !evaluation || evaluation.mode === 'paired';
+  const both = evaluation?.source && (!paired || evaluation.reference_source);
+  const valid = evaluation?.validation?.eligible_timestamps && (!paired || evaluation.reference_validation?.eligible_timestamps);
+  const schemaMismatch = valid && paired && JSON.stringify(evaluation.validation.signals.map(s => s.column).sort()) !== JSON.stringify(evaluation.reference_validation.signals.map(s => s.column).sort());
+  const issues = evaluation ? mappingIssues(mapping, evaluation) : [];
+  const count = mapping.signals.filter(s => s.include).length;
+  const ready = valid && !schemaMismatch && !issues.length && count > 0 && count <= 24 && (!classifications.length || classesConfirmed);
   const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
+  const operatorItems = items.filter(item => !isVerification(item));
+  const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? ['meaning', 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
   return <div className="workbench">
-    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p className="landing-summary">Compare two historical operating periods from the same physical system.</p><p className="landing-detail">See whether signal relationships show persistent changes supported by the evidence.</p></header>
-    <p className="landing-scope">Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
+    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p>Upload two historical datasets, run evaluation, and review evidence.</p></header>
+    <p>Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
     {error && <div className="error" role="alert">{error}</div>}{busy && <p role="status" className="notice">{busy}…</p>}
-    <fieldset disabled={!!busy}>
     {authority?.available === false && <p className="error" role="alert">Authority: {authority.reason}</p>}
-    <div className="layout"><aside><section className="panel"><h2>Evaluations</h2><label>Select evaluation<select disabled={!!busy} value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(e => <option key={e.id} value={e.id}>{e.customer} · {e.system}</option>)}</select></label>
-    <button onClick={() => setCreating(true)}>New Evaluation</button></section>
-    {evaluation && !creating && <section className="panel"><h2>1. Evaluation details</h2><h3>{evaluation.customer}</h3><p>{evaluation.facility} · {evaluation.system}</p><p>{evaluation.scope}</p><ol className="stages">{STAGES.map((s, i) => <li key={s} aria-current={i === step ? 'step' : undefined}>{s}</li>)}</ol><h3>Preserved runs</h3>{evaluation.runs.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); })}</div>)}</section>}
-    </aside><main>{creating ? <section className="panel"><h2>1. Evaluation details</h2><p>Create a paired historical evaluation of the same physical system.</p><form onSubmit={e => { e.preventDefault(); act('Creating evaluation', async () => { const item = await post('/evaluations', create); await select(item.id); }); }}>
-      {Object.keys(create).filter(f => f !== 'mode').map(f => <label key={f}>{({ customer: 'Customer', facility: 'Facility', system: 'Physical system', scope: 'Evaluation scope / question' })[f]}<input required maxLength={f === 'scope' ? 2000 : 200} value={create[f]} onChange={e => setCreate({ ...create, [f]: e.target.value })} /></label>)}<button disabled={!!busy}>Create historical evaluation</button><button type="button" onClick={() => setCreating(false)}>Cancel</button>
-    </form></section> : !evaluation ? <section className="panel"><h2>Reference / comparison evaluation</h2><p>Choose New Evaluation to enter system details, upload reference and comparison datasets, validate compatibility, confirm signal mapping, run authoritative SII, review evidence, and export a report.</p></section> : <>
-    <section className="panel"><h2>{evaluation.mode === 'paired' ? '2. Upload reference dataset' : 'Historical dataset requirements'}</h2><p>UTF-8 CSV, TSV or JSON row arrays · 10 MiB, 10,000 rows, 64 columns maximum per file. One system per evaluation. Original bytes are preserved.</p>{evaluation.mode === 'paired' && <><p>The supplied reference and comparison must describe the same physical system.</p><label>Upload reference<input type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; if (file) act('Preserving reference', async () => { await upload(evaluation.id, file, 'reference'); await select(evaluation.id); }); e.target.value = ''; }} /></label>{evaluation.reference_source && <><p>Reference: {evaluation.reference_source.filename} · SHA-256 <code>{evaluation.reference_source.sha256}</code></p>{action('Download reference original', () => download(`/sources/${evaluation.reference_source.id}/original`, evaluation.reference_source.filename))}</>}</>}
-    </section><section className="panel"><h2>3. Upload comparison dataset</h2><label>{evaluation.mode === 'paired' ? 'Upload comparison' : 'Upload dataset'}<input type="file" accept=".csv,.tsv,.json" disabled={!!busy || (evaluation.mode === 'paired' && !evaluation.reference_source)} onChange={e => { const file = e.target.files[0]; if (file) act('Preserving source', async () => { await upload(evaluation.id, file); await select(evaluation.id); }); e.target.value = ''; }} /></label>
-    {evaluation.source && <><p>{evaluation.source.filename} · SHA-256 <code>{evaluation.source.sha256}</code></p>{action('Download original', () => download(`/sources/${evaluation.source.id}/original`, evaluation.source.filename))}<details><summary>First 8 source rows</summary><Json value={evaluation.source.preview} /></details></>}
-    </section>
-    {evaluation.source && <section className="panel"><h2>4. Validate compatibility</h2><p>Validate both periods’ timestamps and signal quality, then confirm shared signal meanings and supplied units below.</p>{evaluation.mode === 'paired' && evaluation.reference_source && <><h3>Reference dataset</h3><label>Reference timestamp column<select value={referenceTime.timestamp_column} onChange={e => { setReferenceTime({ ...referenceTime, timestamp_column: e.target.value }); setApproved(false); setPreview(null); }}><option value="">Choose explicitly…</option>{evaluation.reference_source.columns.map(c => <option key={c}>{c}</option>)}</select></label><label>Reference timestamp format<select value={referenceTime.timestamp_mode} onChange={e => { setReferenceTime({ ...referenceTime, timestamp_mode: e.target.value }); setApproved(false); setPreview(null); }}><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>{action('Validate reference', async () => { await post(`${root}/validate?role=reference`, referenceTime); await select(evaluation.id); }, !referenceTime.timestamp_column)}{evaluation.reference_validation && <Json value={evaluation.reference_validation} />}</>}
-    <h3>Comparison dataset</h3><div className="fields"><label>Timestamp column<select value={time.timestamp_column} onChange={e => { setTime({ ...time, timestamp_column: e.target.value }); setApproved(false); setPreview(null); }}><option value="">Choose explicitly…</option>{evaluation.source.columns.map(c => <option key={c}>{c}</option>)}</select></label><label>Timestamp format<select value={time.timestamp_mode} onChange={e => { setTime({ ...time, timestamp_mode: e.target.value }); setApproved(false); setPreview(null); }}><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label></div>
-    {action('Validate', async () => { const v = await post(`${root}/validate`, time); await refresh(evaluation.id); setMapping({ ...EMPTY, signals: v.signals.map(s => ({ column: s.column, include: false, meaning: '', unit: '', reason: '' })) }); setPreview(null); setApproved(false); setRun(null); setReview(null); }, !time.timestamp_column)}
-    {evaluation.validation && <><p>{evaluation.validation.row_count} rows · {evaluation.validation.start} → {evaluation.validation.end}</p><p>{evaluation.validation.eligible_timestamps ? 'Timestamps eligible for mapping.' : 'Timestamp corrections required before analysis.'}</p><ul>{evaluation.validation.warnings.map(w => <li key={w}>{w}</li>)}</ul><details><summary>Per-signal quality</summary><Json value={evaluation.validation.signals} /></details></>}
-    </section>}
-    {evaluation.validation?.eligible_timestamps && (evaluation.mode !== 'paired' || evaluation.reference_validation?.eligible_timestamps) && <section className="panel"><h2>5. Confirm signal mapping</h2><p>Include historical signals with confirmed meaning. Paired analysis requires explicitly supplied matching units; unknown units block analysis. Exclude identifiers, failure labels and unrelated signals with a reason.</p><div className="table-scroll"><table><thead><tr><th>Include</th><th>Source signal</th><th>Confirmed meaning</th><th>Unit</th><th>Exclusion reason</th></tr></thead><tbody>{mapping.signals.map((s, i) => <tr key={s.column}><td><input type="checkbox" aria-label={`Include ${s.column}`} checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} /></td><td>{s.column}</td>{['meaning', 'unit', 'reason'].map(f => <td key={f}><input aria-label={`${s.column} ${f}`} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></td>)}</tr>)}</tbody></table></div>
-    <label>Supplied system context and known limitations<textarea rows="3" value={mapping.context} onChange={e => edit({ ...mapping, context: e.target.value })} placeholder="System boundary, operating context, known interventions, and what is unknown. Recorded context is not a causal prior." /></label><div className="fields">{(evaluation.mode === 'paired' ? [] : ['start', 'end']).map(f => <label key={f}>Optional {f} (ISO with timezone)<input value={mapping[f]} onChange={e => edit({ ...mapping, [f]: e.target.value })} placeholder="Full source period if blank" /></label>)}</div>
-    {evaluation.mode === 'paired' ? <><p>Both complete periods use this shared mapping. Identical signal columns and explicitly supplied matching units are required. Paired analysis uses full authoritative supplied-reference SII, retaining governed findings, timing, persistence and limitations as supplied.</p><label><input type="checkbox" checked={!!mapping.pair_confirmed} onChange={e => edit({ ...mapping, pair_confirmed: e.target.checked })} />I verified both sources describe the same physical system and signal identities, meanings and units. This inclusion/exclusion mapping applies to both; outcome labels are excluded.</label></> : <p>Neraium-1.0 selects baseline/comparison windows within this interval. History is not presumed healthy. No cross-run memory or engineering priors are enabled.</p>}
-    {action('Preview mappings', async () => { setPreview(await post(`${root}/mapping-preview`, mapping)); setApproved(false); await refresh(evaluation.id); }, !mapping.signals.length)}
-    {preview && <><h3>Authority classification preview</h3>{preview.catalog.reference && <details><summary>Reference classifications (review both)</summary><Json value={preview.catalog.reference} /></details>}<p>Confirm inferred analysis categories. If incorrect, revise the meaning or exclude the signal. Units are supplied by you.</p><div className="table-scroll"><table><thead><tr><th>Signal</th><th>Analysis category</th><th>Unit</th><th>Reason</th></tr></thead><tbody>{Object.entries(preview.catalog.comparison || preview.catalog).filter(([k]) => k !== 'timestamp').map(([k, v]) => <tr key={k}><td>{k}</td><td>{v.telemetry_category}</td><td>{v.engineering_units || 'Unknown'}</td><td>{v.telemetry_classification?.reason}</td></tr>)}</tbody></table></div>{action(approved ? 'Mapping approved' : 'Confirm classifications, units, context and window policy', async () => { await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true }); setApproved(true); await refresh(evaluation.id); }, approved)}</>}
-    </section>}
-    {approved && <section className="panel"><h2>6. Run analysis</h2><p>Up to 120 seconds. A completed run may have no findings or limited evidence. Failures are preserved without substituted results.</p>{action('Run authoritative SII', async () => { const r = await post(`${root}/runs`); const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); await refresh(evaluation.id); })}</section>}
-    {run && <section className="panel"><h2>7. Review evidence</h2><p>Run <code>{run.id}</code> · <strong>{run.status}</strong> · source {run.source.filename}</p>{run.reference_source && <><p>Reference: {run.reference_source.filename} · {run.reference_validation.start} → {run.reference_validation.end} · SHA-256 <code>{run.reference_source.sha256}</code></p><p>Comparison SHA-256 <code>{run.source.sha256}</code></p></>}{run.error && <p className="error">{run.error}</p>}{run.status === 'running' && <p>No terminal result stored. If the server was interrupted, start a new run; this record is not usable evidence.</p>}
+    <fieldset disabled={!!busy}><div className="layout"><main>
+    {!evaluation ? <label className="evaluation-label">Evaluation name (optional)<input maxLength={200} value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. September comparison" /></label> : <h2>{title(evaluation)}</h2>}
+    <p className="upload-help">Same physical system and signal identities in both files. UTF-8 CSV, TSV or JSON · 10 MiB, 10,000 rows, 64 columns per file. Units in headers such as pressure [bar] are mapped automatically.</p>
+    <div className="uploads">{(paired ? ['reference', 'comparison'] : ['comparison']).map(role => {
+      const name = role === 'reference' ? 'Baseline dataset' : 'Comparison dataset';
+      const source = role === 'reference' ? evaluation?.reference_source : evaluation?.source;
+      const quality = role === 'reference' ? evaluation?.reference_validation : evaluation?.validation;
+      const time = times[role] || { timestamp_column: '', timestamp_mode: 'iso' };
+      return <section className="panel" key={role}><h2>{name}</h2><label>{source ? 'Replace file' : 'Upload file'}<input aria-label={name} type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; e.target.value = ''; if (file) act(`Uploading ${name.toLowerCase()}`, () => receive(file, role)); }} /></label>
+      {source && <><p>{source.filename}</p>{quality?.eligible_timestamps && <p>{quality.row_count} rows · Validated</p>}<details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
+      {timeIssues[role] && <div><p role="alert">{timeIssues[role]}</p><label>Timestamp column<select value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label><label>Timestamp format<select value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>{action('Apply timestamp', async () => { await post(`/evaluations/${evaluation.id}/validate?role=${role}`, time); await prepare(evaluation.id); }, !time.timestamp_column)}</div>}
+      {quality && !quality.eligible_timestamps && <div role="alert"><p>Replace this file to resolve timestamp errors.</p>{quality.warnings.map(w => <p key={w}>{w}</p>)}</div>}
+      </section>;
+    })}</div>
+    {schemaMismatch && <p role="alert" className="error">Signal columns differ between files. Upload matching signal schemas; automatic renaming is not supported.</p>}
+    {valid && !schemaMismatch && <>
+      {!!issues.length && <section className="panel"><h2>Mapping needs attention</h2>{issues.map(({ index, problems }) => <div key={mapping.signals[index].column}><p>{problems.join(' ')}</p>{signalEditor(mapping.signals[index], index)}</div>)}</section>}
+      {(count === 0 || count > 24) && <p role="alert">Include 1–24 signals using Signal mapping below.</p>}
+      <details><summary>Signal mapping and optional context</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map(signalEditor)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
+    </>}
+    {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><Json value={c} /></div>)}<p>Revise the signal meaning or exclusion in Signal mapping, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed these classifications and limits.</label></section>}
+    {both && <section className="panel run-action"><p>By running, you confirm these files describe the same physical system with matching signal identities and units. The shared mapping excludes outcome labels.</p>{action('Run Evaluation', async () => {
+      clearResult();
+      const root = `/evaluations/${evaluation.id}`;
+      setBusy('Checking signal mapping');
+      const preview = await post(`${root}/mapping-preview`, { ...mapping, pair_confirmed: paired });
+      const pending = classificationIssues(preview, mapping);
+      if (pending.length && !classesConfirmed) { setClassifications(pending); return; }
+      await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true });
+      setBusy('Running evaluation — up to 120 seconds');
+      const r = await post(`${root}/runs`);
+      const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null);
+      await refresh(evaluation.id);
+    }, !ready || authority?.available !== true)}<p>A completed run may contain limited evidence or no findings.</p></section>}
+    {run && <section className="panel"><h2>Review evidence</h2><p>Run <code>{run.id}</code> · <strong>{run.status}</strong> · source {run.source.filename}</p>{run.reference_source && <><p>Reference: {run.reference_source.filename} · {run.reference_validation.start} → {run.reference_validation.end} · SHA-256 <code>{run.reference_source.sha256}</code></p><p>Comparison SHA-256 <code>{run.source.sha256}</code></p></>}{run.error && <p className="error">{run.error}</p>}{run.status === 'running' && <p>No terminal result stored. If the server was interrupted, start a new run; this record is not usable evidence.</p>}
     {run.response && <><p>Execution status is not equipment health. No finding does not mean stable.</p><p>Window: {run.input.rows[0].timestamp} → {run.input.rows[run.input.rows.length - 1].timestamp}</p>{Object.entries(run.evidence_sections).map(([label, v]) => <details key={label}><summary>{label}</summary>{Array.isArray(v) && !v.length ? <p>No entries supplied by the authoritative engine.</p> : <Json value={v} />}</details>)}<details><summary>Full authoritative result and module limitations</summary><Json value={run.response.result} /></details></>}
     {action('Download evidence JSON', () => download(`/runs/${run.id}/evidence`, `neraium-evidence-${run.id}.json`))}
     {['complete', 'limited'].includes(run.status) && <><h3>Record evidence review</h3><label>Reviewer name<input value={reviewer} onChange={e => setReviewer(e.target.value)} /></label><label><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed this run's scope, source, mapping, results and evidence limitations.</label>{action('Record review', async () => { setReview(await post(`/runs/${run.id}/reviews`, { reviewer, evidence_reviewed: true })); await refresh(evaluation.id); }, !reviewed || !reviewer.trim())}
-    {review && <><h2>8. Export report</h2>{action('Export report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
+    {review && <><h2>Export report</h2>{action('Export report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
     </section>}
-    </>}</main></div></fieldset>
+
+    </main><aside><details className="panel history"><summary>Evaluations and history</summary><label>Select evaluation<select value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(item => <option key={item.id} value={item.id}>{title(item)}</option>)}</select></label><button onClick={() => { setEvaluation(null); setLabel(''); setMapping({ signals: [], context: '' }); setTimeIssues({}); setTimes({}); setError(''); clearResult(); }}>New Evaluation</button>
+    {evaluation && <><h3>{title(evaluation)}</h3>{[evaluation.facility, evaluation.scope].filter(Boolean).map((s, i) => <p key={i}>{s}</p>)}<h3>Preserved runs</h3>{evaluation.runs?.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); })}</div>)}</>}
+    </details></aside></div></fieldset>
     {authority?.available && <details className="provenance"><summary>Provenance · Neraium-1.0</summary><Json value={authority.identity} /></details>}
   </div>;
 }

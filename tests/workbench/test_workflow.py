@@ -242,3 +242,37 @@ def test_authority_default_pin_and_explicit_mismatch(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', lambda args, **kw: '0' * 40 if 'rev-parse' in args else '')
     with pytest.raises(authority.AuthorityError, match='must match the pinned commit'):
         authority.identity()
+
+
+def test_optional_metadata_and_context(client, monkeypatch):
+    stub(monkeypatch)
+    response = client.post('/api/evaluations', json={'mode': 'paired'})
+    assert response.status_code == 201
+    item = response.json()
+    assert item['customer'] == item['facility'] == item['system'] == item['scope'] == item['label'] == ''
+    assert item['created_at'] and item['id']
+    url = f"/api/evaluations/{item['id']}"
+    for role in ('comparison', 'reference'):
+        assert client.post(url + f'/source?filename={role}.csv&role={role}', content=RAW).status_code == 201
+        result = client.post(url + f'/validate?role={role}', json={})
+        assert result.status_code == 200 and result.json()['eligible_timestamps']
+    m = mapping(); m.pop('context'); m['pair_confirmed'] = True
+    for signal in m['signals']: signal['unit'] = 'dimensionless'
+    result = client.post(url + '/mapping-preview', json=m)
+    assert result.status_code == 200, result.text
+    assert client.get(url).json()['mapping']['context'] == ''
+    assert client.post('/api/evaluations', json={'label': 'Named', 'mode': 'paired'}).json()['label'] == 'Named'
+
+
+def test_automatic_timestamp_detection_is_conservative():
+    table = intake.parse(RAW, 'period.csv')
+    assert intake.auto_validate(table) == intake.validate(table, 'time', 'iso')
+    table['rows'][1]['time'] = 'invalid'
+    assert not intake.auto_validate(table)['eligible_timestamps']
+    for raw in (b'time,flow\n1700000000,1\n1700000060,2\n',
+                b'time,other\n2026-01-01T00:00:00Z,2026-01-01T00:00:00Z\n'):
+        with pytest.raises(ValueError, match='Timestamp needs review'):
+            intake.auto_validate(intake.parse(raw, 'period.csv'))
+    for mode in ('epoch_seconds', 'epoch_milliseconds'):
+        table = intake.parse(f'{mode},flow\n1700000000,1\n1700000060,2\n'.encode(), 'period.csv')
+        assert intake.auto_validate(table)['timestamp_mode'] == mode
