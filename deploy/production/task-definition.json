@@ -15,7 +15,7 @@
   "containerDefinitions": [
     {
       "name": "workbench",
-      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:a9e87be7ba92bb4b5d439432cdacfdb19e6c7edf6a078cc7a5702d70e4da2116",
+      "image": "680779862188.dkr.ecr.us-east-1.amazonaws.com/neraium-app-prod@sha256:35d4fead8ed4d057342168abfc4edddfcd05df924f6610c9444a3bb699b9a9e4",
       "essential": true,
       "user": "10001:10001",
       "readonlyRootFilesystem": true,
