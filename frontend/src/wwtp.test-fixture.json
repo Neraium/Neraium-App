@@ -1,0 +1,20 @@
+{
+  "influent_flow_mgd": "MGD",
+  "influent_level_ft": "ft",
+  "influent_temp_c": "C",
+  "aeration_do_mgL": "mg/L",
+  "aeration_mlss_mgL": "mg/L",
+  "blower_air_flow_scfm": "scfm",
+  "blower_power_kw": "kW",
+  "clarifier_blanket_depth_ft": "ft",
+  "effluent_turbidity_ntu": "NTU",
+  "effluent_no3n_mgL": "mg/L",
+  "effluent_nh3n_mgL": "mg/L",
+  "chlorine_dose_mgL": "mg/L",
+  "chlorine_residual_mgL": "mg/L",
+  "energy_total_kwh": "kWh",
+  "ambient_temp_c": "C",
+  "rainfall_in": "in",
+  "influent_ph": "dimensionless",
+  "effluent_ph": "dimensionless"
+}

@@ -75,6 +75,7 @@ No externally established healthy baseline is assumed. Cross-run behavioral memo
 <table><tr><th>Source signal</th><th>Confirmed meaning</th><th>Supplied unit</th></tr>{signals}</table>
 <h2>Quality, exclusions and transformations</h2><pre>{pretty({'warnings': run['validation']['warnings'], 'signals': [s for s in run['validation']['signals'] if s['missing_count'] or s['invalid_count'] or s['constant']]})}</pre>
 <pre>{pretty({'excluded_signals': [s for s in run['mapping']['signals'] if not s['include']], 'transformations': payload['transformations'], 'reference_validation': run.get('reference_validation'), 'pair_confirmation': run['mapping'].get('pair_confirmed')})}</pre>
+{('<h2>Automatic paired exclusions · authority classification provenance</h2><pre>' + pretty(evaluation['preview']['exclusions']) + '</pre>') if evaluation.get('preview', {}).get('exclusions') else ''}
 <h2>Analysis outcome</h2><p>Authoritative execution status: <b>{esc(result['status'])}</b>.
 Completion is not a finding. Stable and insufficient-evidence outcomes remain valid.</p>
 <h2>Observed relationship changes</h2>

@@ -76,7 +76,7 @@ export default function App() {
   const ready = valid && !timestampMismatch && !schemaMismatch && !issues.length && count > 0 && count <= 24 && (!classifications.length || classesConfirmed);
   const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
   const operatorItems = items.filter(item => !isVerification(item));
-  const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? ['meaning', 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
+  const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? [...(s.meaning !== s.column ? ['meaning'] : []), 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
   return <div className="workbench">
     <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p>Upload two historical datasets, run evaluation, and review evidence.</p></header>
     <p>Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
@@ -84,7 +84,7 @@ export default function App() {
     {authority?.available === false && <p className="error" role="alert">Authority: {authority.reason}</p>}
     <fieldset disabled={!!busy}><div className="layout"><main>
     {!evaluation ? <label className="evaluation-label">Evaluation name (optional)<input maxLength={200} value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. September comparison" /></label> : <h2>{title(evaluation)}</h2>}
-    <p className="upload-help">Same physical system and signal identities in both files. UTF-8 CSV, TSV or JSON · 10 MiB, 10,000 rows, 64 columns per file. Units in headers such as pressure [bar] are mapped automatically.</p>
+    <p className="upload-help">Same physical system and signal identities in both files. UTF-8 CSV, TSV or JSON · 10 MiB, 10,000 rows, 64 columns per file. Explicit units in headers such as pressure [bar] or influent_flow_mgd are mapped automatically.</p>
     <div className="uploads">{(paired ? ['reference', 'comparison'] : ['comparison']).map(role => {
       const name = role === 'reference' ? 'Baseline dataset' : 'Comparison dataset';
       const source = role === 'reference' ? evaluation?.reference_source : evaluation?.source;
@@ -105,15 +105,19 @@ export default function App() {
     {valid && !schemaMismatch && <>
       {!!issues.length && <section className="panel"><h2>Mapping needs attention</h2>{issues.map(({ index, problems }) => <div key={mapping.signals[index].column}><p>{problems.join(' ')}</p>{signalEditor(mapping.signals[index], index)}</div>)}</section>}
       {(count === 0 || count > 24) && <p role="alert">Include 1–24 signals using Signal mapping below.</p>}
-      <details><summary>Signal mapping and optional context</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map(signalEditor)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
+      <details><summary>Signal mapping and optional context</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map((s, i) => <div key={s.column}><p><strong>{s.column}</strong> · {s.include ? s.unit || 'Unit needs review' : s.reason}</p><details><summary>Adjust mapping for {s.column}</summary>{signalEditor(s, i)}</details></div>)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
     </>}
+    {!!(run ? run.evaluation?.preview?.exclusions : evaluation?.preview?.exclusions)?.length && <details className="mapping-provenance"><summary>Automatic paired exclusions</summary><p>Excluded from paired analysis. Original columns and values remain in both uploaded files; no counter values were transformed or analyzed.</p><Json value={run ? run.evaluation.preview.exclusions : evaluation.preview.exclusions} /></details>}
     {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><Json value={c} /></div>)}<p>Revise the signal meaning or exclusion in Signal mapping, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed these classifications and limits.</label></section>}
     {both && <section className="panel run-action"><p>By running, you confirm these files describe the same physical system with matching signal identities and units. The shared mapping excludes outcome labels.</p>{action('Run Evaluation', async () => {
       clearResult();
       const root = `/evaluations/${evaluation.id}`;
       setBusy('Checking signal mapping');
       const preview = await post(`${root}/mapping-preview`, { ...mapping, pair_confirmed: paired });
-      const pending = classificationIssues(preview, mapping);
+      const resolvedMapping = preview.mapping || mapping;
+      setMapping(resolvedMapping);
+      setEvaluation(current => ({ ...current, preview }));
+      const pending = classificationIssues(preview, resolvedMapping);
       if (pending.length && !classesConfirmed) { setClassifications(pending); return; }
       await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true });
       setBusy('Running evaluation — up to 120 seconds');

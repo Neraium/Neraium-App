@@ -245,3 +245,28 @@ print('two intact 8640-row periods accepted')
                             input=json.dumps(captured), capture_output=True, text=True, env=env, timeout=30)
     assert result.returncode == 0, result.stderr
     assert 'two intact 8640-row periods accepted' in result.stdout
+
+
+def test_wwtp_suffix_mapping_preserves_paired_transport():
+    """The UI's exact WWTP identities/units pass unchanged through paired intake."""
+    import json
+    from pathlib import Path
+    units = json.loads((Path(__file__).parents[2] / 'frontend/src/wwtp.test-fixture.json').read_text())
+    columns = ['timestamp', *units]
+    rows = [{'timestamp': f'2026-01-01 00:{minute:02d}:00',
+             **{column: index + minute for index, column in enumerate(units)}} for minute in (0, 15, 30)]
+    table = {'columns': columns, 'rows': rows}
+    quality = intake.auto_validate(table, allow_source_clock=True)
+    mapping = {'context': '', 'pair_confirmed': True, 'signals': [
+        dict(column=column, meaning=column, unit=unit, include=True, reason='')
+        for column, unit in units.items()]}
+    payload = intake.paired_input(table, table, quality, quality, mapping)
+    assert payload['rows'] == payload['reference']['rows'] == rows
+    assert payload['columns'] == columns
+    assert payload['signals'] == payload['reference']['signals'] == mapping['signals']
+    assert payload['baseline_policy'] == 'supplied_reference_authoritative_behavioral_baseline'
+    different = deepcopy(table)
+    different['columns'][1] = 'influent_flow_gpm'
+    with pytest.raises(ValueError, match='Incompatible signal schemas'):
+        intake.paired_input(table, different, quality,
+                           intake.auto_validate(different, allow_source_clock=True), mapping)

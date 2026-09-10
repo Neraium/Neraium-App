@@ -206,3 +206,59 @@ test('mixed source-clock and aware periods block execution', async () => {
   expect(button('Run Evaluation').disabled).toBe(true);
   expect(container.querySelector('.timestamp-review')).toBeNull();
 });
+
+test.each([false, true])('WWTP mapping exposes only unresolved fields (partial=%s)', async partial => {
+  const columns = [...Object.keys(require('./wwtp.test-fixture.json')), ...(partial ? ['unknown_flow'] : [])];
+  const quality = { ...validation, signals: columns.map(column => ({ column, numeric_count: 20, invalid_count: 0 })) };
+  item = { ...item, source, reference_source: source, validation: quality, reference_validation: quality };
+  await change(container.querySelector('aside select'), 'e');
+  expect(container.querySelectorAll('input[aria-label$=" meaning"]')).toHaveLength(0);
+  expect(button('Run Evaluation').disabled).toBe(partial);
+  const attention = [...container.querySelectorAll('section')].find(s => s.textContent.includes('Mapping needs attention'));
+  if (partial) {
+    expect([...attention.querySelectorAll('.signal-editor strong')].map(e => e.textContent)).toEqual(['unknown_flow']);
+  } else {
+    expect(attention).toBeUndefined();
+    expect([...container.querySelectorAll('.signal-editor')].every(e => e.closest('details') && !e.closest('details').open)).toBe(true);
+  }
+});
+test('different unit suffixes across periods block paired execution without renaming', async () => {
+  item = { ...item, source, reference_source: source,
+    validation: { ...validation, signals: [{ column: 'level_ft' }] },
+    reference_validation: { ...validation, signals: [{ column: 'level_in' }] } };
+  await change(container.querySelector('aside select'), 'e');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  expect(container.textContent).toContain('Signal columns differ');
+});
+
+test('authoritative counter exclusion runs and exports without manual mapping or classification review', async () => {
+  const units = require('./wwtp.test-fixture.json');
+  const quality = { ...validation, signals: Object.keys(units).map(column => ({ column, numeric_count: 64, invalid_count: 0 })) };
+  item = { ...item, source, reference_source: source, validation: quality, reference_validation: quality };
+  await change(container.querySelector('aside select'), 'e');
+  const reason = 'unsupported_cumulative_counter_for_paired_analysis';
+  const mapping = { pair_confirmed: true, signals: Object.entries(units).map(([column, unit]) => ({ column, meaning: column, unit,
+    include: column !== 'energy_total_kwh', reason: column === 'energy_total_kwh' ? reason : '' })) };
+  const catalog = Object.fromEntries(mapping.signals.filter(s => s.include).map(s => [s.column, { telemetry_category: 'equipment_process' }]));
+  const preview = { id: 'p', mapping, catalog: { reference: catalog, comparison: catalog },
+    exclusions: [{ column: 'energy_total_kwh', classification: 'cumulative_counter', excluded_from: 'paired_analysis', reason }] };
+  const run = { id: 'r', status: 'complete', source, reviews: [], evaluation: { ...item, preview } };
+  post.mockImplementation(async path => {
+    if (path.endsWith('/mapping-preview')) { item = { ...item, mapping, preview }; return preview; }
+    return run;
+  });
+  get.mockImplementation(async path => path === '/runs/r' ? run : path === '/evaluations' ? [item] : item);
+  await click('Run Evaluation');
+  expect(post).toHaveBeenCalledWith('/evaluations/e/runs');
+  expect(container.textContent).not.toMatch(/Mapping needs attention|Classification needs attention/);
+  const provenance = container.querySelector('.mapping-provenance');
+  expect(provenance.open).toBe(false);
+  expect(provenance.textContent).toContain('cumulative_counter');
+  expect(provenance.textContent).toContain(reason);
+  expect(container.querySelector('[aria-label="energy_total_kwh unit"]')).toBeNull();
+  await change([...container.querySelectorAll('label')].find(l => l.textContent === 'Reviewer name').querySelector('input'), 'Analyst');
+  await act(async () => [...container.querySelectorAll('input[type=checkbox]')].at(-1).click());
+  post.mockResolvedValue({ id: 'review' }); await click('Record review');
+  await click('Export report');
+  expect(download).toHaveBeenCalledWith('/reviews/review/report', 'neraium-report-r.html');
+});

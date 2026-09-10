@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import authority, intake, report, store
+from .mapping import exclude_unsupported_counters
 
 app = FastAPI(title="Neraium Internal Historical Evaluation Workbench", docs_url=None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3006", "http://127.0.0.1:3006"],
@@ -216,8 +217,17 @@ def preview_mapping(evaluation_id: str, body: Mapping):
     mapping = body.model_dump()
     payload = build_input(value, source, mapping)
     response = authority.call(payload, "preview")
+    exclusions = exclude_unsupported_counters(value, mapping, response, digest(payload))
+    resolved_payload = build_input(value, source, mapping)
+    if resolved_payload != payload:
+        # Re-preview the exact reduced input; keep execution's catalog equality check.
+        resolved_response = authority.call(resolved_payload, "preview")
+        if resolved_response["identity"] != response["identity"]:
+            raise authority.AuthorityError("Authority changed during mapping; create a new preview.")
+        response = resolved_response
     preview = {"id": identifier(), "catalog": response["catalog"], "identity": response["identity"],
-               "input_sha256": digest(payload), "created_at": now()}
+               "input_sha256": digest(resolved_payload), "created_at": now(),
+               "mapping": mapping, "exclusions": exclusions}
     with closing(store.connect()) as db, db:
         db.execute("BEGIN IMMEDIATE")
         current = store.get(db, "evaluations", evaluation_id)
