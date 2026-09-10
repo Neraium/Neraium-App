@@ -33,19 +33,26 @@ export default function App() {
   }
   function clearResult() { setRun(null); setReview(null); setReviewed(false); setClassifications([]); setClassesConfirmed(false); }
   async function prepare(id) {
+    setTimeIssues({});
     let item = await refresh(id);
-    const issues = {};
+    const issues = {}, detectedTimes = {};
     for (const role of item.mode === 'paired' ? ['reference', 'comparison'] : ['comparison']) {
       const source = role === 'reference' ? item.reference_source : item.source;
       const quality = role === 'reference' ? item.reference_validation : item.validation;
       if (source && !quality) {
         setBusy(`Validating ${role === 'reference' ? 'baseline' : 'comparison'} dataset`);
         try { await post(`/evaluations/${id}/validate?role=${role}`, {}); }
-        catch (e) { issues[role] = message(e); }
+        catch (e) {
+          const choices = e.response?.data?.timestamp_review;
+          if (choices || message(e).startsWith('Timestamp needs review')) {
+            issues[role] = { message: message(e), ...choices };
+            detectedTimes[role] = { timestamp_column: '', timestamp_mode: '', ...choices };
+          } else { throw e; }
+        }
       }
     }
     item = await refresh(id);
-    setMapping(suggestedMapping(item)); setTimeIssues(issues);
+    setMapping(suggestedMapping(item)); setTimeIssues(issues); setTimes(detectedTimes);
   }
   async function select(id) { clearResult(); setTimes({}); await prepare(id); }
   async function receive(file, role) {
@@ -81,10 +88,14 @@ export default function App() {
       const name = role === 'reference' ? 'Baseline dataset' : 'Comparison dataset';
       const source = role === 'reference' ? evaluation?.reference_source : evaluation?.source;
       const quality = role === 'reference' ? evaluation?.reference_validation : evaluation?.validation;
-      const time = times[role] || { timestamp_column: '', timestamp_mode: 'iso' };
+      const time = times[role] || { timestamp_column: '', timestamp_mode: '' };
       return <section className="panel" key={role}><h2>{name}</h2><label>{source ? 'Replace file' : 'Upload file'}<input aria-label={name} type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; e.target.value = ''; if (file) act(`Uploading ${name.toLowerCase()}`, () => receive(file, role)); }} /></label>
       {source && <><p>{source.filename}</p>{quality?.eligible_timestamps && <p>{quality.row_count} rows · Validated</p>}<details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
-      {timeIssues[role] && <div><p role="alert">{timeIssues[role]}</p><label>Timestamp column<select value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label><label>Timestamp format<select value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>{action('Apply timestamp', async () => { await post(`/evaluations/${evaluation.id}/validate?role=${role}`, time); await prepare(evaluation.id); }, !time.timestamp_column)}</div>}
+      {timeIssues[role] && <details className="timestamp-review" open><summary>Timestamp needs review</summary><p role="alert">{timeIssues[role].message}</p><div className="timestamp-controls">
+        {!timeIssues[role].timestamp_column && <label>Timestamp column<select aria-label="Timestamp column" value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label>}
+        {!timeIssues[role].timestamp_mode && <label>Timestamp format<select aria-label="Timestamp format" value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="">Choose…</option><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>}
+        {action('Apply timestamp', async () => { await post(`/evaluations/${evaluation.id}/validate?role=${role}`, time); await prepare(evaluation.id); }, !time.timestamp_column || !time.timestamp_mode)}
+      </div></details>}
       {quality && !quality.eligible_timestamps && <div role="alert"><p>Replace this file to resolve timestamp errors.</p>{quality.warnings.map(w => <p key={w}>{w}</p>)}</div>}
       </section>;
     })}</div>

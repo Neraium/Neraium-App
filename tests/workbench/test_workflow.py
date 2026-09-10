@@ -268,7 +268,8 @@ def test_automatic_timestamp_detection_is_conservative():
     table = intake.parse(RAW, 'period.csv')
     assert intake.auto_validate(table) == intake.validate(table, 'time', 'iso')
     table['rows'][1]['time'] = 'invalid'
-    assert not intake.auto_validate(table)['eligible_timestamps']
+    with pytest.raises(intake.TimestampReview):
+        intake.auto_validate(table)
     for raw in (b'time,flow\n1700000000,1\n1700000060,2\n',
                 b'time,other\n2026-01-01T00:00:00Z,2026-01-01T00:00:00Z\n'):
         with pytest.raises(ValueError, match='Timestamp needs review'):
@@ -276,3 +277,63 @@ def test_automatic_timestamp_detection_is_conservative():
     for mode in ('epoch_seconds', 'epoch_milliseconds'):
         table = intake.parse(f'{mode},flow\n1700000000,1\n1700000060,2\n'.encode(), 'period.csv')
         assert intake.auto_validate(table)['timestamp_mode'] == mode
+
+
+@pytest.mark.parametrize('header', ['timestamp', 'Date Time', ' recorded_at ', 'sample'])
+@pytest.mark.parametrize('values', [
+    ['2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z'],
+    ['2026-01-01 01:00:00+01:00', '2026-01-01 01:01:00+0100'],
+    [' 2026-01-01T00:00:00.123456+00:00 ', '2026-01-01T00:01:00.123456Z'],
+])
+def test_iso_timestamp_all_rows(header, values):
+    table = intake.parse(f'{header},flow\n{values[0]},1\n{values[1]},2\n'.encode(), 'period.csv')
+    result = intake.auto_validate(table)
+    assert result['timestamp_column'] == header
+    assert result['timestamp_mode'] == 'iso'
+    assert result['eligible_timestamps']
+
+
+@pytest.mark.parametrize('header', ['timestamp', 'date', 'epoch_seconds', 'timestamp_milliseconds'])
+@pytest.mark.parametrize('values', [['broken', 'invalid'], ['2026-01-01T00:00:00Z', 'invalid']])
+def test_misleading_timestamp_headers(header, values):
+    table = intake.parse(f'{header},flow\n{values[0]},1\n{values[1]},2\n'.encode(), 'period.csv')
+    with pytest.raises(intake.TimestampReview):
+        intake.auto_validate(table)
+
+
+@pytest.mark.parametrize('value', ['1700000000', '1700000000000', '01/02/2026', '2026-01-01', '2026-01-01 00:00:00'])
+def test_ambiguous_or_timezone_free_values_require_review(value):
+    with pytest.raises(intake.TimestampReview):
+        intake.auto_validate(intake.parse(f'time,flow\n{value},1\n'.encode(), 'period.csv'))
+
+
+def test_bad_named_column_does_not_hide_valid_iso_column():
+    table = intake.parse(b'timestamp,sample,flow\ninvalid,2026-01-01 00:00:00Z,1\n', 'period.csv')
+    result = intake.auto_validate(table)
+    assert result['timestamp_column'] == 'sample'
+    assert result['signals'][0]['invalid_count'] == 1
+
+
+def test_auto_detection_preserves_duplicate_and_order_checks():
+    for values in [('00:00', '00:00'), ('00:01', '00:00')]:
+        raw = ('time,flow\n' + ''.join(f'2026-01-01T{v}:00Z,1\n' for v in values)).encode()
+        assert not intake.auto_validate(intake.parse(raw, 'period.csv'))['eligible_timestamps']
+
+
+def test_paired_timestamp_review_independent_and_original_preserved(client):
+    eid = client.post('/api/evaluations', json={'mode': 'paired'}).json()['id']
+    url = f'/api/evaluations/{eid}'
+    raw_iso = RAW.replace(b'T00:', b' 00:')
+    for role, raw in [('reference', raw_iso), ('comparison', b'time,flow,pressure\n1700000000,1,2\n1700000060,2,3\n')]:
+        uploaded = client.post(url + f'/source?filename={role}.csv&role={role}', content=raw).json()
+        assert client.get(f"/api/sources/{uploaded['source_id']}/original").content == raw
+        response = client.post(url + f'/validate?role={role}', json={})
+        if role == 'reference':
+            assert response.status_code == 200 and response.json()['eligible_timestamps']
+        else:
+            assert response.status_code == 422
+            assert response.json()['timestamp_review'] == {'timestamp_column': 'time', 'timestamp_mode': ''}
+    item = client.get(url).json()
+    assert item['reference_validation']['eligible_timestamps']
+    assert not item.get('validation')
+    assert client.post(url + '/validate?role=comparison', json={'timestamp_column': 'time', 'timestamp_mode': 'epoch_seconds'}).json()['eligible_timestamps']

@@ -44,7 +44,8 @@ async def private_responses(request: Request, call_next):
 
 @app.exception_handler(ValueError)
 async def invalid(request, exc):
-    return JSONResponse({"detail": str(exc)}, status_code=422)
+    return JSONResponse({"detail": str(exc), **({"timestamp_review": exc.choices}
+                        if isinstance(exc, intake.TimestampReview) else {})}, status_code=422)
 
 
 @app.exception_handler(KeyError)

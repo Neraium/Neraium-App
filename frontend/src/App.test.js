@@ -87,6 +87,8 @@ test('two uploads create paired intake without metadata and validate automatical
   expect(upload).toHaveBeenCalledWith('e', baseline, 'reference');
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=reference', {});
   expect(button('Run Evaluation')).toBeUndefined();
+  expect(container.querySelector('.timestamp-review')).toBeNull();
+  expect(container.textContent).not.toMatch(/Timestamp column|Timestamp format|Apply timestamp/);
   const comparison = await sendFile(1, 'comparison.csv');
   expect(upload).toHaveBeenLastCalledWith('e', comparison, 'comparison');
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=comparison', {});
@@ -94,6 +96,8 @@ test('two uploads create paired intake without metadata and validate automatical
   expect(container.textContent).not.toContain('Mapping needs attention');
   expect(container.textContent).toContain('baseline.csv');
   expect(container.textContent).toContain('comparison.csv');
+  expect(container.querySelector('.timestamp-review')).toBeNull();
+  expect(container.textContent).not.toMatch(/Timestamp column|Timestamp format|Apply timestamp/);
 });
 test('comparison can be uploaded first and missing units only surface affected signals', async () => {
   item = { ...item, source, reference_source: source, validation: { ...validation, signals: [...validation.signals, { column: 'flow' }] }, reference_validation: { ...validation, signals: [...validation.signals, { column: 'flow' }] } };
@@ -160,4 +164,35 @@ test('schema mismatch blocks execution and source replacement revalidates', asyn
   await sendFile(0, 'replacement.csv');
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=reference', {});
   expect(button('Run Evaluation').disabled).toBe(false);
+});
+
+
+test.each(['reference', 'comparison'])('numeric %s only asks for unresolved format and clears after apply', async role => {
+  const key = role === 'reference' ? 'reference_validation' : 'validation';
+  item = { ...item, source, reference_source: source, validation, reference_validation: validation, [key]: undefined };
+  post.mockRejectedValue({ response: { data: { detail: 'Timestamp needs review', timestamp_review: { timestamp_column: 'time', timestamp_mode: '' } } } });
+  await change(container.querySelector('aside select'), 'e');
+  const review = container.querySelector('.timestamp-review');
+  expect(review.closest('section').querySelector('h2').textContent).toBe(role === 'reference' ? 'Baseline dataset' : 'Comparison dataset');
+  expect(container.querySelectorAll('.timestamp-review')).toHaveLength(1);
+  expect(review.textContent).not.toContain('Timestamp column');
+  expect(button('Apply timestamp').disabled).toBe(true);
+  await change(review.querySelector('select'), 'epoch_seconds');
+  post.mockImplementation(async () => { item = { ...item, [key]: { ...validation, timestamp_mode: 'epoch_seconds' } }; });
+  await click('Apply timestamp');
+  expect(post).toHaveBeenLastCalledWith(`/evaluations/e/validate?role=${role}`, { timestamp_column: 'time', timestamp_mode: 'epoch_seconds' });
+  expect(container.querySelector('.timestamp-review')).toBeNull();
+  expect(button('Run Evaluation').disabled).toBe(false);
+});
+
+test('multiple ISO columns ask only for column and unrelated errors do not expose timestamp controls', async () => {
+  item = { ...item, source };
+  post.mockRejectedValue({ response: { data: { detail: 'Timestamp needs review', timestamp_review: { timestamp_column: '', timestamp_mode: 'iso' } } } });
+  await change(container.querySelector('aside select'), 'e');
+  expect(container.querySelector('.timestamp-review').textContent).not.toContain('Timestamp format');
+  await click('New Evaluation');
+  post.mockRejectedValue(new Error('Network Error'));
+  await change(container.querySelector('aside select'), 'e');
+  expect(container.querySelector('.timestamp-review')).toBeNull();
+  expect(container.querySelector('[role=alert]').textContent).toBe('Network Error');
 });

@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import math
+import re
 from datetime import datetime, timezone
 
 MAX_BYTES = 10 * 1024 * 1024
@@ -57,7 +58,7 @@ def timestamp(value, mode: str) -> str:
         if mode in {"epoch_seconds", "epoch_milliseconds"}:
             dt = datetime.fromtimestamp(float(value) / (1000 if mode == "epoch_milliseconds" else 1), timezone.utc)
         else:
-            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 raise ValueError("Timezone required")
         return dt.astimezone(timezone.utc).isoformat()
@@ -110,34 +111,52 @@ def validate(table: dict, column: str, mode: str) -> dict:
             "start": times[0] if times else None, "end": times[-1] if times else None, "signals": signals}
 
 
-def auto_validate(table: dict) -> dict:
-    """Detect explicit timezone ISO dates or epoch units named in a header.
+class TimestampReview(ValueError):
+    """Unresolved intake choices; hints never constitute stored validation."""
+    def __init__(self, column="", mode=""):
+        super().__init__("Timestamp needs review: choose the unresolved column or format. A timezone or explicit epoch unit is required.")
+        self.choices = {"timestamp_column": column, "timestamp_mode": mode}
 
-    Never guess numeric timestamp units or choose between multiple time columns.
-    Full validation still checks every row.
+
+def auto_validate(table: dict) -> dict:
+    """Require every value to support one explicit interpretation.
+
+    Headers prioritize inspection and can declare epoch units, but cannot override
+    invalid values or resolve competing valid timestamp columns.
     """
-    candidates = []
-    for column in table["columns"]:
-        name = column.strip().lower()
-        mode = {"epoch_seconds": "epoch_seconds", "timestamp_seconds": "epoch_seconds",
-                "epoch_milliseconds": "epoch_milliseconds",
-                "timestamp_milliseconds": "epoch_milliseconds"}.get(name)
-        if mode:
+    epoch_headers = {"epoch_seconds": "epoch_seconds", "timestamp_seconds": "epoch_seconds",
+                     "epoch_milliseconds": "epoch_milliseconds",
+                     "timestamp_milliseconds": "epoch_milliseconds"}
+
+    def name(column):
+        return re.sub(r"[\s-]+", "_", column.strip().lower())
+
+    def obvious(column):
+        return bool(set(name(column).split("_")) & {"timestamp", "datetime", "date", "time", "epoch"})
+
+    candidates, numeric_columns = [], []
+    for column in sorted(table["columns"], key=lambda c: not obvious(c)):
+        mode = epoch_headers.get(name(column), "iso")
+        values = [row.get(column) for row in table["rows"]]
+        try:
+            # Use the validation/analysis parser on every row, never just a sample.
+            for value in values:
+                timestamp(value, mode)
             candidates.append((column, mode))
-            continue
-        for row in table["rows"]:
-            value = row.get(column)
-            if not isinstance(value, str) or "T" not in value:
-                continue
-            try:
-                timestamp(value, "iso")
-                candidates.append((column, "iso"))
-                break
-            except ValueError:
-                pass
-    if len(candidates) != 1:
-        raise ValueError("Timestamp needs review: select the timestamp column and format; numeric epoch units are never guessed.")
-    return validate(table, *candidates[0])
+        except ValueError:
+            if obvious(column):
+                try:
+                    if all(math.isfinite(float(value)) for value in values):
+                        numeric_columns.append(column)
+                except (ValueError, TypeError, OverflowError):
+                    pass
+    if len(candidates) == 1:
+        return validate(table, *candidates[0])
+    # Numeric units remain an operator decision regardless of magnitude.
+    if not candidates and len(numeric_columns) == 1:
+        raise TimestampReview(column=numeric_columns[0])
+    modes = {mode for _, mode in candidates}
+    raise TimestampReview(mode=next(iter(modes)) if len(modes) == 1 else "")
 
 
 def analysis_input(table: dict, validation: dict, mapping: dict) -> dict:
