@@ -108,7 +108,8 @@ export default function App() {
       <details><summary>Signal mapping and optional context</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map((s, i) => <div key={s.column}><p><strong>{s.column}</strong> · {s.include ? s.unit || 'Unit needs review' : s.reason}</p><details><summary>Adjust mapping for {s.column}</summary>{signalEditor(s, i)}</details></div>)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
     </>}
     {!!(run ? run.evaluation?.preview?.exclusions : evaluation?.preview?.exclusions)?.length && <details className="mapping-provenance"><summary>Automatic paired exclusions</summary><p>Excluded from paired analysis. Original columns and values remain in both uploaded files; no counter values were transformed or analyzed.</p><Json value={run ? run.evaluation.preview.exclusions : evaluation.preview.exclusions} /></details>}
-    {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><Json value={c} /></div>)}<p>Revise the signal meaning or exclusion in Signal mapping, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed these classifications and limits.</label></section>}
+    {(run ? run.evaluation?.preview : evaluation?.preview) && <details className="classification-provenance"><summary>Authority classification provenance and details</summary><Json value={run ? run.evaluation.preview : evaluation.preview} /></details>}
+    {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><p>{c.reason}</p></div>)}<p>Revise the signal meaning or exclusion in Signal mapping, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed the unresolved classifications and treatment limits.</label></section>}
     {both && <section className="panel run-action"><p>By running, you confirm these files describe the same physical system with matching signal identities and units. The shared mapping excludes outcome labels.</p>{action('Run Evaluation', async () => {
       clearResult();
       const root = `/evaluations/${evaluation.id}`;
@@ -118,7 +119,7 @@ export default function App() {
       setMapping(resolvedMapping);
       setEvaluation(current => ({ ...current, preview }));
       const pending = classificationIssues(preview, resolvedMapping);
-      if (pending.length && !classesConfirmed) { setClassifications(pending); return; }
+      if (pending.length && (!classesConfirmed || JSON.stringify(pending) !== JSON.stringify(classifications))) { setClassifications(pending); return; }
       await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true });
       setBusy('Running evaluation — up to 120 seconds');
       const r = await post(`${root}/runs`);

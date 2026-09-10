@@ -8,6 +8,7 @@ let container, root, item;
 const source = { id: 's', filename: 'period.csv', sha256: 'a'.repeat(64), columns: ['time', 'temperature [C]'], preview: [] };
 const validation = { eligible_timestamps: true, timestamp_column: 'time', timestamp_mode: 'iso', signals: [{ column: 'temperature [C]', invalid_count: 0 }], warnings: [], row_count: 16 };
 const identity = { commit: 'b790479f0abcb90aa71f7677d10aa542222b55c8', adapter_contract: 'neraium-workbench-authority.v1' };
+const primary = { telemetry_category: 'equipment_process', analysis_role: 'primary_signal', operator_primary_eligible: true, is_ignored: false, is_context_driver: false, is_state_signal: false, requires_derived_rate: false, semantic_role: null };
 const button = text => [...container.querySelectorAll('button')].find(b => b.textContent === text);
 const click = async text => act(async () => button(text).click());
 async function change(element, value) {
@@ -123,7 +124,7 @@ test('approved paired mapping runs existing SII API and requires review before r
   await change(container.querySelector('aside select'), 'e');
   expect(button('Run Evaluation').disabled).toBe(false);
   const run = { id: 'r', status: 'limited', source, reviews: [] };
-  post.mockImplementation(async path => path.endsWith('/mapping-preview') ? { id: 'p', catalog: { temperature: { telemetry_category: 'temperature' } } } : run); get.mockImplementation(async path => path === '/runs/r' ? run : path === '/evaluations' ? [item] : item);
+  post.mockImplementation(async path => path.endsWith('/mapping-preview') ? { id: 'p', identity, catalog: { reference: { temperature: primary }, comparison: { temperature: primary } } } : run); get.mockImplementation(async path => path === '/runs/r' ? run : path === '/evaluations' ? [item] : item);
   await click('Run Evaluation');
   expect(post).toHaveBeenCalledWith('/evaluations/e/mapping-preview', expect.objectContaining({ pair_confirmed: true }));
   expect(post).toHaveBeenCalledWith('/evaluations/e/approve-mapping', { preview_id: 'p', confirmed: true });
@@ -145,7 +146,7 @@ test('uncertain authority classification interrupts only that mapping before exe
   expect(container.textContent).toContain('Classification needs attention');
   expect(post).not.toHaveBeenCalledWith('/evaluations/e/runs');
   expect(button('Run Evaluation').disabled).toBe(true);
-  const checkbox = [...container.querySelectorAll('label')].find(l => l.textContent.includes('I reviewed these classifications')).querySelector('input');
+  const checkbox = [...container.querySelectorAll('label')].find(l => l.textContent.includes('I reviewed the unresolved classifications')).querySelector('input');
   await act(async () => checkbox.click());
   const run = { id: 'r', status: 'failed', source, error: 'Authority failed', reviews: [] };
   get.mockImplementation(async path => path === '/runs/r' ? run : path === '/evaluations' ? [item] : item);
@@ -239,8 +240,10 @@ test('authoritative counter exclusion runs and exports without manual mapping or
   const reason = 'unsupported_cumulative_counter_for_paired_analysis';
   const mapping = { pair_confirmed: true, signals: Object.entries(units).map(([column, unit]) => ({ column, meaning: column, unit,
     include: column !== 'energy_total_kwh', reason: column === 'energy_total_kwh' ? reason : '' })) };
-  const catalog = Object.fromEntries(mapping.signals.filter(s => s.include).map(s => [s.column, { telemetry_category: 'equipment_process' }]));
-  const preview = { id: 'p', mapping, catalog: { reference: catalog, comparison: catalog },
+  const catalog = Object.fromEntries(mapping.signals.filter(s => s.include).map(s => [s.column, primary]));
+  catalog.ambient_temp_c = { ...primary, telemetry_category: 'weather_environment', analysis_role: 'supporting_context',
+    operator_primary_eligible: false, is_context_driver: true, is_primary_anomaly_candidate: false };
+  const preview = { id: 'p', identity, mapping, catalog: { reference: catalog, comparison: catalog },
     exclusions: [{ column: 'energy_total_kwh', classification: 'cumulative_counter', excluded_from: 'paired_analysis', reason }] };
   const run = { id: 'r', status: 'complete', source, reviews: [], evaluation: { ...item, preview } };
   post.mockImplementation(async path => {
@@ -251,6 +254,14 @@ test('authoritative counter exclusion runs and exports without manual mapping or
   await click('Run Evaluation');
   expect(post).toHaveBeenCalledWith('/evaluations/e/runs');
   expect(container.textContent).not.toMatch(/Mapping needs attention|Classification needs attention/);
+  expect(container.textContent).not.toContain('I reviewed the unresolved classifications');
+  const raw = container.querySelector('.classification-provenance');
+  expect(raw.open).toBe(false);
+  expect(JSON.parse(raw.querySelector('pre').textContent)).toEqual(preview);
+  expect(raw.textContent).toContain('chlorine_residual_mgL');
+  expect(raw.textContent).toContain('supporting_context');
+  expect(catalog.ambient_temp_c.operator_primary_eligible).toBe(false);
+  expect(catalog.ambient_temp_c.semantic_role).toBeNull();
   const provenance = container.querySelector('.mapping-provenance');
   expect(provenance.open).toBe(false);
   expect(provenance.textContent).toContain('cumulative_counter');
@@ -261,4 +272,18 @@ test('authoritative counter exclusion runs and exports without manual mapping or
   post.mockResolvedValue({ id: 'review' }); await click('Record review');
   await click('Export report');
   expect(download).toHaveBeenCalledWith('/reviews/review/report', 'neraium-report-r.html');
+});
+
+test('manual confirmation cannot approve a changed authority classification', async () => {
+  item = { ...item, source, reference_source: source, validation, reference_validation: validation };
+  await change(container.querySelector('aside select'), 'e');
+  post.mockResolvedValue({ id: 'p', catalog: { temperature: { telemetry_category: 'unknown' } } });
+  await click('Run Evaluation');
+  const checkbox = [...container.querySelectorAll('label')].find(l => l.textContent.includes('I reviewed the unresolved')).querySelector('input');
+  await act(async () => checkbox.click());
+  post.mockResolvedValue({ id: 'p2', catalog: { temperature: { telemetry_category: 'equipment_state' } } });
+  await click('Run Evaluation');
+  expect(post).not.toHaveBeenCalledWith('/evaluations/e/runs');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  expect(container.querySelector('.classification-provenance').open).toBe(false);
 });
