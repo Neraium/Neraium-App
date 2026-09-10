@@ -72,7 +72,8 @@ export default function App() {
   const schemaMismatch = valid && paired && JSON.stringify(evaluation.validation.signals.map(s => s.column).sort()) !== JSON.stringify(evaluation.reference_validation.signals.map(s => s.column).sort());
   const issues = evaluation ? mappingIssues(mapping, evaluation) : [];
   const count = mapping.signals.filter(s => s.include).length;
-  const ready = valid && !schemaMismatch && !issues.length && count > 0 && count <= 24 && (!classifications.length || classesConfirmed);
+  const timestampMismatch = valid && paired && (evaluation.validation.timestamp_mode === "naive_historical_source_clock") !== (evaluation.reference_validation.timestamp_mode === "naive_historical_source_clock");
+  const ready = valid && !timestampMismatch && !schemaMismatch && !issues.length && count > 0 && count <= 24 && (!classifications.length || classesConfirmed);
   const action = (label, fn, disabled = false) => <button disabled={!!busy || disabled} onClick={() => act(label, fn)}>{label}</button>;
   const operatorItems = items.filter(item => !isVerification(item));
   const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? ['meaning', 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
@@ -93,12 +94,13 @@ export default function App() {
       {source && <><p>{source.filename}</p>{quality?.eligible_timestamps && <p>{quality.row_count} rows · Validated</p>}<details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
       {timeIssues[role] && <details className="timestamp-review" open><summary>Timestamp needs review</summary><p role="alert">{timeIssues[role].message}</p><div className="timestamp-controls">
         {!timeIssues[role].timestamp_column && <label>Timestamp column<select aria-label="Timestamp column" value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label>}
-        {!timeIssues[role].timestamp_mode && <label>Timestamp format<select aria-label="Timestamp format" value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="">Choose…</option><option value="iso">ISO with timezone</option><option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>}
+        {!timeIssues[role].timestamp_mode && <label>Timestamp format<select aria-label="Timestamp format" value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="">Choose…</option><option value="iso">ISO with timezone</option>{paired && <option value="naive_historical_source_clock">YYYY-MM-DD HH:MM:SS (timezone not supplied)</option>}<option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>}
         {action('Apply timestamp', async () => { await post(`/evaluations/${evaluation.id}/validate?role=${role}`, time); await prepare(evaluation.id); }, !time.timestamp_column || !time.timestamp_mode)}
       </div></details>}
       {quality && !quality.eligible_timestamps && <div role="alert"><p>Replace this file to resolve timestamp errors.</p>{quality.warnings.map(w => <p key={w}>{w}</p>)}</div>}
       </section>;
     })}</div>
+    {timestampMismatch && <p role="alert" className="error">Paired timestamp modes must match. Upload both periods using source-clock timestamps or both using timezone-aware timestamps.</p>}
     {schemaMismatch && <p role="alert" className="error">Signal columns differ between files. Upload matching signal schemas; automatic renaming is not supported.</p>}
     {valid && !schemaMismatch && <>
       {!!issues.length && <section className="panel"><h2>Mapping needs attention</h2>{issues.map(({ index, problems }) => <div key={mapping.signals[index].column}><p>{problems.join(' ')}</p>{signalEditor(mapping.signals[index], index)}</div>)}</section>}

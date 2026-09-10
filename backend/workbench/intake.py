@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 MAX_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10000
 MAX_COLUMNS = 64
+SOURCE_CLOCK_MODE = "naive_historical_source_clock"
+SOURCE_CLOCK_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}")
 
 
 def unique_object(pairs):
@@ -55,6 +57,11 @@ def parse(raw: bytes, filename: str) -> dict:
 
 def timestamp(value, mode: str) -> str:
     try:
+        if mode == SOURCE_CLOCK_MODE:
+            if not isinstance(value, str) or not SOURCE_CLOCK_PATTERN.fullmatch(value):
+                raise ValueError("Exact source-clock format required")
+            datetime.fromisoformat(value)  # Validate calendar fields without attaching a timezone.
+            return value
         if mode in {"epoch_seconds", "epoch_milliseconds"}:
             dt = datetime.fromtimestamp(float(value) / (1000 if mode == "epoch_milliseconds" else 1), timezone.utc)
         else:
@@ -63,11 +70,14 @@ def timestamp(value, mode: str) -> str:
                 raise ValueError("Timezone required")
         return dt.astimezone(timezone.utc).isoformat()
     except (ValueError, TypeError, OverflowError, OSError) as exc:
-        raise ValueError("Use ISO timestamps with explicit timezone or select the correct epoch unit.") from exc
+        raise ValueError("Use timezone-aware ISO, an explicit epoch unit, or exact YYYY-MM-DD HH:MM:SS source-clock timestamps in paired mode.") from exc
 
 
-def validate(table: dict, column: str, mode: str) -> dict:
-    if column not in table["columns"] or mode not in {"iso", "epoch_seconds", "epoch_milliseconds"}:
+def validate(table: dict, column: str, mode: str, *, allow_source_clock: bool = False) -> dict:
+    modes = {"iso", "epoch_seconds", "epoch_milliseconds"}
+    if allow_source_clock:
+        modes.add(SOURCE_CLOCK_MODE)
+    if column not in table["columns"] or mode not in modes:
         raise ValueError("Select a timestamp column and explicit timestamp format.")
     times, invalid = [], []
     for i, row in enumerate(table["rows"]):
@@ -114,11 +124,11 @@ def validate(table: dict, column: str, mode: str) -> dict:
 class TimestampReview(ValueError):
     """Unresolved intake choices; hints never constitute stored validation."""
     def __init__(self, column="", mode=""):
-        super().__init__("Timestamp needs review: choose the unresolved column or format. A timezone or explicit epoch unit is required.")
+        super().__init__("Timestamp needs review: choose the unresolved column or format. Use timezone-aware ISO, an explicit epoch unit, or exact YYYY-MM-DD HH:MM:SS in paired mode.")
         self.choices = {"timestamp_column": column, "timestamp_mode": mode}
 
 
-def auto_validate(table: dict) -> dict:
+def auto_validate(table: dict, *, allow_source_clock: bool = False) -> dict:
     """Require every value to support one explicit interpretation.
 
     Headers prioritize inspection and can declare epoch units, but cannot override
@@ -137,6 +147,9 @@ def auto_validate(table: dict) -> dict:
     candidates, numeric_columns = [], []
     for column in sorted(table["columns"], key=lambda c: not obvious(c)):
         mode = epoch_headers.get(name(column), "iso")
+        if allow_source_clock and all(isinstance(row.get(column), str) and SOURCE_CLOCK_PATTERN.fullmatch(row[column])
+                                      for row in table["rows"]):
+            mode = SOURCE_CLOCK_MODE
         values = [row.get(column) for row in table["rows"]]
         try:
             # Use the validation/analysis parser on every row, never just a sample.
@@ -151,7 +164,7 @@ def auto_validate(table: dict) -> dict:
                 except (ValueError, TypeError, OverflowError):
                     pass
     if len(candidates) == 1:
-        return validate(table, *candidates[0])
+        return validate(table, *candidates[0], allow_source_clock=allow_source_clock)
     # Numeric units remain an operator decision regardless of magnitude.
     if not candidates and len(numeric_columns) == 1:
         raise TimestampReview(column=numeric_columns[0])
@@ -193,7 +206,9 @@ def analysis_input(table: dict, validation: dict, mapping: dict) -> dict:
         raise ValueError("The selected historical window contains no rows.")
     return {"columns": ["timestamp", *names], "rows": rows, "signals": selected,
             "context": mapping["context"], "baseline_policy": "authoritative_engine_selected",
-            "transformations": ["Explicit timestamp parsing to UTC", "Numeric parsing; null preserved",
+            "transformations": ["Exact source-clock timestamps preserved; timezone not supplied"
+                                if validation["timestamp_mode"] == SOURCE_CLOCK_MODE else "Explicit timestamp parsing to UTC",
+                                "Numeric parsing; null preserved",
                                 "Operator-confirmed signal names; no unit conversion",
                                 "Inclusive selected time window; source order retained"]}
 
@@ -210,6 +225,8 @@ def paired_input(reference, comparison, reference_validation, comparison_validat
     # an explicit future per-source mapping, never automatic renaming.
     if {s["column"] for s in reference_validation["signals"]} != {s["column"] for s in comparison_validation["signals"]}:
         raise ValueError("Incompatible signal schemas: paired mode requires identical signal columns and a shared mapping.")
+    if (reference_validation["timestamp_mode"] == SOURCE_CLOCK_MODE) != (comparison_validation["timestamp_mode"] == SOURCE_CLOCK_MODE):
+        raise ValueError("Paired timestamp modes must match: do not mix source-clock and timezone-aware datasets.")
     ref = analysis_input(reference, reference_validation, mapping)
     comp = analysis_input(comparison, comparison_validation, mapping)
     return {**comp, "mode": "paired", "reference": ref,

@@ -7,7 +7,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 let container, root, item;
 const source = { id: 's', filename: 'period.csv', sha256: 'a'.repeat(64), columns: ['time', 'temperature [C]'], preview: [] };
 const validation = { eligible_timestamps: true, timestamp_column: 'time', timestamp_mode: 'iso', signals: [{ column: 'temperature [C]', invalid_count: 0 }], warnings: [], row_count: 16 };
-const identity = { commit: '6e26a83a17babaea443b75c545a756835d37102b', adapter_contract: 'neraium-workbench-authority.v1' };
+const identity = { commit: 'b790479f0abcb90aa71f7677d10aa542222b55c8', adapter_contract: 'neraium-workbench-authority.v1' };
 const button = text => [...container.querySelectorAll('button')].find(b => b.textContent === text);
 const click = async text => act(async () => button(text).click());
 async function change(element, value) {
@@ -72,14 +72,15 @@ test('authority unavailability remains visible', async () => {
   expect(container.querySelector('[role=alert]').textContent).toBe('Authority: Pinned authority unavailable');
   expect(container.querySelector('.provenance')).toBeNull();
 });
-test('two uploads create paired intake without metadata and validate automatically', async () => {
+test.each(['iso', 'naive_historical_source_clock'])('two %s uploads validate automatically without timestamp controls', async timestamp_mode => {
+  const quality = { ...validation, timestamp_mode, row_count: 8640 };
   expect(container.querySelectorAll('input[type=file]')).toHaveLength(2);
   expect(container.querySelector('input[required]')).toBeNull();
   expect(container.querySelector('form')).toBeNull();
   post.mockImplementation(async (path) => {
     if (path === '/evaluations') return item;
-    item = { ...item, [path.endsWith('reference') ? 'reference_validation' : 'validation']: validation };
-    return validation;
+    item = { ...item, [path.endsWith('reference') ? 'reference_validation' : 'validation']: quality };
+    return quality;
   });
   upload.mockImplementation(async (id, file, role) => { item = { ...item, [role === 'reference' ? 'reference_source' : 'source']: { ...source, filename: file.name } }; });
   const baseline = await sendFile(0, 'baseline.csv');
@@ -195,4 +196,13 @@ test('multiple ISO columns ask only for column and unrelated errors do not expos
   await change(container.querySelector('aside select'), 'e');
   expect(container.querySelector('.timestamp-review')).toBeNull();
   expect(container.querySelector('[role=alert]').textContent).toBe('Network Error');
+});
+
+test('mixed source-clock and aware periods block execution', async () => {
+  item = { ...item, source, reference_source: source, validation,
+    reference_validation: { ...validation, timestamp_mode: 'naive_historical_source_clock' } };
+  await change(container.querySelector('aside select'), 'e');
+  expect(container.textContent).toContain('Paired timestamp modes must match');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  expect(container.querySelector('.timestamp-review')).toBeNull();
 });

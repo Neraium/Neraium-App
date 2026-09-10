@@ -183,8 +183,9 @@ def validate(evaluation_id: str, body: Validation, role: Literal["reference", "c
         db.execute("BEGIN IMMEDIATE")
         value = store.get(db, "evaluations", evaluation_id)
         source = store.get(db, "sources", value["reference_source_id" if role == "reference" else "source_id"])
-        validation = (intake.validate(source["table"], body.timestamp_column, body.timestamp_mode)
-                      if body.timestamp_column else intake.auto_validate(source["table"]))
+        validation = (intake.validate(source["table"], body.timestamp_column, body.timestamp_mode,
+                                      allow_source_clock=value.get("mode") == "paired")
+                      if body.timestamp_column else intake.auto_validate(source["table"], allow_source_clock=value.get("mode") == "paired"))
         for key in ("mapping", "preview", "approved_mapping", "latest_run_id"):
             value.pop(key, None)
         value["reference_validation" if role == "reference" else "validation"] = validation

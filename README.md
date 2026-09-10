@@ -26,7 +26,7 @@ cd ..
 ```
 
 Configure a **separate, clean** Neraium-1.0 checkout at the supported revision:
-`6e26a83a17babaea443b75c545a756835d37102b` (merged PR #136, September 8, 2026).
+`b790479f0abcb90aa71f7677d10aa542222b55c8` (merged PR #137, September 10, 2026).
 Do not point the workbench at a developer checkout with unfinished changes.
 Install that revision's backend dependencies in a separate virtual environment.
 The workbench interpreter and authority interpreter can be different.
@@ -80,8 +80,9 @@ are required. The old Compose configuration has been removed.
 
 ## Paired reference/comparison
 
-Upload reference and comparison independently into one evaluation, then validate
-both timestamp columns/formats. Both original files and hashes remain independent.
+Upload reference and comparison independently into one evaluation. Timestamp
+validation runs automatically; unresolved formats show review controls. Both
+original files and hashes remain independent.
 Confirm one shared inclusion/exclusion mapping, identical physical signal identities,
 meanings and supplied units, and the same physical system. This is an analyst
 attestation against source documentation; the App cannot establish physical identity
@@ -89,6 +90,16 @@ or units from telemetry values. Different signal schemas, unknown included units
 unconfirmed compatibility and invalid timestamps block paired analysis. Use explicit
 `dimensionless` units when applicable. Paired mode uses both full periods; it does
 not merge files, restrict intervals, fill, resample or normalize input rows.
+
+Paired uploads automatically accept exact `YYYY-MM-DD HH:MM:SS` source timestamps
+when every row has a valid calendar date and strictly increasing, unique time.
+Both periods must use the same timestamp mode. This selects the authority’s
+`supplied-reference-v1.1` / `naive_historical_source_clock` contract. Original
+strings remain unchanged; `source_timezone` is retained exactly as
+`{"status": "timezone_not_supplied", "value": null}`. No UTC instant or daylight-saving
+interpretation is inferred. Ambiguous formats still require review; single-period
+timestamp behavior is unchanged. Existing stored runs and deployment records are
+not rewritten by this pin update.
 
 Paired mode calls the pinned `evaluate_sii` with separate `reference_rows` and
 `comparison_rows`, approved signal names and shared `signal_units`. It preserves
@@ -134,8 +145,8 @@ versions, missing dependencies, malformed output, timeouts and engine failures
 produce explicit errors; there is no synthetic or legacy fallback. Revision
 updates require a focused adapter contract check and an explicit pin change.
 
-The workbench is pinned to the merged Neraium-1.0 PR #136 authority commit
-`6e26a83a17babaea443b75c545a756835d37102b`. The optional
+The workbench is pinned to the merged Neraium-1.0 PR #137 authority commit
+`b790479f0abcb90aa71f7677d10aa542222b55c8`. The optional
 `NERAIUM_AUTHORITY_COMMIT` environment variable is only an assertion of this pin;
 leave it unset or set it to the same SHA. Existing run/report identities remain
 unchanged when the supported authority revision changes.

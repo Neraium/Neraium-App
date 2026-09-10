@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 CONTRACT = "neraium-workbench-authority.v1"
-SUPPORTED_COMMIT = "6e26a83a17babaea443b75c545a756835d37102b"
+SUPPORTED_COMMIT = "b790479f0abcb90aa71f7677d10aa542222b55c8"
 
 
 class AuthorityError(RuntimeError):
@@ -66,12 +66,21 @@ def call(payload: dict, operation: str = "analyze") -> dict:
             if payload.get("mode") == "paired":
                 supplied = result.get("supplied_reference")
                 governed = result.get("analysis_result")
-                if (not isinstance(supplied, dict) or supplied.get("contract_version") != "supplied-reference-v1"
+                if (not isinstance(supplied, dict) or supplied.get("contract_version") not in {"supplied-reference-v1", "supplied-reference-v1.1"}
                         or any(not isinstance(supplied.get(role), dict) for role in ("reference", "comparison"))
                         or not isinstance(governed, dict) or not isinstance(governed.get("insights"), list)
                         or not isinstance(governed.get("sii_evidence"), dict)
                         or not isinstance(result.get("temporal_analysis"), dict)):
                     raise AuthorityError("Unsupported paired authoritative evidence contract.")
+                if supplied["contract_version"] == "supplied-reference-v1.1":
+                    if (supplied.get("timestamp_mode") != "naive_historical_source_clock"
+                            or supplied.get("source_timezone") != {"status": "timezone_not_supplied", "value": None}
+                            or supplied.get("timestamp_format") != "%Y-%m-%d %H:%M:%S"
+                            or supplied.get("timing_basis") != "direct_source_clock_datetime_differences"
+                            or governed["sii_evidence"].get("supplied_reference") != supplied
+                            or any(supplied[role].get("source_timestamps") != [r["timestamp"] for r in dataset["rows"]]
+                                   for role, dataset in (("reference", payload["reference"]), ("comparison", payload)))):
+                        raise AuthorityError("Unsupported source-clock authoritative provenance.")
         if identity() != before:
             raise AuthorityError("Authority changed during execution; result rejected.")
         response["identity"] = before
