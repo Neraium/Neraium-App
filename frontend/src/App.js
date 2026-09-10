@@ -8,7 +8,7 @@ const title = item => item.label || [item.customer, item.system].filter(Boolean)
 const message = e => typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.message;
 export default function App() {
   const [items, setItems] = useState([]), [evaluation, setEvaluation] = useState(null), [authority, setAuthority] = useState(null);
-  const [busy, setBusy] = useState(''), [error, setError] = useState(''), [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(''), [error, setError] = useState('');
   const [mapping, setMapping] = useState({ signals: [], context: '' });
   const [timeIssues, setTimeIssues] = useState({}), [times, setTimes] = useState({});
   const [classifications, setClassifications] = useState([]), [classesConfirmed, setClassesConfirmed] = useState(false);
@@ -58,7 +58,7 @@ export default function App() {
   async function receive(file, role) {
     clearResult();
     let id = evaluation?.id;
-    if (!id) { const item = await post('/evaluations', { mode: 'paired', label }); id = item.id; await refresh(id); }
+    if (!id) { const item = await post('/evaluations', { mode: 'paired' }); id = item.id; await refresh(id); }
     await upload(id, file, role);
     await prepare(id);
   }
@@ -78,20 +78,17 @@ export default function App() {
   const operatorItems = items.filter(item => !isVerification(item));
   const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? [...(s.meaning !== s.column ? ['meaning'] : []), 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
   return <div className="workbench">
-    <header><span className="eyebrow">NERAIUM · INTERNAL</span><h1>Historical Evaluation</h1><p>Upload two historical datasets, run evaluation, and review evidence.</p></header>
-    <p>Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p>
+    <header><h1>Historical Evaluation</h1></header>
     {error && <div className="error" role="alert">{error}</div>}{busy && <p role="status" className="notice">{busy}…</p>}
-    {authority?.available === false && <p className="error" role="alert">Authority: {authority.reason}</p>}
+    {authority?.available === false && <p className="error" role="alert">Evaluation unavailable: {authority.reason}</p>}
     <fieldset disabled={!!busy}><div className="layout"><main>
-    {!evaluation ? <label className="evaluation-label">Evaluation name (optional)<input maxLength={200} value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. September comparison" /></label> : <h2>{title(evaluation)}</h2>}
-    <p className="upload-help">Same physical system and signal identities in both files. UTF-8 CSV, TSV or JSON · 10 MiB, 10,000 rows, 64 columns per file. Explicit units in headers such as pressure [bar] or influent_flow_mgd are mapped automatically.</p>
     <div className="uploads">{(paired ? ['reference', 'comparison'] : ['comparison']).map(role => {
       const name = role === 'reference' ? 'Baseline dataset' : 'Comparison dataset';
       const source = role === 'reference' ? evaluation?.reference_source : evaluation?.source;
       const quality = role === 'reference' ? evaluation?.reference_validation : evaluation?.validation;
       const time = times[role] || { timestamp_column: '', timestamp_mode: '' };
-      return <section className="panel" key={role}><h2>{name}</h2><label>{source ? 'Replace file' : 'Upload file'}<input aria-label={name} type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; e.target.value = ''; if (file) act(`Uploading ${name.toLowerCase()}`, () => receive(file, role)); }} /></label>
-      {source && <><p>{source.filename}</p>{quality?.eligible_timestamps && <p>{quality.row_count} rows · Validated</p>}<details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
+      return <section className="panel" key={role}><h2>{name}</h2><label><input aria-label={name} type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; e.target.value = ''; if (file) act(`Uploading ${name.toLowerCase()}`, () => receive(file, role)); }} /></label>
+      {source && <><p className="file-status">{source.filename}{quality?.eligible_timestamps && <> · {quality.row_count} rows · Validated</>}</p><details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
       {timeIssues[role] && <details className="timestamp-review" open><summary>Timestamp needs review</summary><p role="alert">{timeIssues[role].message}</p><div className="timestamp-controls">
         {!timeIssues[role].timestamp_column && <label>Timestamp column<select aria-label="Timestamp column" value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label>}
         {!timeIssues[role].timestamp_mode && <label>Timestamp format<select aria-label="Timestamp format" value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="">Choose…</option><option value="iso">ISO with timezone</option>{paired && <option value="naive_historical_source_clock">YYYY-MM-DD HH:MM:SS (timezone not supplied)</option>}<option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>}
@@ -104,16 +101,13 @@ export default function App() {
     {schemaMismatch && <p role="alert" className="error">Signal columns differ between files. Upload matching signal schemas; automatic renaming is not supported.</p>}
     {valid && !schemaMismatch && <>
       {!!issues.length && <section className="panel"><h2>Mapping needs attention</h2>{issues.map(({ index, problems }) => <div key={mapping.signals[index].column}><p>{problems.join(' ')}</p>{signalEditor(mapping.signals[index], index)}</div>)}</section>}
-      {(count === 0 || count > 24) && <p role="alert">Include 1–24 signals using Signal mapping below.</p>}
-      <details><summary>Signal mapping and optional context</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map((s, i) => <div key={s.column}><p><strong>{s.column}</strong> · {s.include ? s.unit || 'Unit needs review' : s.reason}</p><details><summary>Adjust mapping for {s.column}</summary>{signalEditor(s, i)}</details></div>)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
+      {(count === 0 || count > 24) && <p role="alert">Include 1–24 signals using Dataset settings below.</p>}
     </>}
-    {!!(run ? run.evaluation?.preview?.exclusions : evaluation?.preview?.exclusions)?.length && <details className="mapping-provenance"><summary>Automatic paired exclusions</summary><p>Excluded from paired analysis. Original columns and values remain in both uploaded files; no counter values were transformed or analyzed.</p><Json value={run ? run.evaluation.preview.exclusions : evaluation.preview.exclusions} /></details>}
-    {(run ? run.evaluation?.preview : evaluation?.preview) && <details className="classification-provenance"><summary>Authority classification provenance and details</summary><Json value={run ? run.evaluation.preview : evaluation.preview} /></details>}
-    {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><p>{c.reason}</p></div>)}<p>Revise the signal meaning or exclusion in Signal mapping, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed the unresolved classifications and treatment limits.</label></section>}
-    {both && <section className="panel run-action"><p>By running, you confirm these files describe the same physical system with matching signal identities and units. The shared mapping excludes outcome labels.</p>{action('Run Evaluation', async () => {
+    {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><p>{c.reason}</p></div>)}<p>Revise the signal meaning or exclusion in Dataset settings, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed the unresolved classifications and treatment limits.</label></section>}
+    {both && <section className="run-action">{action('Run Evaluation', async () => {
       clearResult();
       const root = `/evaluations/${evaluation.id}`;
-      setBusy('Checking signal mapping');
+      setBusy('Checking datasets');
       const preview = await post(`${root}/mapping-preview`, { ...mapping, pair_confirmed: paired });
       const resolvedMapping = preview.mapping || mapping;
       setMapping(resolvedMapping);
@@ -121,11 +115,18 @@ export default function App() {
       const pending = classificationIssues(preview, resolvedMapping);
       if (pending.length && (!classesConfirmed || JSON.stringify(pending) !== JSON.stringify(classifications))) { setClassifications(pending); return; }
       await post(`${root}/approve-mapping`, { preview_id: preview.id, confirmed: true });
-      setBusy('Running evaluation — up to 120 seconds');
+      setBusy('Running evaluation');
       const r = await post(`${root}/runs`);
       const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null);
       await refresh(evaluation.id);
-    }, !ready || authority?.available !== true)}<p>A completed run may contain limited evidence or no findings.</p></section>}
+    }, !ready || authority?.available !== true)}</section>}
+    {valid && !schemaMismatch && <>
+      <details><summary>Dataset settings</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map((s, i) => <div key={s.column}><p><strong>{s.column}</strong> · {s.include ? s.unit || 'Unit needs review' : s.reason}</p><details><summary>Adjust mapping for {s.column}</summary>{signalEditor(s, i)}</details></div>)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
+    </>}
+    {!!(run ? run.evaluation?.preview?.exclusions : evaluation?.preview?.exclusions)?.length && <details className="mapping-provenance"><summary>Automatic paired exclusions</summary><p>Excluded from paired analysis. Original columns and values remain in both uploaded files; no counter values were transformed or analyzed.</p><Json value={run ? run.evaluation.preview.exclusions : evaluation.preview.exclusions} /></details>}
+    {(run ? run.evaluation?.preview : evaluation?.preview) && <details className="classification-provenance"><summary>Evaluation provenance</summary><Json value={run ? run.evaluation.preview : evaluation.preview} /></details>}
+    <details className="file-requirements"><summary>File requirements</summary><p>Use the same physical system and signal identities in both files. UTF-8 CSV, TSV or JSON · 10 MiB, 10,000 rows, 64 columns per file. Explicit units in headers such as pressure [bar] or influent_flow_mgd are mapped automatically.</p></details>
+    <details className="evaluation-about"><summary>About this evaluation</summary><p>Read-only analysis. Evidence limits and uncertainty remain explicit. No control actions.</p><p>By running, you confirm these files describe the same physical system with matching signal identities and units. The shared mapping excludes outcome labels.</p><p>A completed run may contain limited evidence or no findings.</p></details>
     {run && <section className="panel"><h2>Review evidence</h2><p>Run <code>{run.id}</code> · <strong>{run.status}</strong> · source {run.source.filename}</p>{run.reference_source && <><p>Reference: {run.reference_source.filename} · {run.reference_validation.start} → {run.reference_validation.end} · SHA-256 <code>{run.reference_source.sha256}</code></p><p>Comparison SHA-256 <code>{run.source.sha256}</code></p></>}{run.error && <p className="error">{run.error}</p>}{run.status === 'running' && <p>No terminal result stored. If the server was interrupted, start a new run; this record is not usable evidence.</p>}
     {run.response && <><p>Execution status is not equipment health. No finding does not mean stable.</p><p>Window: {run.input.rows[0].timestamp} → {run.input.rows[run.input.rows.length - 1].timestamp}</p>{Object.entries(run.evidence_sections).map(([label, v]) => <details key={label}><summary>{label}</summary>{Array.isArray(v) && !v.length ? <p>No entries supplied by the authoritative engine.</p> : <Json value={v} />}</details>)}<details><summary>Full authoritative result and module limitations</summary><Json value={run.response.result} /></details></>}
     {action('Download evidence JSON', () => download(`/runs/${run.id}/evidence`, `neraium-evidence-${run.id}.json`))}
@@ -133,7 +134,7 @@ export default function App() {
     {review && <><h2>Export report</h2>{action('Export report', () => download(`/reviews/${review.id}/report`, `neraium-report-${run.id}.html`))}<p>Open the HTML to print/save as PDF. Deliver with evidence JSON. The report uses engine evidence only, without generated diagnosis or consequence estimates.</p></>}</>}
     </section>}
 
-    </main><aside><details className="panel history"><summary>Evaluations and history</summary><label>Select evaluation<select value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(item => <option key={item.id} value={item.id}>{title(item)}</option>)}</select></label><button onClick={() => { setEvaluation(null); setLabel(''); setMapping({ signals: [], context: '' }); setTimeIssues({}); setTimes({}); setError(''); clearResult(); }}>New Evaluation</button>
+    </main><aside><details className="panel history"><summary>Evaluations and history</summary><label>Select evaluation<select value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(item => <option key={item.id} value={item.id}>{title(item)}</option>)}</select></label><button onClick={() => { setEvaluation(null); setMapping({ signals: [], context: '' }); setTimeIssues({}); setTimes({}); setError(''); clearResult(); }}>New Evaluation</button>
     {evaluation && <><h3>{title(evaluation)}</h3>{[evaluation.facility, evaluation.scope].filter(Boolean).map((s, i) => <p key={i}>{s}</p>)}<h3>Preserved runs</h3>{evaluation.runs?.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); setReviewed(false); })}</div>)}</>}
     </details></aside></div></fieldset>
     {authority?.available && <details className="provenance"><summary>Provenance · Neraium-1.0</summary><Json value={authority.identity} /></details>}

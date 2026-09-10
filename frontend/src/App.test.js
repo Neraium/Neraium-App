@@ -35,6 +35,15 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 test('landing and navigation expose historical evaluation without connector entry points', async () => {
   expect(container.querySelector('h1').textContent).toBe('Historical Evaluation');
+  expect(container.querySelector('header p')).toBeNull();
+  expect(container.querySelector('.evaluation-label')).toBeNull();
+  expect(container.textContent).not.toContain('Evaluation name');
+  expect(container.querySelector('main').firstElementChild.className).toBe('uploads');
+  for (const selector of ['.file-requirements', '.evaluation-about', '.history']) {
+    expect(container.querySelector(selector).open).toBe(false);
+  }
+  expect(container.querySelector('.file-requirements').textContent).toContain('10,000 rows');
+  expect(container.querySelector('.evaluation-about').textContent).toContain('Read-only analysis');
   expect(container.querySelector('input[type=password]')).toBeNull();
   expect(container.textContent).not.toMatch(/access token|workbench access|Open workbench/i);
   expect(button('New Evaluation')).toBeDefined();
@@ -70,7 +79,7 @@ test('authority identity is preserved in collapsed provenance without a success 
 test('authority unavailability remains visible', async () => {
   get.mockImplementation(async path => path === '/authority' ? { available: false, reason: 'Pinned authority unavailable' } : [item]);
   await act(async () => root.render(<App key="unavailable" />));
-  expect(container.querySelector('[role=alert]').textContent).toBe('Authority: Pinned authority unavailable');
+  expect(container.querySelector('[role=alert]').textContent).toBe('Evaluation unavailable: Pinned authority unavailable');
   expect(container.querySelector('.provenance')).toBeNull();
 });
 test.each(['iso', 'naive_historical_source_clock'])('two %s uploads validate automatically without timestamp controls', async timestamp_mode => {
@@ -85,7 +94,7 @@ test.each(['iso', 'naive_historical_source_clock'])('two %s uploads validate aut
   });
   upload.mockImplementation(async (id, file, role) => { item = { ...item, [role === 'reference' ? 'reference_source' : 'source']: { ...source, filename: file.name } }; });
   const baseline = await sendFile(0, 'baseline.csv');
-  expect(post).toHaveBeenCalledWith('/evaluations', { mode: 'paired', label: '' });
+  expect(post).toHaveBeenCalledWith('/evaluations', { mode: 'paired' });
   expect(upload).toHaveBeenCalledWith('e', baseline, 'reference');
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=reference', {});
   expect(button('Run Evaluation')).toBeUndefined();

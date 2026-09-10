@@ -5,6 +5,31 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
 
 .layout>*{min-width:0}.panel{overflow-wrap:anywhere}button{max-width:100%;white-space:normal}input,select,textarea{min-width:0;max-width:100%}.stages{font-size:13px} @media(max-width:850px){h1{font-size:24px}.fields>label{min-width:0}input,select,textarea{font-size:16px}.stages{line-height:1.7}.table-scroll{max-width:100%}}
 
-.layout{grid-template-columns:minmax(0,1fr) 250px}.uploads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.uploads .panel{margin-bottom:0}.upload-help{font-size:13px}.evaluation-label{max-width:420px}.history{margin-top:0}.signal-editor{border-top:1px solid #2a3a46;padding:12px 0}.signal-editor label{display:inline-block;vertical-align:top;margin-right:14px}.run-action{margin-top:20px}@media(max-width:850px){.layout,.uploads{grid-template-columns:1fr}.uploads{gap:12px}.signal-editor label{display:block;margin-right:0}.workbench{padding:14px}.panel{padding:14px;margin-bottom:12px}}
+.layout{grid-template-columns:minmax(0,1fr) 250px}.uploads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.uploads .panel{margin-bottom:0}.history{margin-top:0}.signal-editor{border-top:1px solid #2a3a46;padding:12px 0}.signal-editor label{display:inline-block;vertical-align:top;margin-right:14px}.run-action{margin-top:20px}@media(max-width:850px){.layout,.uploads{grid-template-columns:1fr}.uploads{gap:12px}.signal-editor label{display:block;margin-right:0}.workbench{padding:14px}.panel{padding:14px;margin-bottom:12px}}
 
 .timestamp-review{font-size:13px}.timestamp-review p{margin:8px 0}.timestamp-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px}.timestamp-controls label{flex:1 1 140px;margin:0}.timestamp-controls button{margin:0}.timestamp-controls select{padding:7px}
+
+/* Keep the operator workflow compact; secondary content remains collapsed. */
+.workbench{max-width:1040px;padding:20px}
+.workbench header{border:0;padding-bottom:16px}
+.workbench h1{margin:0;font-size:26px}
+.workbench .layout{grid-template-columns:minmax(0,1fr);gap:0}
+.uploads .panel{padding:16px}
+.uploads h2{font-size:17px;margin:0 0 10px}
+.uploads label{margin:0}
+.uploads input[type=file]{margin:0;padding:8px}
+.uploads .file-status{font-size:13px;margin:10px 0 0}
+.uploads details{font-size:13px;margin:10px 0 0;padding-top:10px}
+.run-action{margin:16px 0}
+.run-action button{min-width:180px;min-height:44px;margin:0}
+.notice{background:none;padding:0;margin:0 0 12px;font-size:13px}
+.file-requirements,.evaluation-about,.history{font-size:13px}
+.history.panel{background:none;border:0;border-top:1px solid #2a3a46;border-radius:0;padding:12px 0 0;margin:0}
+@media(max-width:850px){
+  .workbench{padding:16px}
+  .workbench h1{font-size:24px}
+  .workbench header{padding-bottom:16px}
+  .uploads .panel{padding:12px}
+  .uploads{gap:10px}
+  .run-action button{width:100%}
+}
