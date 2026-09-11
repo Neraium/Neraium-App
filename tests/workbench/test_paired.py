@@ -55,7 +55,7 @@ def test_paired_workflow(client, monkeypatch):
     assert 'filename' not in seen[-1] and 'customer' not in seen[-1]
     review = client.post(f'/api/runs/{rid}/reviews', json=dict(reviewer='Test', evidence_reviewed=True)).json()
     html = client.get(f"/api/reviews/{review['id']}/report").text
-    assert 'Reference period/data' in html and 'Comparison period/data' in html and 'supplied-reference-v1' in html
+    assert 'Baseline / reference' in html and 'Comparison' in html and 'Technical Appendix' in html
     assert 'authority-only-onset' in html
     assert run['response']['result'] == full_result()
     assert client.get(f'/api/runs/{rid}/evidence').json()['response']['result'] == full_result()
@@ -132,7 +132,7 @@ def full_result():
     return dict(engine={'name': 'neraium_sii', 'version': 'v2'}, status='limited',
                 findings=[], analysis_result={'insights': [], 'sii_evidence': {'consequence': 'authority-only-fixture'}},
                 supplied_reference={'contract_version': 'supplied-reference-v1', 'reference': {}, 'comparison': {}},
-                temporal_analysis={'onset': 'authority-only-onset'}, persistence_analysis={'rows_used': 3},
+                temporal_analysis={'lead_time_estimate': {'timestamp': 'authority-only-onset', 'confidence': 'low'}}, persistence_analysis={'rows_used': 3},
                 uncertainty={'limitations': ['authority-only-limitation']},
                 relationship_analysis={'top_relationship_changes': []}, processing_trace={})
 

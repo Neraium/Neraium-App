@@ -1,6 +1,7 @@
 """Evidence projection and escaped, printable report; no authored diagnosis."""
 from html import escape
-import json
+import math
+import re
 
 
 def evidence_sections(result):
@@ -30,63 +31,230 @@ def relationship_rows(result):
             for item in (result.get("relationship_analysis") or {}).get("top_relationship_changes", [])]
 
 
+
+MAX_RELATIONSHIPS = 3
+
+
+def scalar(value):
+    return value if isinstance(value, (str, int, float)) and not isinstance(value, bool) else None
+
+
+def number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def prose(value):
+    """Only readable observational prose, never arbitrary serialized evidence."""
+    value = scalar(value)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    if re.search(r"[{}]|/(?:analysis_result|temporal_analysis|processing_trace)|\b(?:cause|diagnos\w*|recommend\w*|inspect|corrective|predict\w*|instrumentation|internal operator|adapter|schema|module|runner|authenticated_scope)\b", value, re.I):
+        return None
+    return value.replace("—", "; ")
+
+
+def confidence(value):
+    return value if value in ("high", "moderate", "medium", "low", "limited", "unknown", "strong", "insufficient") else "not supplied"
+
+
+def columns(item):
+    return set(item.get("columns") or [e.get("column") for e in item.get("evidence_refs", []) if isinstance(e, dict)]) - {None}
+
+
+def linked_finding(relationship, findings):
+    keys = columns(relationship)
+    if not keys:
+        return {}
+    # Group IDs are not relationship IDs. Match exact contributing signal pairs.
+    return next((f for f in findings if any(columns(c) == keys for c in f.get("contributing_relationships", []))
+                 or set(f.get("source_tags", [])) == keys), {})
+
+
+def project(result):
+    """Presentation only. Retain authority order, values and scope without mutating evidence."""
+    analysis = result.get("analysis_result") or {}
+    findings = result.get("findings") or analysis.get("insights") or []
+    selected = []
+    seen = set()
+    for relationship in (result.get("relationship_analysis") or {}).get("top_relationship_changes", []):
+        title = scalar(relationship.get("display_relationship")) or scalar(relationship.get("relationship"))
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        finding = linked_finding(relationship, findings)
+        persistence = finding.get("persistence") or {}
+        selected.append({
+            "title": title.replace(" <-> ", " / ").replace("<->", " / ").replace("—", "; "),
+            "change": {"weakened": "The relationship weakened.", "strengthened": "The relationship strengthened.",
+                       "reversed": "The relationship reversed direction.", "sign_flip": "The relationship reversed direction."}.get(relationship.get("change_type"), "A relationship change was observed."),
+            "baseline": relationship.get("baseline_correlation"), "comparison": relationship.get("recent_correlation"),
+            "delta": relationship.get("signed_correlation_delta"),
+            "detection": confidence(relationship.get("confidence_level")),
+            "finding_confidence": confidence(finding.get("confidence")),
+            "persistent": persistence.get("persistent"),
+            "duration": prose(finding.get("persistence_duration")),
+            "onset": scalar(finding.get("change_onset")),
+            "elapsed": [(d.get("column"), d.get("longest_continuous_support_seconds"))
+                for d in (result.get("persistence_analysis") or {}).get("adaptive_persistence", {}).get("details", [])
+                if d.get("column") in columns(relationship) and number(d.get("longest_continuous_support_seconds"))],
+            "baseline_samples": relationship.get("baseline_sample_size"),
+            "comparison_samples": relationship.get("recent_sample_size"),
+            "window": relationship.get("time_window") or {},
+            "limits": list(dict.fromkeys(filter(None, [prose(finding.get("certainty_limit")),
+                *[prose(v) for v in (relationship.get("data_confidence") or {}).get("reasons", [])],
+                *[prose(v) for v in (relationship.get("operating_mode") or {}).get("reasons", []) if "matched across" not in v]]))),
+        })
+        if len(selected) == MAX_RELATIONSHIPS:
+            break
+    all_persistence = [(f.get("persistence") or {}).get("persistent") for f in findings
+                       if f.get("contributing_relationships") or len(f.get("source_tags", [])) >= 2]
+    if True in all_persistence:
+        summary = "Persistent relationship change was observed in the supplied evidence."
+    elif selected:
+        summary = "Relationship changes were observed, but persistent relationship change is not established by the available evidence."
+    else:
+        summary = "The available evidence does not establish a persistent relationship change."
+    if selected:
+        levels = list(dict.fromkeys(item["detection"] for item in selected))
+        finding_levels = list(dict.fromkeys(item["finding_confidence"] for item in selected))
+        summary += f" Change-detection evidence is {' / '.join(levels)}; overall finding confidence is {' / '.join(finding_levels)}."
+    else:
+        summary += " Insufficient evidence remains a valid outcome."
+    consequences = []
+    seen = set()
+    for f in [*findings, *analysis.get("conditions", [])]:
+        c = f.get("measurable_consequence") or {}
+        unit = scalar(c.get("cumulative_unit"))
+        if c.get("status") != "quantified" or not number(c.get("cumulative_amount")) or not isinstance(unit, str) or not unit or unit.lower() in ("unknown", "dimensionless", "not supplied"):
+            continue
+        # The same consequence may be carried by both a finding and a condition.
+        key = (c.get("analysis_run_id"), c.get("finding_id") or f.get("id"), c["cumulative_amount"], unit)
+        if key in seen:
+            continue
+        seen.add(key)
+        consequences.append({"amount": c["cumulative_amount"], "unit": unit,
+            "statement": prose(c.get("statement")), "support": confidence(c.get("support_level")),
+            "limits": list(filter(None, (prose(v) for v in c.get("limitations", []))))})
+    if consequences:
+        summary += " A measurable consequence is quantified in the supplied evidence."
+    uncertainty = result.get("uncertainty") or {}
+    supplied = result.get("supplied_reference") or {}
+    limits = list(filter(None, [*[prose(v) for v in (uncertainty.get("data_confidence") or {}).get("reasons", [])],
+        *[prose(v) for v in uncertainty.get("limitations", []) if not any(word in v for word in ("Units ", "Persistent behavioral", "Multiscale", "Covariance", "Elapsed persistence", "Temporal lead-time", "timezone_not_supplied"))]]))
+    if supplied.get("source_timezone", {}).get("status") == "timezone_not_supplied":
+        limits.append("Times use the supplied source clock. Timezone, UTC offset and daylight-saving interpretation are not established.")
+    if any(item["elapsed"] for item in selected) and any("terminal-sample" in v for v in supplied.get("limitations", [])):
+        limits.append("Signal support durations include one median sampling interval for the final sample.")
+    if supplied.get("signal_units"):
+        limits.append("Physical units are supplied with the data and have not been independently verified.")
+    return {"summary": summary, "relationships": selected, "consequences": consequences,
+            "limits": list(dict.fromkeys([*[v for item in selected for v in item["limits"]], *limits])), "onset": scalar(analysis.get("change_onset")),
+            "temporal": (result.get("temporal_analysis") or {}).get("lead_time_estimate") or {}}
+
+
 def render(run: dict, review: dict) -> str:
-    evaluation = run["evaluation"]
-    name = evaluation.get("label") or evaluation.get("customer") or evaluation["id"]
-    payload = run["input"]
+    evaluation, payload = run["evaluation"], run["input"]
     result = run["response"]["result"]
-    esc = lambda value: escape(str(value), quote=True)
-    pretty = lambda value: esc(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False))
-    signals = "".join(f"<tr><td>{esc(s['column'])}</td><td>{esc(s['meaning'])}</td><td>{esc(s['unit'] or 'Unknown / not supplied')}</td></tr>" for s in payload["signals"])
-    paired = payload.get("mode") == "paired"
-    reference_scope = ""
-    if paired:
-        ref = payload["reference"]
-        reference_scope = f"<h2>Reference period/data</h2><p>{esc(run['reference_source']['filename'])} · {len(ref['rows'])} analyzed rows<br>{esc(ref['rows'][0]['timestamp'])} through {esc(ref['rows'][-1]['timestamp'])}<br>SHA-256 {esc(run['reference_source']['sha256'])}</p><h2>Comparison period/data</h2>"
-    window_policy = ("The full supplied reference and comparison are passed separately to authoritative SII. Governed findings, timing, persistence and limitations are retained as supplied. Neither role establishes equipment health."
-                     if paired else "Baseline/comparison windows are selected by the authoritative engine within the approved historical interval.")
-    sections = evidence_sections(result)
-    relationship_table = "".join(
-        "<tr>" + "".join(f"<td>{esc(item.get(key) if item.get(key) is not None else 'Not supplied')}</td>"
-                         for key in ("display_relationship", "change_type", "baseline_correlation", "recent_correlation", "confidence_level", "time_window")) + "</tr>"
-        for item in relationship_rows(result)
-    )
-    # Preserve supplied evidence and classifications even when sections are long.
-    # In particular, timing and uncertainty fields must not disappear in print.
-    excerpts = []
-    for label, value in sections.items():
-        text = (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) if value else
-                "No evidence entries supplied by the authoritative engine. This is not a claim of stable behavior.")
-        excerpts.append(f"<h2>{esc(label)}</h2><pre>{esc(text)}</pre>")
-    return f"""<!doctype html><html lang="en"><meta charset="utf-8">
-<title>Neraium historical evaluation — {esc(name)}</title>
-<style>body{{font:15px/1.5 system-ui;max-width:900px;margin:40px auto;padding:20px;color:#17242b}}h1{{font-size:28px}}h2{{font-size:18px;margin-top:28px}}table{{border-collapse:collapse;width:100%}}td,th{{padding:8px;border-bottom:1px solid #ddd;text-align:left}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 monospace}}@media print{{body{{margin:0}}h2{{break-after:avoid}}}}</style>
-<h1>Neraium historical evaluation</h1>
-<p>{esc(name)}</p>
-<p><b>{esc(evaluation['customer'])} · {esc(evaluation['facility'])} · {esc(evaluation['system'])}</b></p>
-<p>{esc(evaluation['scope'])}</p>
-<p>This evaluation is read-only and based on supplied historical data. Correlation does not establish causation.
-No failure probability, remaining useful life, equipment control, or autonomous recommendation is provided.</p>
-<h2>Dataset and scope</h2>{reference_scope}<p>{esc(run['source']['filename'])} · {len(payload['rows'])} analyzed rows<br>
-{esc(payload['rows'][0]['timestamp'])} through {esc(payload['rows'][-1]['timestamp'])}</p>
-<p>System context supplied by analyst: {esc(payload['context'])}</p>
-<p>{esc(window_policy)}
-No externally established healthy baseline is assumed. Cross-run behavioral memory and engineering priors are not configured.</p>
-<table><tr><th>Source signal</th><th>Confirmed meaning</th><th>Supplied unit</th></tr>{signals}</table>
-<h2>Quality, exclusions and transformations</h2><pre>{pretty({'warnings': run['validation']['warnings'], 'signals': [s for s in run['validation']['signals'] if s['missing_count'] or s['invalid_count'] or s['constant']]})}</pre>
-<pre>{pretty({'excluded_signals': [s for s in run['mapping']['signals'] if not s['include']], 'transformations': payload['transformations'], 'reference_validation': run.get('reference_validation'), 'pair_confirmation': run['mapping'].get('pair_confirmed')})}</pre>
-{('<h2>Automatic paired exclusions · authority classification provenance</h2><pre>' + pretty(evaluation['preview']['exclusions']) + '</pre>') if evaluation.get('preview', {}).get('exclusions') else ''}
-<h2>Analysis outcome</h2><p>Authoritative execution status: <b>{esc(result['status'])}</b>.
-Completion is not a finding. Stable and insufficient-evidence outcomes remain valid.</p>
-<h2>Observed relationship changes</h2>
-<p>Evidence: /relationship_analysis/top_relationship_changes in the accompanying JSON package.</p>
-<table><tr><th>Relationship</th><th>Change</th><th>Baseline correlation</th><th>Recent correlation</th><th>Evidence confidence</th><th>Window</th></tr>{relationship_table}</table>
-<p>{'No relationship-change entries were supplied.' if not relationship_table else 'These are measured associations, not causal diagnoses.'}
-Authority-supplied onset and timing evidence is retained in /temporal_analysis; persistence and elapsed-time evidence is retained in /persistence_analysis, with the authority's limitations.</p>
-{''.join(excerpts)}
-<h2>Measurable consequence</h2><p>Any authority-supplied consequence evidence is retained in the governed analysis and full evidence package.
-No cost, energy, failure, or causal consequence is inferred from relationship change.</p>
-<h2>Review and provenance</h2><p>Reviewed by {esc(review['reviewer'])} at {esc(review['created_at'])}.
-Review confirms scope and evidence inspection; it does not certify a diagnosis.</p>
-<pre>{pretty({'run_id': run['id'], 'source_sha256': run['source']['sha256'], 'reference_source': run.get('reference_source'), 'input_sha256': run['input_sha256'], 'result_sha256': run['result_sha256'], 'authority': run['response']['identity']})}</pre>
-<p>Deliver with the run's JSON evidence package for complete evidence, module limitations, input rows and runtime versions.</p></html>"""
+    view = project(result)
+    esc = lambda value: escape(str(value).replace("—", "; "), quote=True)
+    def paragraph(value):
+        return f"<p>{esc(value)}</p>" if value is not None and value != "" else ""
+    def facts(values):
+        return '<dl>' + ''.join(f'<div><dt>{esc(label)}</dt><dd>{esc(value)}</dd></div>'
+            for label, value in values if value is not None and value != '') + '</dl>'
+    def period(rows):
+        return f"{rows[0]['timestamp']} to {rows[-1]['timestamp']}" if rows else "Not supplied"
+    def section(title, content, cls=""):
+        return f'<section class="{cls}"><h2>{title}</h2>{content}</section>'
+    name = evaluation.get("label") or evaluation.get("system") or evaluation.get("customer") or "Supplied historical system"
+    periods = []
+    if payload.get("mode") == "paired":
+        periods.append(("Baseline / reference", period(payload.get("reference", {}).get("rows", []))))
+        periods.append(("Comparison", period(payload.get("rows", []))))
+    else:
+        periods.append(("Evaluation period", period(payload.get("rows", []))))
+    findings_html = ''
+    for item in view["relationships"]:
+        state = "Confirmed" if item["persistent"] is True else "Not established"
+        # A sample-window description is not a duration of persistent change.
+        duration_label = "Persistence duration" if item["persistent"] is True else "Observation coverage"
+        duration = item['duration'] if not (item['duration'] or '').startswith('Compared ') else None
+        if item['persistent'] is True and not duration:
+            duration = 'Elapsed duration not supplied.'
+        findings_html += '<article><h3>' + esc(item['title']) + '</h3>' + paragraph(item['change']) + facts([
+            ("Change-detection evidence", item['detection']), ("Finding confidence", item['finding_confidence']),
+            ("Persistence", state), (duration_label, duration), ("Finding onset", item['onset'])])
+        if number(item['baseline']) and number(item['comparison']):
+            findings_html += paragraph(f"Correlation: {item['baseline']} to {item['comparison']}.")
+        for column, seconds in item['elapsed']:
+            findings_html += paragraph(f"{column}: longest continuous signal support {seconds} seconds. Signal support does not establish persistence of the whole relationship.")
+        findings_html += '</article>'
+    if not findings_html:
+        findings_html = paragraph("No supported relationship-change entries were supplied. This does not establish stable behavior.")
+    temporal = view['temporal']
+    timing = facts([("Evaluation change onset", view['onset']), ("Evaluation onset estimate", scalar(temporal.get('timestamp'))),
+                    ("Estimate confidence", confidence(temporal.get('confidence')) if temporal.get('timestamp') else None)])
+    if not view['onset'] and not temporal.get('timestamp'):
+        timing += paragraph("Onset is not established by the available evidence.")
+    if temporal.get('timestamp'):
+        timing += paragraph("The evaluation-level onset estimate is heuristic. It is not a verified event time or an onset for each relationship.")
+    findings_html += '<div class="timing">' + timing + '</div>'
+    consequence_html = ''
+    for c in view['consequences']:
+        consequence_html += '<article>' + paragraph(c['statement']) + facts([("Measured amount", f"{c['amount']} {c['unit']}"), ("Evidence support", c['support'])]) + ''.join(paragraph(v) for v in c['limits']) + '</article>'
+    consequence_html = consequence_html or paragraph("Not quantifiable from the available evidence.")
+    evidence_html = ''
+    headers = ['Relationship', 'Baseline correlation', 'Comparison correlation', 'Signed change', 'Observations (baseline / comparison)']
+    for item in view['relationships']:
+        samples = f"{item['baseline_samples'] if item['baseline_samples'] is not None else 'Not supplied'} / {item['comparison_samples'] if item['comparison_samples'] is not None else 'Not supplied'}"
+        values = [item['title'], item['baseline'], item['comparison'], item['delta'], samples]
+        evidence_html += '<tr>' + ''.join(f'<td data-label="{esc(label)}">{esc(value if value is not None else "Not supplied")}</td>' for label, value in zip(headers, values)) + '</tr>'
+    if evidence_html:
+        evidence_html = paragraph('Strongest supplied relationship changes, in evidence order. Correlation describes association, not physical-unit change.') + '<table><thead><tr>' + ''.join(f'<th scope="col">{h}</th>' for h in headers) + '</tr></thead><tbody>' + evidence_html + '</tbody></table>'
+        # Show differing evidence bounds without repeating the same periods per row.
+        windows = []
+        for item in view['relationships']:
+            window = item['window']
+            if isinstance(window, dict):
+                for label, start, end in [('Baseline evidence period', 'baseline_start', 'baseline_end'), ('Comparison evidence period', 'current_start', 'current_end')]:
+                    if window.get(start) and window.get(end):
+                        value = f"{window[start]} to {window[end]}"
+                        if value not in [p[1] for p in periods]:
+                            windows.append((item['title'] + ' · ' + label, value))
+            elif scalar(window):
+                windows.append((item['title'] + ' · Evidence period', window))
+        evidence_html += facts(windows) if windows else ''
+    else:
+        evidence_html = paragraph('No relationship comparison values were supplied.')
+    appendix = ''
+    for label, source in [("Baseline source", run.get('reference_source')), ("Comparison source" if payload.get('mode') == 'paired' else "Source", run.get('source'))]:
+        if source:
+            appendix += facts([(label, source['filename']), ('SHA-256', source['sha256'])])
+    identity = run['response']['identity']
+    supplied = result.get('supplied_reference') or {}
+    appendix += facts([('Authority', f"Neraium-1.0 · {identity.get('commit', 'Version not supplied')}"),
+                       ('Source clock', supplied.get('timestamp_mode')), ('Timezone provenance', supplied.get('source_timezone', {}).get('status')),
+                       ('Run', run['id'])])
+    excluded = [s['column'] for s in run.get('mapping', {}).get('signals', []) if not s.get('include', True)]
+    if excluded:
+        appendix += paragraph('Excluded signals: ' + ', '.join(excluded) + '. Exclusion reasons are retained in the structured evidence.')
+    appendix += paragraph('Source files, evidence periods above, input and result hashes, and full structured evidence remain retained with this read-only run.')
+    if review and review.get('evidence_reviewed') is True:
+        appendix += paragraph(f"Scope and evidence review recorded at {review['created_at']}. Human review remains authoritative; this confirmation does not certify a diagnosis.")
+    else:
+        appendix += paragraph('No confirmed scope and evidence review is recorded for this rendering.')
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NERAIUM | Historical Evaluation | {esc(name)}</title>
+<style>
+*{{box-sizing:border-box}}body{{margin:0;background:#edf2f3;color:#172d36;font:15px/1.55 system-ui,-apple-system,sans-serif}}main{{max-width:960px;margin:32px auto;background:white;padding:48px 56px;border-top:5px solid #247c78}}header{{border-bottom:1px solid #cfdddf;padding-bottom:24px}}.brand{{font-size:18px;letter-spacing:.24em;font-weight:750;color:#226b68}}h1{{font-size:34px;line-height:1.15;margin:12px 0 24px;letter-spacing:-.025em}}h2{{overflow-wrap:anywhere;font-size:21px;margin:0 0 14px}}h3{{font-size:16px;margin:0 0 8px}}p{{margin:8px 0;overflow-wrap:anywhere}}section{{margin-top:30px}}.summary{{background:#f0f7f6;border-left:3px solid #247c78;padding:22px}}.summary p{{font-size:17px}}article{{padding:16px 0;border-bottom:1px solid #dce5e6}}dl{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;margin:12px 0}}dl div{{min-width:0}}dt{{font-size:12px;color:#51666e}}dd{{margin:2px 0 0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}}table{{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}}th,td{{text-align:left;padding:10px 8px;border-bottom:1px solid #dce5e6;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}}th{{font-size:11px;color:#51666e}}th:first-child{{width:28%}}.timing{{margin-top:16px}}.appendix{{border-top:2px solid #cfdddf;padding-top:20px;font-size:12px;color:#51666e}}.appendix h2{{font-size:17px}}.appendix dl{{gap:6px 20px}}.appendix dt{{font-size:11px}}@media(max-width:600px){{main{{margin:0;padding:28px 20px}}h1{{font-size:30px}}dl{{grid-template-columns:1fr}}.summary{{padding:16px}}thead{{display:none}}tr,td{{display:block}}tr{{padding:12px 0;border-bottom:1px solid #dce5e6}}td{{border:0;padding:5px 0}}td::before{{content:attr(data-label);display:block;font-size:11px;color:#51666e}}}}@page{{size:A4;margin:16mm}}@media print{{body{{background:white;font-size:10pt;line-height:1.4}}header{{padding-bottom:12px}}header h1{{margin:10px 0 12px}}.findings dl{{grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0;gap:6px 16px}}main{{margin:0;padding:0;max-width:none;border:0}}h1{{font-size:25pt}}h2{{font-size:15pt}}h3{{font-size:11pt}}section{{margin-top:14px}}.summary{{background:white;padding:12px 16px}}.summary p{{font-size:11pt}}h2,h3,dt{{break-after:avoid}}article,.timing,dl div,tr{{break-inside:avoid}}table{{font-size:9pt}}thead{{display:table-header-group}}tr{{display:table-row}}td{{display:table-cell}}td::before{{display:none}}article{{padding:10px 0}}.appendix{{font-size:8pt}}dl{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+</style></head><body><main>
+<header><div class="brand">NERAIUM</div><h1>Historical Evaluation</h1><h2>{esc(name)}</h2>
+{paragraph(' · '.join(str(evaluation[k]) for k in ('customer', 'facility', 'system') if evaluation.get(k)))}{facts(periods)}</header>
+{section('Executive Summary', paragraph(view['summary']), 'summary')}
+{section('Key Findings', findings_html, 'findings')}
+{section('Measurable Consequence', consequence_html)}
+{section('Evidence', evidence_html)}
+{section('Limitations', ''.join(paragraph(v) for v in view['limits']) or paragraph('Interpretation is limited to the supplied periods and evidence shown above.'))}
+{section('Technical Appendix', appendix, 'appendix')}
+</main></body></html>"""

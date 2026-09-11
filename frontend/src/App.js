@@ -168,7 +168,7 @@ export default function App() {
           let record = review;
           if (!record) { record = await post(`/runs/${run.id}/reviews`, { reviewer: 'Internal operator', evidence_reviewed: true }); setReview(record); }
           await download(`/reviews/${record.id}/report`, `neraium-report-${run.id}.html`);
-        })}<p>Printable HTML. Include the evidence JSON for the complete record.</p>
+        })}<p>Printable HTML for sharing or saving as PDF. The full structured evidence remains available with this run.</p>
       </section>
     </>}
     {run && !successful && <section className="panel"><h2>Evaluation {run.status}</h2>{run.error && <p className="error">{run.error}</p>}{run.status === 'running' && <p>No terminal result stored. If the server was interrupted, start a new run; this record is not usable evidence.</p>}</section>}

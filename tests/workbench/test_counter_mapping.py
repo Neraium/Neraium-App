@@ -82,7 +82,9 @@ def test_wwtp_exclusion_workflow_and_immutable_evidence(client, monkeypatch):
     assert review.status_code == 201
     report_url = '/api/reviews/' + review.json()['id'] + '/report'
     report = client.get(report_url).content
-    assert EXCLUSION_REASON.encode() in report and b'cumulative_counter' in report
+    assert b'Excluded signals: energy_total_kwh' in report
+    assert EXCLUSION_REASON.encode() not in report and b'cumulative_counter' not in report
+    assert run['evaluation']['preview']['exclusions'][0]['classification'] == 'cumulative_counter'
     evidence = client.get(run_url + '/evidence').content
     assert client.get(existing_url).content == before
     for sid, raw in sources:
