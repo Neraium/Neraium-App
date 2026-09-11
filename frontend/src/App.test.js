@@ -27,7 +27,9 @@ async function sendFile(index, name = 'period.csv') {
   return file;
 }
 beforeEach(async () => {
-  jest.clearAllMocks(); item = { id: 'e', mode: 'paired', customer: 'Customer', system: 'Pump', runs: [] };
+  jest.resetAllMocks();
+  post.mockImplementation(async (path, body) => path.endsWith('/mapping-preview') ? { id: 'p', identity, catalog: { reference: Object.fromEntries(body.signals.map(s => [s.meaning, primary])), comparison: Object.fromEntries(body.signals.map(s => [s.meaning, primary])) } } : undefined);
+  item = { id: 'e', mode: 'paired', customer: 'Customer', system: 'Pump', runs: [] };
   get.mockImplementation(async path => path === '/authority' ? { available: true, identity } : path === '/evaluations' ? [item] : item);
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
   await act(async () => root.render(<App />));
@@ -39,11 +41,12 @@ test('landing and navigation expose historical evaluation without connector entr
   expect(container.querySelector('.evaluation-label')).toBeNull();
   expect(container.textContent).not.toContain('Evaluation name');
   expect(container.querySelector('main').firstElementChild.className).toBe('uploads');
-  for (const selector of ['.file-requirements', '.evaluation-about', '.history']) {
-    expect(container.querySelector(selector).open).toBe(false);
-  }
-  expect(container.querySelector('.file-requirements').textContent).toContain('10,000 rows');
-  expect(container.querySelector('.evaluation-about').textContent).toContain('Read-only analysis');
+  expect(container.querySelector('.history').open).toBe(false);
+  expect(container.querySelector('.history summary').textContent).toBe('History');
+  expect(container.querySelector('.file-requirements')).toBeNull();
+  expect(container.querySelector('.evaluation-about')).toBeNull();
+  expect(container.querySelector('.provenance')).toBeNull();
+  expect(container.textContent).not.toMatch(/File requirements|About this evaluation|adapter_contract|naive_historical_source_clock|b790479f/);
   expect(container.querySelector('input[type=password]')).toBeNull();
   expect(container.textContent).not.toMatch(/access token|workbench access|Open workbench/i);
   expect(button('New Evaluation')).toBeDefined();
@@ -68,13 +71,18 @@ test('reserved verification names stay hidden on load and refresh without hiding
     expect(options()).toEqual(['3', '4', '5', '6', '7', '8']);
   }
 });
-test('authority identity is preserved in collapsed provenance without a success banner', () => {
+test('authority provenance is absent on landing and available only within an evaluation', async () => {
+  expect(container.querySelector('.provenance')).toBeNull();
+  await change(container.querySelector('aside select'), 'e');
   const provenance = container.querySelector('details.provenance');
   expect(provenance.open).toBe(false);
   expect(provenance.querySelector('summary').textContent).toBe('Provenance · Neraium-1.0');
   expect(JSON.parse(provenance.querySelector('pre').textContent)).toEqual(identity);
   expect(container.querySelector('.notice')).toBeNull();
   expect(container.querySelector('.error')).toBeNull();
+  expect(provenance.closest('main')).not.toBeNull();
+  await click('New Evaluation');
+  expect(container.querySelector('.provenance')).toBeNull();
 });
 test('authority unavailability remains visible', async () => {
   get.mockImplementation(async path => path === '/authority' ? { available: false, reason: 'Pinned authority unavailable' } : [item]);
@@ -87,7 +95,8 @@ test.each(['iso', 'naive_historical_source_clock'])('two %s uploads validate aut
   expect(container.querySelectorAll('input[type=file]')).toHaveLength(2);
   expect(container.querySelector('input[required]')).toBeNull();
   expect(container.querySelector('form')).toBeNull();
-  post.mockImplementation(async (path) => {
+  post.mockImplementation(async (path, body) => {
+    if (path.endsWith('/mapping-preview')) return { id: 'p', identity, catalog: { reference: { temperature: primary }, comparison: { temperature: primary } } };
     if (path === '/evaluations') return item;
     item = { ...item, [path.endsWith('reference') ? 'reference_validation' : 'validation']: quality };
     return quality;
@@ -138,14 +147,14 @@ test('approved paired mapping runs existing SII API and requires review before r
   expect(post).toHaveBeenCalledWith('/evaluations/e/mapping-preview', expect.objectContaining({ pair_confirmed: true }));
   expect(post).toHaveBeenCalledWith('/evaluations/e/approve-mapping', { preview_id: 'p', confirmed: true });
   expect(post).toHaveBeenCalledWith('/evaluations/e/runs');
-  expect(container.textContent).toContain('Review evidence');
-  expect(button('Export report')).toBeUndefined();
-  expect(button('Record review').disabled).toBe(true);
-  await change([...container.querySelectorAll('label')].find(l => l.textContent === 'Reviewer name').querySelector('input'), 'Analyst');
-  await act(async () => [...container.querySelectorAll('input[type=checkbox]')].at(-1).click());
-  post.mockResolvedValue({ id: 'review' }); await click('Record review');
-  expect(post).toHaveBeenLastCalledWith('/runs/r/reviews', { reviewer: 'Analyst', evidence_reviewed: true });
-  await click('Export report'); expect(download).toHaveBeenCalledWith('/reviews/review/report', 'neraium-report-r.html');
+  expect(container.textContent).toContain('Evaluation complete');
+  expect(container.textContent).toContain('Not yet reviewed');
+  expect(container.querySelector('input[type=checkbox]')).toBeNull();
+  expect(container.textContent).not.toContain('Reviewer name');
+  expect(post.mock.calls.some(([path]) => path.endsWith('/reviews'))).toBe(false);
+  post.mockResolvedValue({ id: 'review' }); await click('Export report');
+  expect(post).toHaveBeenLastCalledWith('/runs/r/reviews', { reviewer: 'Internal operator', evidence_reviewed: true });
+  expect(download).toHaveBeenCalledWith('/reviews/review/report', 'neraium-report-r.html');
 });
 test('uncertain authority classification interrupts only that mapping before execution', async () => {
   item = { ...item, source, reference_source: source, validation, reference_validation: validation };
@@ -171,7 +180,7 @@ test('schema mismatch blocks execution and source replacement revalidates', asyn
   expect(container.textContent).toContain('Signal columns differ');
   expect(button('Run Evaluation').disabled).toBe(true);
   upload.mockImplementation(async () => { item = { ...item, reference_validation: undefined, approved_mapping: undefined }; });
-  post.mockImplementation(async () => { item = { ...item, reference_validation: validation }; return validation; });
+  post.mockImplementation(async path => { if (path.endsWith('/mapping-preview')) return { id: 'p', identity, catalog: { reference: { temperature: primary }, comparison: { temperature: primary } } }; item = { ...item, reference_validation: validation }; return validation; });
   await sendFile(0, 'replacement.csv');
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=reference', {});
   expect(button('Run Evaluation').disabled).toBe(false);
@@ -276,9 +285,10 @@ test('authoritative counter exclusion runs and exports without manual mapping or
   expect(provenance.textContent).toContain('cumulative_counter');
   expect(provenance.textContent).toContain(reason);
   expect(container.querySelector('[aria-label="energy_total_kwh unit"]')).toBeNull();
-  await change([...container.querySelectorAll('label')].find(l => l.textContent === 'Reviewer name').querySelector('input'), 'Analyst');
-  await act(async () => [...container.querySelectorAll('input[type=checkbox]')].at(-1).click());
-  post.mockResolvedValue({ id: 'review' }); await click('Record review');
+  expect(container.querySelector('.technical-details').open).toBe(false);
+  expect(container.querySelector('.uploads')).toBeNull();
+  expect(container.textContent).not.toMatch(/Adjust mapping|Reviewer name|I reviewed/);
+  post.mockResolvedValue({ id: 'review' });
   await click('Export report');
   expect(download).toHaveBeenCalledWith('/reviews/review/report', 'neraium-report-r.html');
 });
@@ -295,4 +305,82 @@ test('manual confirmation cannot approve a changed authority classification', as
   expect(post).not.toHaveBeenCalledWith('/evaluations/e/runs');
   expect(button('Run Evaluation').disabled).toBe(true);
   expect(container.querySelector('.classification-provenance').open).toBe(false);
+});
+
+test.each(['Maximum upload size is 10 MiB.', 'Maximum 10,000 rows; use explicitly scoped evaluations.'])('upload failure shows only its specific requirement: %s', async detail => {
+    post.mockResolvedValue(item);
+    upload.mockRejectedValue({ response: { data: { detail } } });
+    await sendFile(0);
+    expect(container.querySelector('[role=alert]').textContent).toBe(detail);
+    expect(container.querySelector('.file-requirements')).toBeNull();
+    expect(button('Run Evaluation')).toBeUndefined();
+});
+
+test('automatic preparation blocks execution until classification resolves and can retry a failed check', async () => {
+  let resolvePreview;
+  post.mockImplementation(async path => {
+    if (path === '/evaluations') return item;
+    if (path.endsWith('/mapping-preview')) return new Promise(resolve => { resolvePreview = resolve; });
+    item = { ...item, [path.endsWith('reference') ? 'reference_validation' : 'validation']: validation };
+    return validation;
+  });
+  upload.mockImplementation(async (id, file, role) => { item = { ...item, [role === 'reference' ? 'reference_source' : 'source']: source }; });
+  await sendFile(0);
+  await sendFile(1);
+  expect(container.querySelector('[role=status]').textContent).toBe('Checking datasets…');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  await act(async () => resolvePreview({ id: 'p', catalog: { temperature: { telemetry_category: 'unknown' } } }));
+  expect(container.textContent).toContain('Classification needs attention');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  expect(post).not.toHaveBeenCalledWith('/evaluations/e/runs');
+  post.mockRejectedValue(new Error('Dataset check unavailable. Retry.'));
+  const settings = [...container.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'Dataset settings');
+  await change(settings.querySelector('[aria-label="temperature [C] unit"]'), 'Celsius');
+  expect(container.querySelector('[role=alert]').textContent).toBe('Dataset check unavailable. Retry.');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  post.mockResolvedValue({ id: 'p2', identity, catalog: { reference: { temperature: primary }, comparison: { temperature: primary } } });
+  await click('Retry dataset check');
+  expect(button('Run Evaluation').disabled).toBe(false);
+  expect(container.querySelector('[role=alert]')).toBeNull();
+  expect(container.textContent).not.toContain('Classification needs attention');
+});
+
+test('opening a validated history record does not write a new preview', async () => {
+  item = { ...item, source, reference_source: source, validation, reference_validation: validation };
+  await change(container.querySelector('aside select'), 'e');
+  expect(post).not.toHaveBeenCalled();
+  expect(upload).not.toHaveBeenCalled();
+});
+
+test('rejected replacement upload does not prepare or mutate a saved mapping', async () => {
+  item = { ...item, source, reference_source: source, validation, reference_validation: validation };
+  await change(container.querySelector('aside select'), 'e');
+  upload.mockRejectedValue({ response: { data: { detail: 'Maximum 10,000 rows; use explicitly scoped evaluations.' } } });
+  await sendFile(0);
+  expect(post).not.toHaveBeenCalled();
+  expect(container.querySelector('[role=alert]').textContent).toContain('Maximum 10,000 rows');
+});
+
+test('export failures preserve truthful review state and reuse a successfully recorded review on retry', async () => {
+  item = { ...item, source, reference_source: source, validation, reference_validation: validation, runs: [{ id: 'r', status: 'complete', created_at: '2026-09-11T00:00:00' }] };
+  const run = { id: 'r', status: 'complete', source, reviews: [] };
+  await change(container.querySelector('aside select'), 'e');
+  get.mockImplementation(async path => path === '/runs/r' ? run : path === '/evaluations' ? [item] : item);
+  await click('complete · 2026-09-11T00:00:00');
+  expect(post).not.toHaveBeenCalled();
+  post.mockRejectedValueOnce(new Error('Review unavailable'));
+  await click('Export report');
+  expect(download).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('Not yet reviewed');
+  post.mockResolvedValue({ id: 'review', reviewer: 'Internal operator', evidence_reviewed: true });
+  download.mockRejectedValueOnce(new Error('Download unavailable'));
+  await click('Export report');
+  expect(container.textContent).toContain('Evidence review recorded');
+  const reviewCalls = post.mock.calls.length;
+  await click('Export report');
+  expect(post).toHaveBeenCalledTimes(reviewCalls);
+  expect(download).toHaveBeenLastCalledWith('/reviews/review/report', 'neraium-report-r.html');
+  await click('New Evaluation');
+  expect(container.querySelector('.evidence-view')).toBeNull();
+  expect(container.querySelectorAll('input[type=file]')).toHaveLength(2);
 });

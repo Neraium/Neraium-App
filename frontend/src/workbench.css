@@ -23,8 +23,8 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
 .run-action{margin:16px 0}
 .run-action button{min-width:180px;min-height:44px;margin:0}
 .notice{background:none;padding:0;margin:0 0 12px;font-size:13px}
-.file-requirements,.evaluation-about,.history{font-size:13px}
-.history.panel{background:none;border:0;border-top:1px solid #2a3a46;border-radius:0;padding:12px 0 0;margin:0}
+.history{font-size:13px;border:0;padding:0;margin:12px 0 0}
+.history>summary{width:fit-content;color:#aebdc7}
 @media(max-width:850px){
   .workbench{padding:16px}
   .workbench h1{font-size:24px}
@@ -33,3 +33,5 @@ fieldset{border:0;padding:0;margin:0;min-width:0}
   .uploads{gap:10px}
   .run-action button{width:100%}
 }
+
+.result-status{margin:0 0 20px}.result-status h2{font-size:24px;margin-bottom:8px}.result-status>p,.report-export p{font-size:13px}.evidence-entry+.evidence-entry{border-top:1px solid #2a3a46;margin-top:16px;padding-top:12px}.evidence-entry h3{margin:0 0 8px}.evidence-entry p{font-size:14px;margin:8px 0}.evidence-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:12px 0}.evidence-facts dt{font-size:12px;color:#aebdc7}.evidence-facts dd{margin:3px 0 0;font-size:14px;overflow-wrap:anywhere}.evidence-view,.technical-details{overflow-wrap:anywhere;min-width:0}.technical-details>summary{color:#aebdc7}.report-export{margin:20px 0}.report-export h2{margin-bottom:8px}@media(max-width:500px){.evidence-facts{grid-template-columns:1fr;gap:8px}.result-status h2{font-size:22px}.evidence-view .panel{padding:14px}.report-export button{width:100%}}
