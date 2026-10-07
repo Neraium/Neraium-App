@@ -37,7 +37,9 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 test('landing and navigation expose historical evaluation without connector entry points', async () => {
   expect(container.querySelector('h1').textContent).toBe('Historical Evaluation');
-  expect(container.querySelector('header p')).toBeNull();
+  expect(container.querySelector('header p').textContent).toBe('Compare a reference operating period against a later operating period to evaluate changes in system behavior.');
+  expect(container.querySelector('.neraium-brand').textContent).toBe('NERAIUM');
+  expect(container.querySelector('[aria-label="Evaluation workflow"] [aria-current=step]').textContent).toContain('Data');
   expect(container.querySelector('.evaluation-label')).toBeNull();
   expect(container.textContent).not.toContain('Evaluation name');
   expect(container.querySelector('main').firstElementChild.className).toBe('uploads');
@@ -104,13 +106,13 @@ test.each(['iso', 'naive_historical_source_clock'])('two %s uploads validate aut
   upload.mockImplementation(async (id, file, role) => { item = { ...item, [role === 'reference' ? 'reference_source' : 'source']: { ...source, filename: file.name } }; });
   const baseline = await sendFile(0, 'baseline.csv');
   expect(post).toHaveBeenCalledWith('/evaluations', { mode: 'paired' });
-  expect(upload).toHaveBeenCalledWith('e', baseline, 'reference');
+  expect(upload).toHaveBeenCalledWith('e', baseline, 'reference', expect.objectContaining({ onProgress: expect.any(Function), signal: expect.any(AbortSignal) }));
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=reference', {});
-  expect(button('Run Evaluation')).toBeUndefined();
+  expect(button('Run Evaluation').disabled).toBe(true);
   expect(container.querySelector('.timestamp-review')).toBeNull();
   expect(container.textContent).not.toMatch(/Timestamp column|Timestamp format|Apply timestamp/);
   const comparison = await sendFile(1, 'comparison.csv');
-  expect(upload).toHaveBeenLastCalledWith('e', comparison, 'comparison');
+  expect(upload).toHaveBeenLastCalledWith('e', comparison, 'comparison', expect.objectContaining({ onProgress: expect.any(Function), signal: expect.any(AbortSignal) }));
   expect(post).toHaveBeenCalledWith('/evaluations/e/validate?role=comparison', {});
   expect(button('Run Evaluation').disabled).toBe(false);
   expect(container.textContent).not.toContain('Mapping needs attention');
@@ -193,7 +195,7 @@ test.each(['reference', 'comparison'])('numeric %s only asks for unresolved form
   post.mockRejectedValue({ response: { data: { detail: 'Timestamp needs review', timestamp_review: { timestamp_column: 'time', timestamp_mode: '' } } } });
   await change(container.querySelector('aside select'), 'e');
   const review = container.querySelector('.timestamp-review');
-  expect(review.closest('section').querySelector('h2').textContent).toBe(role === 'reference' ? 'Baseline dataset' : 'Comparison dataset');
+  expect(review.closest('section').getAttribute('data-dataset')).toBe(role);
   expect(container.querySelectorAll('.timestamp-review')).toHaveLength(1);
   expect(review.textContent).not.toContain('Timestamp column');
   expect(button('Apply timestamp').disabled).toBe(true);
@@ -313,7 +315,7 @@ test.each(['Maximum upload size is 10 MiB.', 'Maximum 10,000 rows; use explicitl
     await sendFile(0);
     expect(container.querySelector('[role=alert]').textContent).toBe(detail);
     expect(container.querySelector('.file-requirements')).toBeNull();
-    expect(button('Run Evaluation')).toBeUndefined();
+    expect(button('Run Evaluation').disabled).toBe(true);
 });
 
 test('automatic preparation blocks execution until classification resolves and can retry a failed check', async () => {
@@ -383,4 +385,117 @@ test('export failures preserve truthful review state and reuse a successfully re
   await click('New Evaluation');
   expect(container.querySelector('.evidence-view')).toBeNull();
   expect(container.querySelectorAll('input[type=file]')).toHaveLength(2);
+});
+
+const card = role => container.querySelector(`[data-dataset="${role}"]`);
+const currentStep = () => container.querySelector('.workflow [aria-current="step"]').textContent;
+test('native transfer progress stays separate from upload acceptance and actual validation', async () => {
+  let resolveUpload, resolveValidation, progress;
+  post.mockImplementation(async path => {
+    if (path === '/evaluations') return item;
+    return new Promise(resolve => { resolveValidation = () => { item = { ...item, reference_validation: validation }; resolve(validation); }; });
+  });
+  upload.mockImplementation((id, file, role, options) => {
+    progress = options.onProgress;
+    return new Promise(resolve => { resolveUpload = () => { item = { ...item, reference_source: { ...source, filename: file.name, bytes: file.size } }; resolve({ source_id: 's' }); }; });
+  });
+  const file = await sendFile(0, 'baseline.csv');
+  expect(card('reference').textContent).toContain('Uploading');
+  expect(card('reference').textContent).toContain('0%');
+  expect(card('reference').textContent).toContain(`0 / ${file.size} bytes`);
+  expect(card('comparison').textContent).toContain('No dataset');
+  expect(currentStep()).toContain('Data');
+  await act(async () => progress({ loaded: 8, total: 19, lengthComputable: true }));
+  expect(card('reference').querySelector('progress').value).toBe(42);
+  expect(card('reference').textContent).toContain('8 / 19 bytes');
+  await act(async () => progress({ loaded: 19, total: 19, lengthComputable: true }));
+  expect(card('reference').textContent).toContain('100%');
+  expect(card('reference').textContent).toContain('Waiting for the server');
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Uploading');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  await act(async () => resolveUpload());
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Validating');
+  expect(card('reference').querySelector('progress')).toBeNull();
+  expect(card('reference').textContent).not.toContain('Validated');
+  await act(async () => resolveValidation());
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Ready');
+  expect(card('reference').textContent).toContain('Validated');
+  expect(card('reference').textContent).toContain('16');
+  expect(button('Run Evaluation').disabled).toBe(true);
+});
+
+test('comparison progress and failure leave baseline state intact; reselection resets transfer', async () => {
+  item = { ...item, reference_source: source, reference_validation: validation };
+  await change(container.querySelector('aside select'), 'e');
+  let progress, rejectUpload, resolveUpload;
+  upload.mockImplementation((id, file, role, options) => {
+    progress = options.onProgress;
+    return new Promise((resolve, reject) => { rejectUpload = reject; resolveUpload = () => { item = { ...item, source: { ...source, filename: file.name } }; resolve({ source_id: 's' }); }; });
+  });
+  await sendFile(1, 'comparison.csv');
+  await act(async () => progress({ loaded: 6, total: 19, lengthComputable: true }));
+  expect(card('comparison').querySelector('progress').value).toBe(31);
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Ready');
+  expect(card('reference').querySelector('progress')).toBeNull();
+  await act(async () => rejectUpload(new Error('Network Error')));
+  expect(card('comparison').textContent).toContain('Failed');
+  expect(card('comparison').textContent).toContain('Network Error');
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Ready');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  post.mockImplementation(async path => {
+    if (path.endsWith('/mapping-preview')) return { id: 'p', identity, catalog: { reference: { temperature: primary }, comparison: { temperature: primary } } };
+    item = { ...item, validation }; return validation;
+  });
+  await sendFile(1, 'comparison.csv');
+  expect(card('comparison').textContent).toContain('0%');
+  expect(card('comparison').textContent).not.toContain('Network Error');
+  await act(async () => resolveUpload());
+  expect(card('comparison').querySelector('.state-badge').textContent).toBe('Ready');
+  expect(button('Run Evaluation').disabled).toBe(false);
+  expect(currentStep()).toContain('Evaluate');
+});
+
+test('accepted replacement invalidates previous quality and summary uses only supplied metadata', async () => {
+  item = { ...item, reference_source: { ...source, bytes: 1234 }, source, validation, reference_validation: { ...validation, start: '2026-01-01', end: '2026-01-02' } };
+  await change(container.querySelector('aside select'), 'e');
+  expect(card('reference').textContent).toContain('1.21 KiB');
+  expect(card('reference').textContent).toContain('2026-01-01');
+  expect(card('comparison').textContent).not.toContain('2026-01-01');
+  expect(container.textContent).not.toContain('Cadence');
+  upload.mockImplementation(async (id, file) => {
+    item = { ...item, reference_source: { ...source, filename: file.name, bytes: file.size }, reference_validation: undefined, approved_mapping: undefined };
+  });
+  post.mockRejectedValue({ response: { data: { detail: 'Timestamp needs review', timestamp_review: { timestamp_column: 'time', timestamp_mode: '' } } } });
+  await sendFile(0, 'replacement.csv');
+  expect(card('reference').textContent).toContain('replacement.csv');
+  expect(card('reference').textContent).not.toContain('2026-01-01');
+  expect(card('reference').querySelector('.state-badge').textContent).toBe('Needs review');
+  expect(card('comparison').querySelector('.state-badge').textContent).toBe('Ready');
+  expect(button('Run Evaluation').disabled).toBe(true);
+  expect(currentStep()).toContain('Validate');
+});
+
+test('unknown transfer length remains indeterminate and unmount cancels the pending upload', async () => {
+  let progress, signal;
+  post.mockResolvedValue(item);
+  upload.mockImplementation((id, file, role, options) => { progress = options.onProgress; signal = options.signal; return new Promise(() => {}); });
+  await sendFile(0);
+  await act(async () => progress({ loaded: 2048, lengthComputable: false }));
+  expect(card('reference').querySelector('progress').hasAttribute('value')).toBe(false);
+  expect(card('reference').textContent).toContain('2 KiB');
+  expect(card('reference').textContent).toContain('Total unavailable');
+  expect(card('reference').textContent).not.toContain('100%');
+  await act(async () => root.render(<div />));
+  expect(signal.aborted).toBe(true);
+});
+
+test('drop uses the same upload contract and cannot bypass an active transfer', async () => {
+  post.mockResolvedValue(item);
+  upload.mockImplementation(() => new Promise(() => {}));
+  const file = new File(['time,value'], 'dropped.csv');
+  const drop = () => { const event = new Event('drop', { bubbles: true }); Object.defineProperty(event, 'dataTransfer', { value: { files: [file] } }); card('comparison').dispatchEvent(event); };
+  await act(async () => { drop(); drop(); });
+  expect(upload).toHaveBeenCalledTimes(1);
+  expect(upload).toHaveBeenCalledWith('e', file, 'comparison', expect.objectContaining({ onProgress: expect.any(Function) }));
+  expect(card('comparison').textContent).toContain('dropped.csv');
 });

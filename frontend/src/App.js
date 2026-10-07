@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Cpu, ArrowRight, History } from 'lucide-react';
 import { get, post, upload, download } from './api';
 import { suggestedMapping, mappingIssues, classificationIssues } from './intake';
 import './workbench.css';
 import EvaluationResult from './EvaluationResult';
+import DatasetCard, { transferProgress } from './DatasetCard';
+import Workflow from './Workflow';
 const Json = ({ value }) => <pre>{JSON.stringify(value, null, 2)}</pre>;
 function RawEvidence({ run }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +23,10 @@ export default function App() {
   const [timeIssues, setTimeIssues] = useState({}), [times, setTimes] = useState({});
   const [classifications, setClassifications] = useState([]), [classesConfirmed, setClassesConfirmed] = useState(false);
   const [run, setRun] = useState(null), [review, setReview] = useState(null);
+  const [transfers, setTransfers] = useState({});
+  const uploadController = useRef(null);
+  const receiving = useRef(false);
+  useEffect(() => () => uploadController.current?.abort(), []);
   useEffect(() => {
     let active = true;
     setBusy('Loading evaluations');
@@ -48,27 +55,54 @@ export default function App() {
       const quality = role === 'reference' ? item.reference_validation : item.validation;
       if (source && !quality) {
         setBusy(`Validating ${role === 'reference' ? 'baseline' : 'comparison'} dataset`);
+        setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'validating' } }));
         try { await post(`/evaluations/${id}/validate?role=${role}`, {}); }
         catch (e) {
           const choices = e.response?.data?.timestamp_review;
           if (choices || message(e).startsWith('Timestamp needs review')) {
             issues[role] = { message: message(e), ...choices };
             detectedTimes[role] = { timestamp_column: '', timestamp_mode: '', ...choices };
-          } else { throw e; }
+          } else {
+            setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'failed', failureStage: 'validation', error: message(e) } }));
+            throw e;
+          }
         }
+        setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'settled' } }));
       }
     }
     item = await refresh(id);
     setMapping(suggestedMapping(item)); setTimeIssues(issues); setTimes(detectedTimes);
   }
-  async function select(id) { setAutoPrepare(false); clearResult(); setTimes({}); await prepare(id); }
+  async function select(id) { setAutoPrepare(false); setTransfers({}); clearResult(); setTimes({}); await prepare(id); }
   async function receive(file, role) {
     clearResult();
     let id = evaluation?.id;
-    if (!id) { const item = await post('/evaluations', { mode: 'paired' }); id = item.id; await refresh(id); }
-    await upload(id, file, role);
+    if (!id) {
+      try { const item = await post('/evaluations', { mode: 'paired' }); id = item.id; await refresh(id); }
+      catch (e) { setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'failed', failureStage: 'upload', error: message(e) } })); throw e; }
+    }
+    const controller = new AbortController();
+    uploadController.current = controller;
+    setTransfers(current => ({ ...current, [role]: { filename: file.name, size: file.size, phase: 'uploading', loaded: 0, total: file.size, percent: file.size ? 0 : null } }));
+    try {
+      await upload(id, file, role, { signal: controller.signal, onProgress: event => {
+        if (!controller.signal.aborted) setTransfers(current => ({ ...current, [role]: { ...current[role], ...transferProgress(event) } }));
+      } });
+    } catch (e) {
+      if (!controller.signal.aborted) setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'failed', failureStage: 'upload', error: message(e) } }));
+      throw e;
+    } finally { uploadController.current = null; }
+    setTransfers(current => ({ ...current, [role]: { ...current[role], phase: 'uploaded' } }));
     setAutoPrepare(true);
     await prepare(id);
+    setTransfers(current => ({ ...current, [role]: { ...current[role], phase: current[role]?.phase === 'failed' ? 'failed' : 'settled' } }));
+  }
+  async function selectFile(file, role) {
+    if (busy || checking || receiving.current) return;
+    receiving.current = true;
+    setTransfers(current => ({ ...current, [role]: { filename: file.name, size: file.size, phase: 'preparing' } }));
+    try { await act(`Uploading ${role === 'reference' ? 'baseline' : 'comparison'} dataset`, () => receive(file, role)); }
+    finally { receiving.current = false; }
   }
   function editSignal(index, field, value) {
     setAutoPrepare(true);
@@ -106,29 +140,31 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mappingKey, compatible, busy, authority?.available, preparedKey, checkAttempt, autoPrepare]);
   const ready = compatible && (!autoPrepare || preparedKey === mappingKey) && (!classifications.length || classesConfirmed);
+  const evaluating = busy === 'Running evaluation';
+  const actionReason = busy || checking ? busy || 'Checking dataset classifications' : authority?.available !== true ? 'The pinned authority must be available before evaluation.' : !both ? 'Select both operating periods. Each upload is validated automatically.' : !valid ? 'Resolve dataset validation and timestamp review before evaluation.' : timestampMismatch ? 'Both periods must use compatible timestamp modes.' : schemaMismatch ? 'Both periods must have matching signal columns.' : issues.length || count === 0 || count > 24 ? 'Resolve the signal mapping below before evaluation.' : classifications.length && !classesConfirmed ? 'Review unresolved authority classifications before evaluation.' : !ready ? 'Wait for the dataset check to complete.' : 'Both periods are prepared. Evaluation uses the current authority contract.';
   const action = (label, fn, disabled = false) => <button disabled={!!busy || checking || disabled} onClick={() => act(label, fn)}>{label}</button>;
   const operatorItems = items.filter(item => !isVerification(item));
   const signalEditor = (s, i) => <div className="signal-editor" key={s.column}><strong>{s.column}</strong><label><input type="checkbox" checked={s.include} onChange={e => editSignal(i, 'include', e.target.checked)} />Include {s.column}</label>{(s.include ? [...(s.meaning !== s.column ? ['meaning'] : []), 'unit'] : ['reason']).map(f => <label key={f}>{f === 'reason' ? 'Exclusion reason' : f === 'unit' ? 'Matching unit' : 'Signal meaning'}<input aria-label={`${s.column} ${f}`} maxLength={f === 'unit' ? 40 : f === 'meaning' ? 160 : 500} value={s[f]} onChange={e => editSignal(i, f, e.target.value)} /></label>)}</div>;
   return <div className="workbench">
-    <header><h1>Historical Evaluation</h1></header>
+    <header className="workbench-header"><div className="brand-bar"><span className="neraium-brand"><Cpu size={19} strokeWidth={1.5} aria-hidden="true" />NERAIUM</span><span className="internal-label">INTERNAL / POV WORKBENCH</span></div><div className="page-heading"><div><h1>Historical Evaluation</h1><p>Compare a reference operating period against a later operating period to evaluate changes in system behavior.</p></div><span className="workbench-label">Infrastructure intelligence</span></div></header>
+    <Workflow hasData={!!both} valid={!!valid} ready={!!ready && authority?.available === true} successful={!!successful} evaluating={evaluating} validating={busy.startsWith('Validating')} />
     {error && <div className="error" role="alert">{error}</div>}{(busy || checking) && <p role="status" className="notice">{busy || 'Checking datasets'}…</p>}
     {authority?.available === false && <p className="error" role="alert">Evaluation unavailable: {authority.reason}</p>}
     <fieldset disabled={!!busy || checking}><div className="layout"><main>
     {!successful && <>
     <div className="uploads">{(paired ? ['reference', 'comparison'] : ['comparison']).map(role => {
-      const name = role === 'reference' ? 'Baseline dataset' : 'Comparison dataset';
       const source = role === 'reference' ? evaluation?.reference_source : evaluation?.source;
       const quality = role === 'reference' ? evaluation?.reference_validation : evaluation?.validation;
       const time = times[role] || { timestamp_column: '', timestamp_mode: '' };
-      return <section className="panel" key={role}><h2>{name}</h2><label><input aria-label={name} type="file" accept=".csv,.tsv,.json" onChange={e => { const file = e.target.files[0]; e.target.value = ''; if (file) act(`Uploading ${name.toLowerCase()}`, () => receive(file, role)); }} /></label>
-      {source && <><p className="file-status">{source.filename}{quality?.eligible_timestamps && <> · {quality.row_count} rows · Validated</>}</p><details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details></>}
+      return <DatasetCard key={role} role={role} source={source} quality={quality} transfer={transfers[role]} timeIssue={timeIssues[role]} evaluating={evaluating} disabled={!!busy || checking} onSelect={selectFile}>
+      {source && <details><summary>File provenance and validation</summary><p>SHA-256 <code>{source.sha256}</code></p><p>Uploaded {source.received_at}</p>{action('Download original', () => download(`/sources/${source.id}/original`, source.filename))}{quality && <Json value={quality} />}</details>}
       {timeIssues[role] && <details className="timestamp-review" open><summary>Timestamp needs review</summary><p role="alert">{timeIssues[role].message}</p><div className="timestamp-controls">
         {!timeIssues[role].timestamp_column && <label>Timestamp column<select aria-label="Timestamp column" value={time.timestamp_column} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_column: e.target.value } })}><option value="">Choose…</option>{source?.columns.map(c => <option key={c}>{c}</option>)}</select></label>}
         {!timeIssues[role].timestamp_mode && <label>Timestamp format<select aria-label="Timestamp format" value={time.timestamp_mode} onChange={e => setTimes({ ...times, [role]: { ...time, timestamp_mode: e.target.value } })}><option value="">Choose…</option><option value="iso">ISO with timezone</option>{paired && <option value="naive_historical_source_clock">YYYY-MM-DD HH:MM:SS (timezone not supplied)</option>}<option value="epoch_seconds">Unix seconds</option><option value="epoch_milliseconds">Unix milliseconds</option></select></label>}
         {action('Apply timestamp', async () => { await post(`/evaluations/${evaluation.id}/validate?role=${role}`, time); await prepare(evaluation.id); }, !time.timestamp_column || !time.timestamp_mode)}
       </div></details>}
       {quality && !quality.eligible_timestamps && <div role="alert"><p>Replace this file to resolve timestamp errors.</p>{quality.warnings.map(w => <p key={w}>{w}</p>)}</div>}
-      </section>;
+      </DatasetCard>;
     })}</div>
     {timestampMismatch && <p role="alert" className="error">Paired timestamp modes must match. Upload both periods using source-clock timestamps or both using timezone-aware timestamps.</p>}
     {schemaMismatch && <p role="alert" className="error">Signal columns differ between files. Upload matching signal schemas; automatic renaming is not supported.</p>}
@@ -138,7 +174,7 @@ export default function App() {
     </>}
     {!!classifications.length && <section className="panel"><h2>Classification needs attention</h2>{classifications.map(c => <div key={c.column}><h3>{c.column}</h3><p>{c.reason}</p></div>)}<p>Revise the signal meaning or exclusion in Dataset settings, or confirm the supplied classification and its limits.</p><label><input type="checkbox" checked={classesConfirmed} onChange={e => setClassesConfirmed(e.target.checked)} />I reviewed the unresolved classifications and treatment limits.</label></section>}
     {compatible && error && !checking && preparedKey !== mappingKey && <button onClick={() => setCheckAttempt(n => n + 1)}>Retry dataset check</button>}
-    {both && <section className="run-action">{action('Run Evaluation', async () => {
+    <section className="run-action"><div><span className="eyebrow">EVALUATION</span><p id="action-reason">{actionReason}</p></div>{both ? <button className="primary" aria-describedby="action-reason" disabled={!!busy || checking || !ready || authority?.available !== true} onClick={() => act('Run Evaluation', async () => {
       clearResult();
       const root = `/evaluations/${evaluation.id}`;
       setBusy('Checking datasets');
@@ -153,7 +189,7 @@ export default function App() {
       const r = await post(`${root}/runs`);
       const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null);
       await refresh(evaluation.id);
-    }, !ready || authority?.available !== true)}</section>}
+    })}>{evaluating ? 'Evaluating…' : 'Run Evaluation'}<ArrowRight size={16} aria-hidden="true" /></button> : <button className="primary" disabled aria-describedby="action-reason">Run Evaluation<ArrowRight size={16} aria-hidden="true" /></button>}</section>
     {valid && !schemaMismatch && <>
       <details><summary>Dataset settings</summary><p>Shared mapping for both full periods. Missing values remain missing; no unit conversion.</p>{mapping.signals.map((s, i) => <div key={s.column}><p><strong>{s.column}</strong> · {s.include ? s.unit || 'Unit needs review' : s.reason}</p><details><summary>Adjust mapping for {s.column}</summary>{signalEditor(s, i)}</details></div>)}<label>Context and known limitations (optional)<textarea maxLength={2000} value={mapping.context} onChange={e => { setAutoPrepare(true); setMapping({ ...mapping, context: e.target.value }); setClassesConfirmed(false); }} /></label></details>
     </>}
@@ -163,7 +199,7 @@ export default function App() {
     </>}
     {successful && <>
       <EvaluationResult run={run} />
-      <section className="report-export"><h2>Export report</h2><p>{review ? 'Evidence review recorded. Export uses the existing review.' : 'Not yet reviewed. Export report records your confirmation that you have inspected this run’s scope and evidence, under “Internal operator”. It does not certify a diagnosis.'}</p>
+      <section className="report-export" id="report-export" tabIndex={-1}><h2>Export report</h2><p>{review ? 'Evidence review recorded. Export uses the existing review.' : 'Not yet reviewed. Export report records your confirmation that you have inspected this run’s scope and evidence, under “Internal operator”. It does not certify a diagnosis.'}</p>
         {action('Export report', async () => {
           let record = review;
           if (!record) { record = await post(`/runs/${run.id}/reviews`, { reviewer: 'Internal operator', evidence_reviewed: true }); setReview(record); }
@@ -183,7 +219,7 @@ export default function App() {
     </details>}
 
 
-    </main><aside><details className="history"><summary>History</summary><label>Select evaluation<select value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(item => <option key={item.id} value={item.id}>{title(item)}</option>)}</select></label><button onClick={() => { setAutoPrepare(false); setPreparedKey(''); setEvaluation(null); setMapping({ signals: [], context: '' }); setTimeIssues({}); setTimes({}); setError(''); clearResult(); }}>New Evaluation</button>
+    </main><aside aria-label="Evaluation history"><details className="history"><summary><History size={16} aria-hidden="true" />History</summary><p className="history-caption">Saved evaluations and preserved evidence.</p><label>Select evaluation<select value={operatorItems.some(item => item.id === evaluation?.id) ? evaluation.id : ''} onChange={e => e.target.value && act('Loading evaluation', () => select(e.target.value))}><option value="">Choose…</option>{operatorItems.map(item => <option key={item.id} value={item.id}>{title(item)}</option>)}</select></label><button className="secondary" onClick={() => { setAutoPrepare(false); setPreparedKey(''); setTransfers({}); setEvaluation(null); setMapping({ signals: [], context: '' }); setTimeIssues({}); setTimes({}); setError(''); clearResult(); }}>New Evaluation</button>
     {evaluation && <><h3>{title(evaluation)}</h3>{[evaluation.facility, evaluation.scope].filter(Boolean).map((s, i) => <p key={i}>{s}</p>)}<h3>Preserved runs</h3>{evaluation.runs?.map(r => <div key={r.id}>{action(`${r.status} · ${r.created_at.slice(0, 19)}`, async () => { const saved = await get(`/runs/${r.id}`); setRun(saved); setReview(saved.reviews?.[0] || null); })}</div>)}</>}
     </details></aside></div></fieldset>
   </div>;
