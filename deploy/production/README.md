@@ -1,8 +1,10 @@
 # Dedicated App production stack
 
 The deployed application revision and immutable image digest are recorded in
-`resources.json`. Authority remains pinned to
-`6e26a83a17babaea443b75c545a756835d37102b`.
+`resources.json`. The supported authority revision for the next App build is
+`3d850c2e47d476387a5be6e794b2d671086875e9`.
+This pin update has not been deployed; existing image and verification records
+continue to identify the previous production release.
 
 The new distribution is **E27KJ5Y66YQQBO**, at
 **https://d1gouhm82x409l.cloudfront.net/**. `resources.json` records its dedicated
@@ -83,7 +85,8 @@ The production hostname is `eval.neraium.com`. Its ACM certificate is issued in
 are attached to `E27KJ5Y66YQQBO`, status `Deployed`. HTTPS verification using
 `eval.neraium.com` with a direct CloudFront connection passed: frontend HTTP 200,
 `/healthz` status `ok`, and `/version.json` confirmed the application and authority
-commits above. Cloudflare traffic DNS remains unchanged. Retain the validation CNAME for certificate renewal.
+commits recorded in `verification.json` at that deployment. Cloudflare traffic
+DNS remains unchanged. Retain the validation CNAME for certificate renewal.
 
 1. Add the certificate-validation CNAME as **DNS only**:
    - Name: `_a2deca0bfd36a8c50b92f6da7a3e41fc.eval.neraium.com`

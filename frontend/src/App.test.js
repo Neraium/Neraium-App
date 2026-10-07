@@ -7,7 +7,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 let container, root, item;
 const source = { id: 's', filename: 'period.csv', sha256: 'a'.repeat(64), columns: ['time', 'temperature [C]'], preview: [] };
 const validation = { eligible_timestamps: true, timestamp_column: 'time', timestamp_mode: 'iso', signals: [{ column: 'temperature [C]', invalid_count: 0 }], warnings: [], row_count: 16 };
-const identity = { commit: 'b790479f0abcb90aa71f7677d10aa542222b55c8', adapter_contract: 'neraium-workbench-authority.v1' };
+const identity = { commit: '3d850c2e47d476387a5be6e794b2d671086875e9', adapter_contract: 'neraium-workbench-authority.v1' };
 const primary = { telemetry_category: 'equipment_process', analysis_role: 'primary_signal', operator_primary_eligible: true, is_ignored: false, is_context_driver: false, is_state_signal: false, requires_derived_rate: false, semantic_role: null };
 const button = text => [...container.querySelectorAll('button')].find(b => b.textContent === text);
 const click = async text => act(async () => button(text).click());
@@ -46,7 +46,7 @@ test('landing and navigation expose historical evaluation without connector entr
   expect(container.querySelector('.file-requirements')).toBeNull();
   expect(container.querySelector('.evaluation-about')).toBeNull();
   expect(container.querySelector('.provenance')).toBeNull();
-  expect(container.textContent).not.toMatch(/File requirements|About this evaluation|adapter_contract|naive_historical_source_clock|b790479f/);
+  expect(container.textContent).not.toMatch(/File requirements|About this evaluation|adapter_contract|naive_historical_source_clock|3d850c2e/);
   expect(container.querySelector('input[type=password]')).toBeNull();
   expect(container.textContent).not.toMatch(/access token|workbench access|Open workbench/i);
   expect(button('New Evaluation')).toBeDefined();

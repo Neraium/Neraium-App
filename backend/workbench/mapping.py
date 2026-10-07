@@ -4,7 +4,7 @@ from . import authority
 EXCLUSION_REASON = "unsupported_cumulative_counter_for_paired_analysis"
 # This exact authority revision's supplied_reference.py explicitly rejects counters.
 # A future pin must be reviewed before extending this policy.
-COUNTER_UNSUPPORTED_COMMIT = "b790479f0abcb90aa71f7677d10aa542222b55c8"
+COUNTER_UNSUPPORTED_COMMIT = "3d850c2e47d476387a5be6e794b2d671086875e9"
 
 
 def exclude_unsupported_counters(value, mapping, response, input_sha256):

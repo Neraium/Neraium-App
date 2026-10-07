@@ -102,6 +102,83 @@ def test_grouped_findings_match_signal_pairs_not_reused_ids():
     assert [r['finding_confidence'] for r in project(result)['relationships']] == ['limited', 'limited', 'not supplied']
 
 
+def governed_finding():
+    return dict(id='scoped-finding', title='Scoped flow / power change', source_tags=['flow', 'power0'],
+                relationship_evidence_ref='assessment-1', relationship_source_ref='source-1',
+                relationship_assessment_binding='binding-1',
+                classification={'type': 'unexplained_systemic_change', 'label': 'Unexplained systemic change', 'confidence': 'high'},
+                confidence='high', what_changed='The authority observed a scoped relationship shift.',
+                persistence={'persistent': True, 'scope': 'relationship', 'summary': 'The exact assessment establishes persistence.'},
+                relationship_evidence={'baseline_sample_size': 12000, 'recent_sample_size': 12000},
+                source_time_ranges=[{'baseline_start': '2026-10-05', 'current_start': '2026-10-10'}],
+                certainty_limit='This does not diagnose cause — or predict a failure.')
+
+
+def test_governed_finding_reaches_report_even_without_top_relationships():
+    import json
+    from html import unescape
+    run = fixture(); finding = governed_finding()
+    run['response']['result'] = {'analysis_result': {'relationship_findings': [finding]}}
+    before = deepcopy(run)
+    view = project(run['response']['result'])
+    assert view['governed_findings'][0] is finding
+    html = render(run, None)
+    assert 'Unexplained systemic change' in html
+    assert '<dt>Relationship persistence</dt><dd>Confirmed</dd>' in html
+    assert finding['persistence']['summary'] in html
+    assert finding['certainty_limit'] in html
+    assert 'Persistent relationship change was observed' in html
+    assert 'does not establish a persistent relationship change' not in html
+    assert json.loads(unescape(html.split('<pre>')[1].split('</pre>')[0])) == finding
+    assert run == before
+
+
+def test_governed_duplicate_uses_exact_identity_and_preserves_legacy_scope():
+    run = fixture(); result = run['response']['result']; finding = governed_finding()
+    result['analysis_result']['relationship_findings'] = [finding, deepcopy(finding)]
+    result['findings'][0] = {**finding, 'confidence': 'limited'}
+    result['relationship_analysis']['top_relationship_changes'][0].update(
+        relationship_evidence_ref='assessment-1', relationship_source_ref='source-1', relationship_assessment_binding='binding-1')
+    view = project(result)
+    assert view['relationships'][0]['persistent'] is True
+    assert view['relationships'][0]['finding_confidence'] == 'high'
+    html = render(run, None)
+    main = html.split('<section class="appendix">')[0]
+    assert main.count('<h3>Scoped flow / power change</h3>') == 1
+    assert '<h3>Flow / Power 0</h3>' not in main
+    assert '<h3>Flow / Power 1</h3>' in main
+    other = {**finding, 'id': 'another-scope', 'relationship_assessment_binding': 'binding-2'}
+    result['analysis_result']['relationship_findings'].append(other)
+    assert len(project(result)['governed_findings']) == 2
+
+
+def test_scoped_persistence_is_never_borrowed_by_signal_pair_or_other_binding():
+    result = fixture()['response']['result']; finding = governed_finding()
+    result['analysis_result']['relationship_findings'] = [finding]
+    result['relationship_analysis']['top_relationship_changes'][0].update(
+        relationship_evidence_ref='assessment-1', relationship_assessment_binding='different-binding')
+    assert project(result)['relationships'][0]['persistent'] is False
+
+
+@pytest.mark.parametrize('persistent', [False, None])
+def test_governed_insufficient_evidence_never_promotes_persistence(persistent):
+    run = fixture(); finding = governed_finding()
+    finding.update(classification={'type': 'insufficient_evidence', 'label': 'Insufficient evidence'},
+                   persistence={'persistent': persistent, 'summary': 'Relationship persistence is not established.'})
+    run['response']['result'] = {'analysis_result': {'relationship_findings': [finding]}}
+    html = render(run, None)
+    assert 'Insufficient evidence' in html
+    assert 'Confirmed' not in html
+    assert 'Persistent relationship change was observed' not in html
+    assert 'does not establish a persistent relationship change' in html
+
+
+def test_empty_governed_findings_leave_legacy_projection_unchanged():
+    run = fixture(); expected = render(run, None)
+    run['response']['result']['analysis_result']['relationship_findings'] = []
+    assert render(run, None) == expected
+
+
 def test_stored_wwtp_report_read_only():
     """Optional local representative check; never executes authority or records a review."""
     import hashlib

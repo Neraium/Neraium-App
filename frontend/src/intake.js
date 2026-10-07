@@ -64,7 +64,7 @@ export function classificationIssues(preview, mapping) {
   const catalog = preview.catalog || {};
   const comp = catalog.comparison || catalog;
   const paired = mapping.pair_confirmed === true || !!catalog.reference;
-  const supportedContract = preview.identity?.commit === 'b790479f0abcb90aa71f7677d10aa542222b55c8' &&
+  const supportedContract = preview.identity?.commit === '3d850c2e47d476387a5be6e794b2d671086875e9' &&
     preview.identity?.adapter_contract === 'neraium-workbench-authority.v1';
   return mapping.signals.filter(s => s.include).flatMap(s => {
     const c = comp[s.meaning.trim()], r = catalog.reference?.[s.meaning.trim()];

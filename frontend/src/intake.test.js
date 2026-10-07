@@ -16,7 +16,7 @@ test('numeric issues in either period and duplicate meanings need attention', ()
   expect(mappingIssues(m, { ...item, reference_validation: { signals: [{ column: 'pressure [bar]', invalid_count: 1 }] } }).map(s => s.index)).toEqual([0]);
 });
 const primary = { telemetry_category: 'equipment_process', analysis_role: 'primary_signal', operator_primary_eligible: true, is_ignored: false, is_context_driver: false, is_state_signal: false, requires_derived_rate: false, semantic_role: null };
-const identity = { commit: 'b790479f0abcb90aa71f7677d10aa542222b55c8', adapter_contract: 'neraium-workbench-authority.v1' };
+const identity = { commit: '3d850c2e47d476387a5be6e794b2d671086875e9', adapter_contract: 'neraium-workbench-authority.v1' };
 const mapping = { pair_confirmed: true, signals: [{ column: 'chlorine_residual_mgL', meaning: 'opaque', include: true }] };
 const preview = (c = primary, r = c) => ({ identity, catalog: { comparison: { opaque: c }, reference: { opaque: r } } });
 test('explicit primary authority classification is accepted without supplying semantic meaning', () => {

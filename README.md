@@ -26,7 +26,7 @@ cd ..
 ```
 
 Configure a **separate, clean** Neraium-1.0 checkout at the supported revision:
-`b790479f0abcb90aa71f7677d10aa542222b55c8` (merged PR #137, September 10, 2026).
+`3d850c2e47d476387a5be6e794b2d671086875e9` (validated October 7, 2026).
 Do not point the workbench at a developer checkout with unfinished changes.
 Install that revision's backend dependencies in a separate virtual environment.
 The workbench interpreter and authority interpreter can be different.
@@ -105,8 +105,13 @@ Paired mode calls the pinned `evaluate_sii` with separate `reference_rows` and
 `comparison_rows`, approved signal names and shared `signal_units`. It preserves
 the complete authoritative result, including governed `analysis_result`/findings,
 relationship changes, temporal onset evidence, persistence, uncertainty, limitations
-and supplied-reference provenance. Consequence is retained only when supplied by
-authority. Stable, no-material-change and insufficient-evidence outcomes are valid.
+and supplied-reference provenance. Governed
+`analysis_result.relationship_findings` are shown with the authority’s
+classification, persistence, evidence and provenance in the review and customer
+report; repeated authority identities are shown once. Legacy findings remain
+available without promoting group evidence to scoped findings. Consequence is
+retained only when supplied by authority. Stable, no-material-change and
+insufficient-evidence outcomes are valid.
 No saved baseline is activated or persistent memory updated.
 
 The authority derives fresh classification and operating context; it rejects
@@ -145,8 +150,8 @@ versions, missing dependencies, malformed output, timeouts and engine failures
 produce explicit errors; there is no synthetic or legacy fallback. Revision
 updates require a focused adapter contract check and an explicit pin change.
 
-The workbench is pinned to the merged Neraium-1.0 PR #137 authority commit
-`b790479f0abcb90aa71f7677d10aa542222b55c8`. The optional
+The workbench is pinned to the validated Neraium-1.0 authority commit
+`3d850c2e47d476387a5be6e794b2d671086875e9`. The optional
 `NERAIUM_AUTHORITY_COMMIT` environment variable is only an assertion of this pin;
 leave it unset or set it to the same SHA. Existing run/report identities remain
 unchanged when the supported authority revision changes.

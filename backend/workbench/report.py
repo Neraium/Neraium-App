@@ -1,13 +1,32 @@
 """Evidence projection and escaped, printable report; no authored diagnosis."""
 from html import escape
+import json
 import math
 import re
+
+
+def distinct_findings(findings):
+    """Select existing objects by authority identity; never merge by signal names."""
+    selected = []
+    identities = set()
+    for finding in findings:
+        identity = finding.get('id') or (
+            (finding['relationship_evidence_ref'], finding.get('relationship_source_ref'),
+             finding.get('relationship_assessment_binding')) if finding.get('relationship_evidence_ref') else None)
+        if (identity is not None and identity in identities) or (identity is None and finding in selected):
+            continue
+        selected.append(finding)
+        if identity is not None:
+            identities.add(identity)
+    return selected
 
 
 def evidence_sections(result):
     drift = result.get("signal_drift") or {}
     relationships = result.get("relationship_analysis") or {}
     return {
+        **({"Governed relationship findings · /analysis_result/relationship_findings": result['analysis_result']['relationship_findings']}
+           if 'relationship_findings' in (result.get('analysis_result') or {}) else {}),
         **({"Governed analysis · /analysis_result": result["analysis_result"],
             "Supplied reference provenance and limitations · /supplied_reference": result["supplied_reference"],
             "Temporal evidence and onset · /temporal_analysis": result.get("temporal_analysis", {}),
@@ -62,18 +81,27 @@ def columns(item):
 
 
 def linked_finding(relationship, findings):
+    reference = relationship.get('relationship_evidence_ref')
+    if reference:
+        exact = next((f for f in findings if f.get('relationship_evidence_ref') == reference
+                      and all(not relationship.get(k) or f.get(k) == relationship[k]
+                              for k in ('relationship_source_ref', 'relationship_assessment_binding'))), None)
+        if exact is not None:
+            return exact
     keys = columns(relationship)
     if not keys:
         return {}
     # Group IDs are not relationship IDs. Match exact contributing signal pairs.
-    return next((f for f in findings if any(columns(c) == keys for c in f.get("contributing_relationships", []))
-                 or set(f.get("source_tags", [])) == keys), {})
+    return next((f for f in findings if not f.get('relationship_evidence_ref') and (
+                 any(columns(c) == keys for c in f.get("contributing_relationships", []))
+                 or set(f.get("source_tags", [])) == keys)), {})
 
 
 def project(result):
     """Presentation only. Retain authority order, values and scope without mutating evidence."""
     analysis = result.get("analysis_result") or {}
-    findings = result.get("findings") or analysis.get("insights") or []
+    governed = distinct_findings(analysis.get('relationship_findings') or [])
+    findings = distinct_findings([*governed, *(result.get("findings") or analysis.get("insights") or [])])
     selected = []
     seen = set()
     for relationship in (result.get("relationship_analysis") or {}).get("top_relationship_changes", []):
@@ -92,6 +120,7 @@ def project(result):
             "detection": confidence(relationship.get("confidence_level")),
             "finding_confidence": confidence(finding.get("confidence")),
             "persistent": persistence.get("persistent"),
+            "governed": finding in governed,
             "duration": prose(finding.get("persistence_duration")),
             "onset": scalar(finding.get("change_onset")),
             "elapsed": [(d.get("column"), d.get("longest_continuous_support_seconds"))
@@ -107,7 +136,7 @@ def project(result):
         if len(selected) == MAX_RELATIONSHIPS:
             break
     all_persistence = [(f.get("persistence") or {}).get("persistent") for f in findings
-                       if f.get("contributing_relationships") or len(f.get("source_tags", [])) >= 2]
+                       if f in governed or f.get("contributing_relationships") or len(f.get("source_tags", [])) >= 2]
     if True in all_persistence:
         summary = "Persistent relationship change was observed in the supplied evidence."
     elif selected:
@@ -147,7 +176,7 @@ def project(result):
         limits.append("Signal support durations include one median sampling interval for the final sample.")
     if supplied.get("signal_units"):
         limits.append("Physical units are supplied with the data and have not been independently verified.")
-    return {"summary": summary, "relationships": selected, "consequences": consequences,
+    return {"summary": summary, "relationships": selected, "governed_findings": governed, "consequences": consequences,
             "limits": list(dict.fromkeys([*[v for item in selected for v in item["limits"]], *limits])), "onset": scalar(analysis.get("change_onset")),
             "temporal": (result.get("temporal_analysis") or {}).get("lead_time_estimate") or {}}
 
@@ -157,10 +186,10 @@ def render(run: dict, review: dict) -> str:
     result = run["response"]["result"]
     view = project(result)
     esc = lambda value: escape(str(value).replace("—", "; "), quote=True)
-    def paragraph(value):
-        return f"<p>{esc(value)}</p>" if value is not None and value != "" else ""
-    def facts(values):
-        return '<dl>' + ''.join(f'<div><dt>{esc(label)}</dt><dd>{esc(value)}</dd></div>'
+    def paragraph(value, verbatim=False):
+        return f"<p>{escape(str(value), quote=True) if verbatim else esc(value)}</p>" if value is not None and value != "" else ""
+    def facts(values, verbatim=False):
+        return '<dl>' + ''.join(f'<div><dt>{esc(label)}</dt><dd>{escape(str(value), quote=True) if verbatim else esc(value)}</dd></div>'
             for label, value in values if value is not None and value != '') + '</dl>'
     def period(rows):
         return f"{rows[0]['timestamp']} to {rows[-1]['timestamp']}" if rows else "Not supplied"
@@ -174,7 +203,22 @@ def render(run: dict, review: dict) -> str:
     else:
         periods.append(("Evaluation period", period(payload.get("rows", []))))
     findings_html = ''
+    for finding in view['governed_findings']:
+        classification = finding.get('classification') or {}
+        persistence = finding.get('persistence') or {}
+        persistent = persistence.get('persistent')
+        findings_html += '<article><h3>' + escape(str(finding.get('title') or 'Relationship finding'), quote=True) + '</h3>'
+        findings_html += facts([('Authority classification', classification.get('label') or classification.get('type')),
+            ('Finding confidence', finding.get('confidence')),
+            ('Relationship persistence', 'Confirmed' if persistent is True else 'Not established' if persistent is False else None)], verbatim=True)
+        # These are governed statements, rendered verbatim with HTML escaping.
+        for statement in dict.fromkeys(filter(None, [finding.get('what_changed'), finding.get('interpretation'),
+                persistence.get('summary'), *finding.get('supporting_evidence', []), finding.get('certainty_limit')])):
+            findings_html += paragraph(statement, verbatim=True)
+        findings_html += '</article>'
     for item in view["relationships"]:
+        if item['governed']:
+            continue  # The exact finding has already been shown above.
         state = "Confirmed" if item["persistent"] is True else "Not established"
         # A sample-window description is not a duration of persistent change.
         duration_label = "Persistence duration" if item["persistent"] is True else "Observation coverage"
@@ -239,6 +283,9 @@ def render(run: dict, review: dict) -> str:
     if excluded:
         appendix += paragraph('Excluded signals: ' + ', '.join(excluded) + '. Exclusion reasons are retained in the structured evidence.')
     appendix += paragraph('Source files, evidence periods above, input and result hashes, and full structured evidence remain retained with this read-only run.')
+    for finding in view['governed_findings']:
+        appendix += '<details><summary>Finding evidence and provenance</summary><pre>' + esc(
+            json.dumps(finding, allow_nan=False, indent=2)) + '</pre></details>'
     if review and review.get('evidence_reviewed') is True:
         appendix += paragraph(f"Scope and evidence review recorded at {review['created_at']}. Human review remains authoritative; this confirmation does not certify a diagnosis.")
     else:

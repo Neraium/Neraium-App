@@ -2,7 +2,7 @@
   "account": "680779862188",
   "region": "us-east-1",
   "application_commit": "319e9778fbe736ec1a66314b7d82ce6467b68d1e",
-  "authority_commit": "6e26a83a17babaea443b75c545a756835d37102b",
+  "authority_commit": "3d850c2e47d476387a5be6e794b2d671086875e9",
   "vpc": "vpc-088c8a4178706c17f",
   "subnets": [
     "subnet-0adad5be74ea5f430",
