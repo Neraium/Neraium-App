@@ -1,11 +1,75 @@
 """Focused deployed contract check. Creates one clearly labelled synthetic evaluation."""
 import argparse
 import hashlib
+from html.parser import HTMLParser
 import json
 import math
 from pathlib import Path
 import urllib.error
 import urllib.request
+
+
+class ReportFacts(HTMLParser):
+    """Read definition lists with their report section and source grouping."""
+    def __init__(self):
+        super().__init__()
+        self.scopes = []
+        self.groups = []
+        self.group = None
+        self.field = None
+        self.label = None
+        self.text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('header', 'section'):
+            scope = 'header' if tag == 'header' else (
+                'appendix' if 'appendix' in dict(attrs).get('class', '').split() else None)
+            self.scopes.append(scope)
+        elif tag == 'dl':
+            self.group = (self.scopes[-1] if self.scopes else None, [])
+        elif tag in ('dt', 'dd') and self.group is not None:
+            self.field = tag
+            self.text = []
+
+    def handle_data(self, data):
+        if self.field:
+            self.text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == self.field:
+            value = ''.join(self.text).strip()
+            if tag == 'dt':
+                self.label = value
+            else:
+                self.group[1].append((self.label, value))
+                self.label = None
+            self.field = None
+        elif tag == 'dl' and self.group is not None:
+            self.groups.append(self.group)
+            self.group = None
+        elif tag in ('header', 'section'):
+            self.scopes.pop()
+
+
+def verify_report(report, run):
+    """Require each paired period and its own exact source provenance, not old headings."""
+    assert run['input']['mode'] == 'paired'
+    parsed = ReportFacts()
+    parsed.feed(report)
+    parsed.close()
+    header = [pair for scope, facts in parsed.groups if scope == 'header' for pair in facts]
+    for period_label, source_label, rows, source in (
+        ('Baseline / reference', 'Baseline source', run['input']['reference']['rows'], run['reference_source']),
+        ('Comparison', 'Comparison source', run['input']['rows'], run['source']),
+    ):
+        assert rows, f'{period_label}: no expected input rows'
+        period = f"{rows[0]['timestamp']} to {rows[-1]['timestamp']}"
+        assert [value for label, value in header if label == period_label] == [period], f'{period_label}: report period mismatch'
+        groups = [facts for scope, facts in parsed.groups if scope == 'appendix'
+                  and any(label == source_label for label, _ in facts)]
+        assert len(groups) == 1, f'{source_label}: missing or ambiguous provenance'
+        for label, expected in ((source_label, source['filename']), ('SHA-256', source['sha256'])):
+            assert [value for key, value in groups[0] if key == label] == [expected], f'{source_label}: {label} mismatch'
 
 
 def main():
@@ -80,7 +144,7 @@ def main():
     assert request('/api/runs/' + run['id'] + '/evidence')['response']['result'] == evidence
     review = request('/api/runs/' + run['id'] + '/reviews', dict(reviewer='Deployment verification (synthetic)', evidence_reviewed=True))
     report = request('/api/reviews/' + review['id'] + '/report', raw=True).decode()
-    assert 'Reference period/data' in report and 'Comparison period/data' in report
+    verify_report(report, run)
     print(json.dumps(dict(status='passed', origin=args.origin, commit=version['commit'], authority_commit=config['authority_commit'], evaluation_id=evaluation['id'], run_id=run['id'], report_id=review['id'], source_hashes=hashes), indent=2))
 
 
