@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -24,6 +25,20 @@ def main():
     parser.add_argument('operation', choices=['frontend', 'backend', 'remove-token-forwarding', 'attach-domain'])
     parser.add_argument('--build', type=Path)
     args = parser.parse_args()
+    if args.operation == 'frontend':
+        if not args.build or not args.build.is_dir():
+            raise SystemExit('Supply --build /path/to/frontend/build')
+        version = json.loads((args.build / 'version.json').read_text())
+        if (version.get('commit') != STATE['application_commit']
+                or version.get('authority_commit') != STATE['authority_commit']):
+            raise SystemExit('Frontend version must match both current release commits.')
+    elif args.operation == 'backend':
+        digest = STATE.get('image_digest')
+        if not isinstance(digest, str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+            raise SystemExit('Current release image digest is unset. Build and verify the pinned release before recording its published digest.')
+        definition = json.loads((HERE / 'task-definition.json').read_text())
+        if definition['containerDefinitions'][0]['image'] != STATE['ecr_repository'] + '@' + digest:
+            raise SystemExit('Task image must match the current release image digest.')
     assert aws('sts', 'get-caller-identity')['Account'] == STATE['account']
     assert STATE['distribution'] == 'E27KJ5Y66YQQBO'
     distribution = aws('cloudfront', 'get-distribution-config', '--id', STATE['distribution'])
@@ -32,13 +47,9 @@ def main():
     assert {o['Id'] for o in config['Origins']['Items']} == {'app-frontend', 'app-api'}
 
     if args.operation == 'frontend':
-        assert args.build and args.build.is_dir(), 'Supply --build /path/to/frontend/build'
-        version = json.loads((args.build / 'version.json').read_text())
-        assert version['commit'] == STATE['application_commit']
         subprocess.run(['aws', 's3', 'sync', str(args.build), 's3://' + STATE['frontend_bucket'] + '/', '--region', STATE['region'], '--exclude', '*.map', '--cache-control', 'no-cache', '--only-show-errors'], check=True)
         aws('cloudfront', 'create-invalidation', '--distribution-id', STATE['distribution'], '--paths', '/*')
     elif args.operation == 'backend':
-        definition = json.loads((HERE / 'task-definition.json').read_text())
         assert definition['family'] == 'neraium-app-prod'
         assert definition['containerDefinitions'][0]['image'] == STATE['ecr_repository'] + '@' + STATE['image_digest']
         registered = aws('ecs', 'register-task-definition', document=definition)['taskDefinition']['taskDefinitionArn']

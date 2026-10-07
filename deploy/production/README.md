@@ -1,14 +1,16 @@
 # Dedicated App production stack
 
-The deployed application revision and immutable image digest are recorded in
-`resources.json`. The supported authority revision for the next App build is
+The next production package is pinned in `resources.json` to application revision
+`eb2872dbbf10f52aa210f975c5f38f033a54fafc` and authority revision
 `3d850c2e47d476387a5be6e794b2d671086875e9`.
-This pin update has not been deployed; existing image and verification records
-continue to identify the previous production release.
+This package has not been deployed. Its image digest, task image and task-definition
+pointers are unset until the new image is built, verified and published. Backend
+deployment rejects an unset digest before making AWS calls. `verification.json`
+and `frontend-sha256.json` remain historical records of the previous release.
 
 The new distribution is **E27KJ5Y66YQQBO**, at
 **https://d1gouhm82x409l.cloudfront.net/**. `resources.json` records its dedicated
-resources and exact image digest. The default VPC/subnets supply networking;
+resources and the next package's commit pins. The default VPC/subnets supply networking;
 all App load balancing, security groups, compute, roles, ECR, storage and
 frontend resources are dedicated to this stack. No Demo/PPC origins, buckets,
 load balancers, application roles or APIs are used.
@@ -35,8 +37,10 @@ load balancers, application roles or APIs are used.
 - Access: Historical Evaluation opens directly without authentication. Only the
   workbench API and health/version metadata are mounted; legacy routes remain absent.
 - Verification: public `/version.json`, backend `/healthz`, public
-  `/api/version`, immutable ECR digest and `frontend-sha256.json` identify the
-  deployed artifacts. Logs have 30-day retention and API access logging is off.
+  `/api/version` and the immutable ECR digest identify the release artifacts.
+  The existing `frontend-sha256.json` identifies the previous deployed frontend;
+  do not reuse it to verify the next build. Logs have 30-day retention and API
+  access logging is off.
 
 ## Build and update
 
@@ -47,11 +51,23 @@ python3 deploy/production/build.py /tmp/neraium-app-production-build
 ```
 
 The build uses Python 3.11 and Node 22, runs the focused UI/workbench tests and
-includes the tiny real-authority integration tests. It excludes the large
+includes the tiny real-authority integration tests. A separate test image supplies
+Node and pytest for the authority fixtures, with frontend dependencies mounted
+for the native React projection check. The production Python image is unchanged.
+It excludes the large
 8,640-row external contract check. Base tags/dependency ranges are resolved at
 build time; the existing production release is reproducible by its immutable
 image digest and recorded frontend hashes. Rebuilds must be revalidated before
 updating the recorded digest. ECR tags are immutable.
+
+After verifying and publishing this package's image, record its registry digest
+in `resources.json.image_digest` and the matching repository/digest reference in
+`task-definition.json`. Never reuse the previous release's digest. The backend
+update records the newly registered ARN in `resources.json.task_definition`;
+`service.json.taskDefinition` must be set to that ARN before using that creation
+template. These unset fields intentionally prevent deploying an old artifact.
+Frontend deployment requires both commit pins in the build's `version.json` to
+match `resources.json`.
 
 `task-definition.json`, `service.json`, `cloudfront.json` and `bucket-policy.json`
 are AWS CLI input documents. `cloudfront.json` is the initial creation config
@@ -65,8 +81,8 @@ python3 deploy/production/deploy.py backend
 python3 deploy/production/deploy.py remove-token-forwarding
 ```
 
-For rollback, set the recorded image digest and task definition to a previously
-verified App image, then use the same backend update. S3 object versions preserve
+For rollback, restore a previously verified App package's commit pins, image
+digest and task definition together, then use the same backend update. S3 object versions preserve
 older frontend assets. Never use Demo or PPC resources for rollback.
 
 Focused deployed checks create clearly named synthetic evaluations (no customer

@@ -1,7 +1,7 @@
 {
   "cluster": "neraium-app-prod",
   "serviceName": "neraium-app-prod",
-  "taskDefinition": "arn:aws:ecs:us-east-1:680779862188:task-definition/neraium-app-prod:3",
+  "taskDefinition": null,
   "desiredCount": 1,
   "launchType": "FARGATE",
   "platformVersion": "1.4.0",
